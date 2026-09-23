@@ -43,6 +43,7 @@ enum AuralStyle {
 struct MainView: View {
     @ObservedObject var model: Model
     @State private var showStartup = false
+    @State private var showFilterEditor = false
     private let accent = AuralStyle.accent
     private let labels = ["31.5", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"]
     var body: some View {
@@ -59,6 +60,7 @@ struct MainView: View {
                     }
                 }.fixedSize()
                 Button("Import AutoEQ…") { model.importAutoEQ() }
+                Button("Edit filters…") { showFilterEditor = true }
                 Spacer()
                 Toggle("Bypass", isOn: $model.bypass).toggleStyle(.switch).controlSize(.small)
                     .onChange(of: model.bypass) { model.change() }
@@ -88,6 +90,7 @@ struct MainView: View {
         }
         .padding(22).frame(width: 760).background(AuralStyle.background)
         .preferredColorScheme(.dark).tint(accent)
+        .sheet(isPresented: $showFilterEditor) { FilterEditor(model: model) }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.stop() }
     }
     private var header: some View {
@@ -185,7 +188,7 @@ struct ImportedFiltersView: View {
             HStack {
                 Text(name).font(.system(size: 12, weight: .semibold)).lineLimit(1).help(name)
                 Spacer()
-                Text("\(filters.count) filters · original values").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("\(filters.count) filters · parametric EQ").font(.system(size: 10)).foregroundStyle(.secondary)
             }
             HStack(spacing: 10) {
                 Text("#").frame(width: 22, alignment: .leading)

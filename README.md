@@ -39,7 +39,7 @@ The gear menu controls startup. With automatic EQ enabled, Aural restores the sa
 
 Click **Import AutoEQ…** and select a UTF-8 parametric or fixed-band text export. The complete file is validated before current settings change. Import stops processing, replaces the previous EQ, and saves a named preset. Click **Start EQ** when ready. Repeated filenames receive a numeric suffix instead of overwriting existing presets.
 
-Imported filters appear in a read-only table. Their original values remain exact; the preamp is adjustable. Choose a built-in preset or **Reset to flat** to return to the ten sliders. Imports do not stack on top of the slider EQ.
+Click **Edit filters…** to adjust type (PK/LSC/HSC), frequency, gain, Q, enabled state, and exact preamp. Add or remove filters up to the 32-filter limit. From graphic EQ, the editor starts with equivalent peaking filters. **Apply** validates the complete draft and updates EQ immediately; **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset from the main window to reuse the changes. Imported values retain their precision until edited. Choose a built-in preset or **Reset to flat** to return to the ten sliders. Imports do not stack on top of the slider EQ.
 
 Supported commands are `Preamp` and `Filter` using `PK`, `LSC`, or `HSC`, with `Fc`, `Gain`, and `Q`. Blank lines, `#` comments, OFF filters, CRLF, and a UTF-8 BOM are accepted. No Preamp line means 0 dB. Limits are 32 filters, 10–22000 Hz, −30 to +30 dB filter gain, Q 0.05–50, −60 to +24 dB imported preamp, and 64 KB file size. At least one filter must be enabled.
 
@@ -53,7 +53,7 @@ Settings and imported profiles are stored in the current user's `~/Library/Appli
 
 ## Current scope
 
-This is an early release. It supports a single stereo output stream in 32-bit float format at 32–192 kHz. It does not support mono/surround outputs, multi-stream interfaces, aggregate/multi-output setups, per-app mixing, convolution, or manual parametric filter editing. Bluetooth, USB hardware, sleep/wake behavior, protected media, and extended operation need further hardware testing. Intel is cross-compiled; runtime checks to date were performed on Apple silicon.
+This is an early release. It supports a single stereo output stream in 32-bit float format at 32–192 kHz. It does not support mono/surround outputs, multi-stream interfaces, aggregate/multi-output setups, per-app mixing, convolution. Bluetooth, USB hardware, sleep/wake behavior, protected media, and extended operation need further hardware testing. Intel is cross-compiled; runtime checks to date were performed on Apple silicon.
 
 Latency depends on the device buffer size and has not been measured. Peak protection is a sample-peak limiter, not a true-peak mastering limiter. A built-in band at or above 49% of sample rate is disabled. For imported profiles, an enabled filter beyond that threshold prevents starting rather than silently changing the profile; select a higher sample rate in Audio MIDI Setup. The stopped response preview uses 48 kHz; processing uses the actual device rate.
 

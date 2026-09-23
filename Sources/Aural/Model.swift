@@ -124,7 +124,7 @@ import ServiceManagement
             } else { importNotice = nil }
         } catch { self.error = error.localizedDescription }
     }
-    private func replaceProfile(_ next: Profile) {
+    @discardableResult func replaceProfile(_ next: Profile) -> Bool {
         do {
             // The audio callback resets changed filter state and smooths gains in place.
             // Validate and enqueue before replacing the visible or saved profile.
@@ -133,9 +133,10 @@ import ServiceManagement
             bypass = false
             importNotice = nil
             error = nil
-            persist()
+            guard persist() else { return false }
             if !running { start() }
-        } catch { self.error = error.localizedDescription }
+            return true
+        } catch { self.error = error.localizedDescription; return false }
     }
 
     func savePreset() {

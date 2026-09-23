@@ -79,3 +79,27 @@ for (name, preset) in Profile.builtInPresets {
     require(preset.preamp <= -(preset.gains.max() ?? 0), "Missing boost headroom: \(name)")
 }
 print("PASS built-in preset validation, persistence, and boost headroom")
+
+var draft = ParametricDraft(profile)
+let untouched = try draft.profile()
+require(untouched.filters == profile.filters && untouched.preamp == profile.preamp, "Editor lost imported precision")
+draft.filters[0].frequency = "123.456789"
+draft.filters[0].kind = .highShelf
+draft.filters[0].enabled = false
+draft.preamp = "-3.125"
+let edited = try draft.profile()
+require(edited.filters?[0].frequency == 123.456789 && edited.filters?[0].kind == .highShelf && edited.filters?[0].enabled == false && edited.preamp == -3.125, "Editor dropped edits")
+for invalid in ["", "abc", "nan", "inf", "9", "22001"] {
+    draft.filters[0].frequency = invalid
+    do { _ = try draft.profile(); fatalError("Editor accepted invalid frequency") } catch {}
+}
+for builtIn in Profile.builtInPresets.values {
+    let converted = try ParametricDraft(builtIn).profile()
+    require(converted.filters?.map(\.gain) == builtIn.gains && converted.preamp == builtIn.preamp, "Graphic conversion changed gain")
+}
+var empty = ParametricDraft(Profile()); empty.filters = []
+do { _ = try empty.profile(); fatalError("Empty filter draft accepted") } catch {}
+var disabled = ParametricDraft(Profile())
+for i in disabled.filters.indices { disabled.filters[i].enabled = false }
+do { _ = try disabled.profile(); fatalError("All-disabled draft accepted") } catch {}
+print("PASS parametric editor precision, edits, graphic conversion, and validation")
