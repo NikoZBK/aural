@@ -1,0 +1,14 @@
+.build/
+dist/
+.DS_Store
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+# User data is never part of this project or a release.
+settings.json
+presets/
+profiles/
+*.p12
+*.mobileprovision
+.env
+.env.*

@@ -1,0 +1,33 @@
+AURAL — INSTALLATION
+
+Requires macOS 14.2 or newer. Includes Apple silicon and Intel executables.
+
+1. Drag Aural.app to Applications. If you cannot modify Applications, copy it
+   into the Applications folder inside your home folder instead.
+2. Eject the disk image and open the installed Aural app.
+3. This release is ad-hoc signed and is NOT notarized by Apple. On first launch,
+   macOS may block it as an unidentified developer. If you trust this release,
+   open System Settings > Privacy & Security and choose Open Anyway after the
+   blocked launch, then confirm. Do not disable Gatekeeper globally.
+   Apple instructions: https://support.apple.com/102445
+4. Select the stereo output your audio uses and click Start EQ. Allow system
+   audio capture when macOS asks. Audio is processed locally, not saved or sent
+   to a server. Aural does not change your default sound output.
+5. Use the gear menu for Launch at login and Start EQ automatically. Both are
+   off for a new installation. If macOS requires login-item approval, use the
+   Open Login Items settings button.
+
+Use Stop or Quit to release the equalizer. Closing the window leaves Aural in
+the menu bar. Imported AutoEQ files belong to you and are not bundled.
+
+UPDATING
+Quit Aural, replace the installed app, then reopen it. Your settings live in
+~/Library/Application Support/Aural/settings.json and are preserved. Rebuilt
+ad-hoc signed versions may require audio-capture permission again.
+
+UNINSTALLING
+Disable Launch at login in Aural's gear menu, quit Aural, and move the app to
+Trash. You may remove ~/Library/Application Support/Aural if you also want to
+remove your local settings and presets.
+
+Source, releases, and issues: https://github.com/NikoZBK/aural
