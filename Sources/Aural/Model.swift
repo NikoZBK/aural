@@ -135,7 +135,7 @@ import ServiceManagement
             error = nil
             persist()
             if !running { start() }
-        } catch { error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
     }
 
     func savePreset() {
