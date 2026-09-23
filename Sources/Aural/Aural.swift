@@ -116,18 +116,18 @@ struct MainView: View {
                 Picker("Output", selection: Binding(get: { model.selectedUID }, set: { model.select($0) })) {
                     if model.selected == nil { Text("Select an output").tag(model.selectedUID) }
                     ForEach(model.devices) { Text($0.name).tag($0.uid) }
-                }.labelsHidden().frame(maxWidth: 330)
+                }.labelsHidden().fixedSize().frame(maxWidth: 330, alignment: .leading)
                     .help("Choose the same output your audio apps use. Aural does not change the macOS default output.")
             }
             Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.borderless).help("Refresh audio devices").accessibilityLabel("Refresh outputs")
-            Spacer(minLength: 12)
             Button { model.running ? model.stop() : model.start() } label: {
                 Label(model.running ? "Stop" : "Start EQ", systemImage: model.running ? "stop.fill" : "play.fill")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(.black)
                     .frame(width: 98, height: 32).background(accent, in: RoundedRectangle(cornerRadius: 8))
             }.buttonStyle(.plain).disabled(model.selected == nil && !model.running)
-        }.padding(12).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+        }.fixedSize(horizontal: true, vertical: false)
+            .padding(12).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
     }
     private var bands: some View {
         HStack(spacing: 0) {
