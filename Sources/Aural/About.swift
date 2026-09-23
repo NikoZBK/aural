@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(\.openWindow) private var openWindow
     private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development" }
     private var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—" }
     var body: some View {
@@ -25,6 +26,7 @@ struct AboutView: View {
             }.font(.system(size: 11))
             Text("macOS 14.2+ · Apple silicon & Intel\nBuilt with SwiftUI and Core Audio. Independent of Apple and AutoEQ.")
                 .font(.system(size: 10)).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            Button("Check for Updates…") { openWindow(id: "updates") }
             Text("This build is not notarized by Apple.").font(.system(size: 10)).foregroundStyle(.secondary)
         }.padding(26).frame(width: 380).background(AuralStyle.background)
             .preferredColorScheme(.dark).tint(AuralStyle.accent)

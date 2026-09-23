@@ -8,6 +8,8 @@ import SwiftUI
             .commands { AuralCommands() }
         Window("About Aural", id: "about") { AboutView() }
             .windowResizability(.contentSize)
+        Window("Software updates", id: "updates") { UpdatesView() }
+            .windowResizability(.contentSize)
         MenuBarExtra("Aural", systemImage: "pawprint.fill") { MenuBarControls(model: model) }
     }
 }
@@ -18,6 +20,7 @@ struct AuralCommands: Commands {
         CommandGroup(replacing: .newItem) {}
         CommandGroup(replacing: .appInfo) {
             Button("About Aural") { openWindow(id: "about"); NSApp.activate(ignoringOtherApps: true) }
+            Button("Check for Updates…") { openWindow(id: "updates"); NSApp.activate(ignoringOtherApps: true) }
         }
     }
 }
@@ -31,6 +34,7 @@ struct MenuBarControls: View {
         Divider()
         Button("Show Aural") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
         Button("About Aural") { openWindow(id: "about"); NSApp.activate(ignoringOtherApps: true) }
+        Button("Check for Updates…") { openWindow(id: "updates"); NSApp.activate(ignoringOtherApps: true) }
         Button("Quit Aural") { model.stop(); NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 }
@@ -268,6 +272,7 @@ struct StartupSettings: View {
             }
             Divider()
             Button("About Aural") { openWindow(id: "about") }
+            Button("Check for Updates…") { openWindow(id: "updates") }
         }.padding(18).frame(width: 300).onAppear { model.refreshLoginStatus() }
     }
 }

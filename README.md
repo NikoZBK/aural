@@ -16,6 +16,10 @@ Aural applies equalization to audio playing through a selected stereo output usi
 
 **Signing:** the initial public release is ad-hoc signed, not Developer ID signed or notarized. macOS may require **System Settings → Privacy & Security → Open Anyway** after the first blocked launch. Follow [Apple's instructions](https://support.apple.com/102445) if you trust the download. Managed Macs may prohibit this. Developer ID signing and notarization are needed for a release that avoids this approval step.
 
+## Updates
+
+Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings, or About. Aural shows the latest stable version and changelog. **Download Update** opens the universal installer download in your browser. Quit Aural, open the download, and replace the installed app; saved profiles remain in Application Support. The **Releases page** link is always available if the check fails. Updates are not automatically installed.
+
 ## Features
 
 - Ten adjustable bands from 31.5 Hz to 16 kHz, with preamp and automatic headroom.
@@ -47,7 +51,7 @@ Supported commands are `Preamp` and `Filter` using `PK`, `LSC`, or `HSC`, with `
 
 ## Privacy
 
-Aural's application code makes no network requests and does not record audio files, collect telemetry, or upload profiles. Audio is processed locally in memory. Only system audio input is used; hardware input streams are disabled when present.
+Aural does not record audio files, collect telemetry, or upload profiles. Opening **Check for Updates…** sends a request to GitHub for the latest public release (including Aural’s version in the User-Agent); there are no background update checks. GitHub receives normal connection information such as your IP address. Download links open in your default browser. Audio is processed locally in memory. Only system audio input is used; hardware input streams are disabled when present.
 
 Settings and imported profiles are stored in the current user's `~/Library/Application Support/Aural/settings.json`. They are created at runtime and are **not** included in the app, installer, repository, or releases. Tests use invented data rather than downloaded headphone profiles. A new installation starts with flat EQ and both startup options off.
 

@@ -103,3 +103,20 @@ var disabled = ParametricDraft(Profile())
 for i in disabled.filters.indices { disabled.filters[i].enabled = false }
 do { _ = try disabled.profile(); fatalError("All-disabled draft accepted") } catch {}
 print("PASS parametric editor precision, edits, graphic conversion, and validation")
+
+let laterVersion = try AppVersion("v0.10.0"), earlierVersion = try AppVersion("0.9.9")
+require(laterVersion > earlierVersion, "Versions compared lexically")
+let shortVersion = try AppVersion("1.0"), fullVersion = try AppVersion("1.0.0")
+require(shortVersion == fullVersion, "Version padding failed")
+for invalid in ["", "v", "1.beta", "1.0.0-beta", "1..0", "1.2.3.4", "999999999999999999999"] {
+    do { _ = try AppVersion(invalid); fatalError("Invalid version accepted") } catch {}
+}
+let releaseJSON = #"{"tag_name":"v0.6.0","body":"Test notes","draft":false,"prerelease":false,"assets":[{"name":"Aural-0.6.0-universal.dmg","browser_download_url":"https://github.com/NikoZBK/aural/releases/download/v0.6.0/Aural-0.6.0-universal.dmg"}]}"#
+let release = try JSONDecoder().decode(ReleaseInfo.self, from: Data(releaseJSON.utf8))
+require(release.downloadURL?.pathExtension == "dmg", "Missing release download")
+for replacement in ["https://evil.example/NikoZBK", "http://github.com/NikoZBK", "https://github.com/another"] {
+    let altered = releaseJSON.replacingOccurrences(of: "https://github.com/NikoZBK", with: replacement)
+    let rejected = try JSONDecoder().decode(ReleaseInfo.self, from: Data(altered.utf8))
+    require(rejected.downloadURL == nil, "Untrusted download URL accepted")
+}
+print("PASS release version comparison and download URL validation")
