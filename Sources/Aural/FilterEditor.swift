@@ -31,7 +31,7 @@ struct FilterEditor: View {
             }
             HStack(spacing: 8) {
                 Text("ON").frame(width: 36)
-                Text("TYPE").frame(width: 112, alignment: .leading)
+                Text("TYPE").frame(width: 142, alignment: .leading)
                 Text("FREQUENCY · Hz").frame(width: 126, alignment: .leading)
                 Text("GAIN · dB").frame(width: 100, alignment: .leading)
                 Text("Q").frame(width: 90, alignment: .leading)
@@ -46,7 +46,7 @@ struct FilterEditor: View {
                                 Text("Peak · PK").tag(ImportedFilter.Kind.peak)
                                 Text("Low shelf · LSC").tag(ImportedFilter.Kind.lowShelf)
                                 Text("High shelf · HSC").tag(ImportedFilter.Kind.highShelf)
-                            }.labelsHidden().frame(width: 112)
+                            }.labelsHidden().frame(width: 142)
                             TextField("Frequency", text: $filter.frequency).frame(width: 126).accessibilityLabel("Frequency in Hz")
                             TextField("Gain", text: $filter.gain).frame(width: 100).accessibilityLabel("Filter gain in dB")
                             TextField("Q", text: $filter.q).frame(width: 90).accessibilityLabel("Filter Q")
@@ -56,7 +56,7 @@ struct FilterEditor: View {
                         }.padding(.vertical, 2)
                     }
                 }
-            }.frame(height: min(300, max(80, CGFloat(draft.filters.count) * 32)))
+            }.frame(height: min(320, max(80, CGFloat(draft.filters.count) * 32)))
             Text("10–22000 Hz · gain −30 to +30 dB · Q 0.05–50 · at least one filter enabled")
                 .font(.system(size: 10)).foregroundStyle(.secondary)
             if let error {
