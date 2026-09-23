@@ -20,7 +20,7 @@ Aural applies equalization to audio playing through a selected stereo output usi
 
 - Ten adjustable bands from 31.5 Hz to 16 kHz, with preamp and automatic headroom.
 - Frequency-response graph and output peak meter.
-- Flat, Warm, Voice, and Detail presets, plus your own named presets.
+- Ten built-in presets: Flat, Warm, Voice, Detail, Bass Boost, Treble Boost, Classical, Electronic, Rock, and Vocal. Save your own named presets too.
 - Separate saved settings for each output device.
 - AutoEQ `ParametricEQ.txt` and `FixedBandEQ.txt` import, retaining exact frequencies, gain, Q, filter type, and preamp.
 - Peaking, low-shelf, and high-shelf filters; up to 32 imported filters.

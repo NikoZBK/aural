@@ -27,12 +27,7 @@ import ServiceManagement
     private let file: URL
     var selected: OutputDevice? { devices.first { $0.uid == selectedUID } }
     var responseRate: Double { running ? route.sampleRate : 48000 }
-    let factory: [String: Profile] = [
-        "Flat": Profile(),
-        "Warm": Profile(gains: [2,3,2,1,0,0,-1,-1,0,0], preamp: -5),
-        "Voice": Profile(gains: [-4,-3,-2,0,1,2,3,2,0,-1], preamp: -5),
-        "Detail": Profile(gains: [0,0,-1,-1,0,1,2,3,2,1], preamp: -5)
-    ]
+    let factory = Profile.builtInPresets
     init() {
         file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
         do {

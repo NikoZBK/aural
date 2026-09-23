@@ -70,3 +70,12 @@ require(startup.decision(availableUIDs: ["headphones"], now: now) == .start, "Sa
 require(startup.decision(availableUIDs: [], now: now.addingTimeInterval(60)) == .unavailable, "Missing output must time out")
 require(StartupPlan(outputUID: "", deadline: now).decision(availableUIDs: ["speakers"], now: now) == .missingOutput, "Empty target should not start")
 print("PASS startup settings migration/persistence and saved-output selection, arrival, and timeout")
+
+for (name, preset) in Profile.builtInPresets {
+    _ = try preset.validated()
+    let restored = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(preset))
+    require(restored == preset, "Built-in preset did not round-trip: \(name)")
+    require(preset.filters == nil, "Built-in preset must use graphic sliders: \(name)")
+    require(preset.preamp <= -(preset.gains.max() ?? 0), "Missing boost headroom: \(name)")
+}
+print("PASS built-in preset validation, persistence, and boost headroom")

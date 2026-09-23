@@ -45,3 +45,20 @@ struct Settings: Codable {
     var selectedUID = ""
     var startEQAutomatically: Bool?
 }
+
+// Broad listening curves, ordered from 31.5 Hz to 16 kHz.
+// These are creative starting points, not headphone correction profiles.
+extension Profile {
+    static let builtInPresets: [String: Profile] = [
+        "Flat": Profile(),
+        "Warm": Profile(gains: [2,3,2,1,0,0,-1,-1,0,0], preamp: -5),
+        "Voice": Profile(gains: [-4,-3,-2,0,1,2,3,2,0,-1], preamp: -5),
+        "Detail": Profile(gains: [0,0,-1,-1,0,1,2,3,2,1], preamp: -5),
+        "Bass Boost": Profile(gains: [5,5,4,2,0,0,0,0,0,0], preamp: -8),
+        "Treble Boost": Profile(gains: [0,0,0,0,0,1,2,3,4,4], preamp: -7),
+        "Classical": Profile(gains: [1,1,0,0,-1,-1,0,1,2,2], preamp: -4),
+        "Electronic": Profile(gains: [4,4,2,0,-1,0,1,2,3,2], preamp: -7),
+        "Rock": Profile(gains: [3,2,1,-1,-2,0,2,3,2,1], preamp: -6),
+        "Vocal": Profile(gains: [-2,-2,-1,0,1,2,2,1,0,-1], preamp: -4)
+    ]
+}
