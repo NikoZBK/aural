@@ -85,5 +85,40 @@ int main(void) {
     custom.type=0;custom.q=0;assert(!eq_update_filters(eq,&custom,1,0,false));
     assert(!eq_update_filters(eq,&custom,33,0,false));eq_destroy(eq);
     puts("PASS imported peaking, low/high shelves, custom frequency/Q, response consistency, and validation");
-    puts("All 8 DSP test groups passed.");
+    // Keep one engine alive while switching filter count, frequency, Q and kind.
+    eq=eq_create(48000,0);assert(eq);
+    EQFilter layouts[4][10]={
+        {{1000,4,1.4,0},{3000,-2,1.4,0},{8000,3,1.4,0}},
+        {{120,3,.7,1},{1000,-5,2,0},{6000,2,.8,2}},
+        {{1000,6,.707,0}},
+        {{31.5,2,1.4,0},{63,3,1.4,0},{125,2,1.4,0},{250,1,1.4,0},
+         {500,0,1.4,0},{1000,0,1.4,0},{2000,-1,1.4,0},{4000,-1,1.4,0},
+         {8000,0,1.4,0},{16000,0,1.4,0}}
+    };
+    unsigned counts[]={3,3,1,10};
+    float liveIn[256],liveOut[256];
+    AudioBufferList liveInput={1,{{2,sizeof(liveIn),liveIn}}};
+    AudioBufferList liveOutput={1,{{2,sizeof(liveOut),liveOut}}};
+    for(int preset=0;preset<4;preset++) {
+        assert(eq_update_filters(eq,layouts[preset],counts[preset],-8,false));
+        double inputPower=0,outputPower=0;
+        for(int block=0;block<400;block++) {
+            for(int i=0;i<128;i++) {
+                liveIn[2*i]=.05*sin(2*M_PI*1000*(block*128+i)/48000);
+                liveIn[2*i+1]=0;
+            }
+            eq_process(eq,&liveInput,&liveOutput);
+            for(int i=0;i<128;i++) {
+                assert(isfinite(liveOut[2*i])&&fabs(liveOut[2*i])<=.981);
+                assert(liveOut[2*i+1]==0);
+                if(block>300) {inputPower+=liveIn[2*i]*liveIn[2*i];outputPower+=liveOut[2*i]*liveOut[2*i];}
+            }
+        }
+        double expected=eq_response_filters(1000,48000,layouts[preset],counts[preset],-8);
+        assert(fabs(10*log10(outputPower/inputPower)-expected)<.03);
+        assert(eq_faults(eq)==0);
+    }
+    eq_destroy(eq);
+    puts("PASS live preset layout changes on one engine with realistic audio buffers");
+    puts("All 9 DSP test groups passed.");
 }

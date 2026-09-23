@@ -31,6 +31,8 @@ Aural applies equalization to audio playing through a selected stereo output usi
 
 Select the output that your apps use. Aural does not change the macOS default output or affect audio routed to a different device. **Stop** releases the audio route. **Bypass** removes EQ and preamp while retaining routing and peak protection. Closing the window leaves the menu bar app running; **Quit Aural** exits.
 
+Selecting a preset applies it immediately, enables EQ if stopped, and exits bypass. Switching between saved AutoEQ profiles and built-in presets keeps the active audio route running. A preset that is incompatible with the current sample rate is rejected without replacing the current sound.
+
 The gear menu controls startup. With automatic EQ enabled, Aural restores the saved output and profile and waits up to 60 seconds for that exact device. It does not apply a headphone profile to another device when the original is disconnected. Start or permission failures are displayed and are not retried indefinitely. Sleep stops processing; start again after wake.
 
 ### AutoEQ import

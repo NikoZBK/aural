@@ -125,13 +125,19 @@ import ServiceManagement
         } catch { self.error = error.localizedDescription }
     }
     private func replaceProfile(_ next: Profile) {
-        // Changing a filter layout requires fresh filter state. Gain-only changes remain live.
-        if next.filters != profile.filters {
-            stop()
-            guard !route.hasResources else { return }
-        }
-        profile = next; importNotice = nil; change()
+        do {
+            // The audio callback resets changed filter state and smooths gains in place.
+            // Validate and enqueue before replacing the visible or saved profile.
+            try route.update(next, bypass: false)
+            profile = next
+            bypass = false
+            importNotice = nil
+            error = nil
+            persist()
+            if !running { start() }
+        } catch { error = error.localizedDescription }
     }
+
     func savePreset() {
         let name = presetName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, factory[name] == nil else { error = "Choose a preset name other than a built-in preset."; return }
