@@ -4,8 +4,10 @@
 #pragma clang assume_nonnull begin
 typedef struct EQ EQ;
 enum { EQBands = 10, EQMaxFilters = 32 };
-typedef struct { double frequency, gain, q; unsigned type; } EQFilter;
-// type: 0 = peaking, 1 = low shelf, 2 = high shelf (Q-based RBJ filters).
+enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
+       EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass };
+// disabled defaults to false for existing C initializers. Gain applies only to EQ/shelves.
+typedef struct { double frequency, gain, q; unsigned type; bool disabled; } EQFilter;
 bool eq_update_filters(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass);
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp);
 extern const double EQFrequencies[EQBands];

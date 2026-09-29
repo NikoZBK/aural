@@ -11,7 +11,7 @@ struct AboutView: View {
                 Text("Aural").font(.system(size: 27, weight: .semibold))
                 Text("Version \(version) (\(build))").font(.system(size: 11)).foregroundStyle(.secondary)
             }
-            Text("A little paw. A better sound.").font(.system(size: 13, weight: .medium)).foregroundStyle(AuralStyle.accent)
+            Text("Good company. Better sound.").font(.system(size: 13, weight: .medium)).foregroundStyle(AuralStyle.accent)
             Text("A native equalizer for macOS, with device profiles, AutoEQ import, and audio processing that stays on your Mac.")
                 .font(.system(size: 12)).multilineTextAlignment(.center).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Divider()

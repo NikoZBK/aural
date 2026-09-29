@@ -5,7 +5,23 @@ struct AudioFailure: LocalizedError {
     var errorDescription: String? { message }
 }
 struct ImportedFilter: Codable, Equatable {
-    enum Kind: String, Codable { case peak = "PK", lowShelf = "LSC", highShelf = "HSC" }
+    enum Kind: String, Codable, CaseIterable {
+        case peak = "PK", lowShelf = "LSC", highShelf = "HSC"
+        case lowPass = "LPQ", highPass = "HPQ", bandPass = "BP", notch = "NO", allPass = "AP"
+        var usesGain: Bool { self == .peak || self == .lowShelf || self == .highShelf }
+        var label: String {
+            switch self {
+            case .peak: return "Peak · PK"
+            case .lowShelf: return "Low shelf · LSC"
+            case .highShelf: return "High shelf · HSC"
+            case .lowPass: return "Low pass · LPQ"
+            case .highPass: return "High pass · HPQ"
+            case .bandPass: return "Band pass · BP"
+            case .notch: return "Notch · NO"
+            case .allPass: return "All pass · AP"
+            }
+        }
+    }
     var kind: Kind
     var frequency: Double
     var gain: Double
@@ -16,6 +32,9 @@ struct ImportedFilter: Codable, Equatable {
               q.isFinite, (0.05...50).contains(q) else {
             throw AudioFailure(message: "Filter values must be 10–22000 Hz, −30 to +30 dB, and Q 0.05–50.")
         }
+        guard kind.usesGain || gain == 0 else {
+            throw AudioFailure(message: "Pass and notch filters do not have a gain parameter. Use preamp to adjust overall level.")
+        }
     }
 }
 struct Profile: Codable, Equatable {
@@ -24,14 +43,17 @@ struct Profile: Codable, Equatable {
     var filters: [ImportedFilter]?
     var sourceName: String?
     var preampRange: ClosedRange<Double> { filters == nil ? -24...0 : -60...24 }
+    func hasSameEQ(as other: Profile) -> Bool {
+        gains == other.gains && preamp == other.preamp && filters == other.filters
+    }
     func validated() throws -> Profile {
         guard gains.count == 10, gains.allSatisfy({ $0.isFinite && abs($0) <= 12 }),
               preamp.isFinite, preampRange.contains(preamp) else {
             throw AudioFailure(message: "The profile contains invalid gain or preamp values.")
         }
         if let filters {
-            guard (1...32).contains(filters.count), filters.contains(where: \.enabled) else {
-                throw AudioFailure(message: "A profile must contain 1–32 filters, with at least one enabled.")
+            guard (1...32).contains(filters.count) else {
+                throw AudioFailure(message: "A profile must contain 1–32 filters. Disabled filters are retained but do not affect the sound.")
             }
             for filter in filters { try filter.validate() }
         }
@@ -44,6 +66,8 @@ struct Settings: Codable {
     var presets: [String: Profile] = [:]
     var selectedUID = ""
     var startEQAutomatically: Bool?
+    var favoritePresets: Set<String>?
+    var selectedPresets: [String: String]?
 }
 
 // Broad listening curves, ordered from 31.5 Hz to 16 kHz.

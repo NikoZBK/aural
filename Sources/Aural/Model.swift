@@ -13,7 +13,10 @@ import ServiceManagement
     @Published var error: String?
     @Published var presetName = ""
     @Published var customPresets: [String] = []
+    @Published private(set) var selectedPresetName: String?
     @Published var importNotice: String?
+    @Published private(set) var deletedPreset: (name: String, profile: Profile, favorite: Bool)?
+    @Published private(set) var favoritePresets: Set<String> = []
     @Published private(set) var startEQAutomatically = false
     @Published private(set) var loginStatus = SMAppService.mainApp.status
     @Published private(set) var startupNotice: String?
@@ -28,6 +31,14 @@ import ServiceManagement
     var selected: OutputDevice? { devices.first { $0.uid == selectedUID } }
     var responseRate: Double { running ? route.sampleRate : 48000 }
     let factory = Profile.builtInPresets
+    var isPresetModified: Bool {
+        guard let name = selectedPresetName, let saved = settings.preset(named: name) else { return false }
+        return !profile.hasSameEQ(as: saved)
+    }
+    var currentPresetTitle: String {
+        guard let selectedPresetName else { return "Custom EQ" }
+        return selectedPresetName + (isPresetModified ? " · Modified" : "")
+    }
     init() {
         file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
         do {
@@ -35,6 +46,7 @@ import ServiceManagement
                 settings = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
                 for p in Array(settings.devices.values) + Array(settings.presets.values) { _ = try p.validated() }
             }
+            settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
             startEQAutomatically = settings.startEQAutomatically ?? false
@@ -45,7 +57,9 @@ import ServiceManagement
                 startupNotice = "Waiting for the saved output to start EQ…"
             }
             profile = settings.devices[selectedUID] ?? Profile()
+            selectedPresetName = settings.selectedPresetName(forOutput: selectedUID)
             customPresets = settings.presets.keys.sorted()
+            favoritePresets = settings.favoritePresets ?? []
         } catch { pendingStartup = nil; startupNotice = nil; self.error = error.localizedDescription }
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.poll() }
@@ -81,6 +95,7 @@ import ServiceManagement
         importNotice = nil
         selectedUID = uid
         profile = settings.devices[uid] ?? Profile()
+        selectedPresetName = settings.selectedPresetName(forOutput: uid)
         bypass = false
         persist()
     }
@@ -90,7 +105,7 @@ import ServiceManagement
     }
     func apply(_ name: String) {
         guard let p = factory[name] ?? settings.presets[name] else { error = "The preset no longer exists."; return }
-        replaceProfile(p)
+        replaceProfile(p, selectingPreset: name)
     }
     func importAutoEQ() {
         let panel = NSOpenPanel()
@@ -105,31 +120,58 @@ import ServiceManagement
             let data = try Data(contentsOf: url)
             guard let text = String(data: data, encoding: .utf8) else { throw AudioFailure(message: "Use a UTF-8 AutoEQ text export.") }
             let base = url.deletingPathExtension().lastPathComponent
-            let imported = try AutoEQ.parse(text, name: base)
-            // No state changes occur until the entire file has passed validation.
-            startGeneration += 1
-            pendingStartup = nil; startupNotice = nil
-            try route.stop(); running = false; peak = 0
-            var name = base, suffix = 2
-            while settings.presets[name] != nil || factory[name] != nil {
-                name = "\(base) (\(suffix))"; suffix += 1
-            }
-            profile = imported
-            bypass = false
-            settings.presets[name] = imported
-            customPresets = settings.presets.keys.sorted()
-            error = nil
-            if persist() {
-                importNotice = "Imported \(name). Saved in Presets. Click Start EQ to apply."
-            } else { importNotice = nil }
+            try importProfile(text, name: base)
         } catch { self.error = error.localizedDescription }
     }
-    @discardableResult func replaceProfile(_ next: Profile) -> Bool {
+    func pasteEQ() {
         do {
-            // The audio callback resets changed filter state and smooths gains in place.
+            guard let text = NSPasteboard.general.string(forType: .string) else {
+                throw AudioFailure(message: "The clipboard does not contain text. Copy Equalizer APO settings first.")
+            }
+            try importProfile(text, name: "Clipboard EQ")
+        } catch { self.error = error.localizedDescription }
+    }
+    func copyEQ() {
+        do {
+            let text = try AutoEQ.export(profile)
+            let clipboard = NSPasteboard.general
+            clipboard.clearContents()
+            guard clipboard.setString(text, forType: .string) else {
+                throw AudioFailure(message: "Could not write EQ settings to the clipboard. Try copying again.")
+            }
+            error = nil
+            importNotice = "Copied EQ settings in Equalizer APO format."
+        } catch { self.error = error.localizedDescription }
+    }
+    private func importProfile(_ text: String, name base: String) throws {
+        let imported = try AutoEQ.parse(text, name: base)
+        // Validate everything before changing the profile or stopping audio.
+        startGeneration += 1
+        pendingStartup = nil; startupNotice = nil
+        try route.stop(); running = false; peak = 0
+        let name = settings.availablePresetName(base)
+        profile = imported
+        bypass = false
+        settings.presets[name] = imported
+        selectedPresetName = name
+        customPresets = settings.presets.keys.sorted()
+        error = nil
+        if persist() {
+            importNotice = "Imported \(name). Saved in Presets. Click Start EQ to apply."
+        } else { importNotice = nil }
+    }
+    @discardableResult func replaceProfile(_ next: Profile, selectingPreset name: String? = nil) -> Bool {
+        do {
+            // The control path prepares coefficients; the callback crossfades complete chains.
             // Validate and enqueue before replacing the visible or saved profile.
+            var candidate = settings
+            if let name, !selectedUID.isEmpty {
+                try candidate.setSelectedPreset(name, forOutput: selectedUID)
+            }
             try route.update(next, bypass: false)
+            settings = candidate
             profile = next
+            if let name { selectedPresetName = name }
             bypass = false
             importNotice = nil
             error = nil
@@ -142,8 +184,107 @@ import ServiceManagement
     func savePreset() {
         let name = presetName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, factory[name] == nil else { error = "Choose a preset name other than a built-in preset."; return }
-        settings.presets[name] = profile
-        customPresets = settings.presets.keys.sorted(); presetName = ""; persist()
+        let saved = profile
+        if updateLibrary({
+            _ = try saved.validated()
+            $0.presets[name] = saved
+            if !selectedUID.isEmpty { try $0.setSelectedPreset(name, forOutput: selectedUID) }
+        }) { selectedPresetName = name; presetName = "" }
+    }
+    @discardableResult private func updateLibrary(_ edit: (inout Settings) throws -> Void) -> Bool {
+        var next = settings
+        do {
+            try edit(&next)
+            // Persist the candidate before publishing the library mutation.
+            try writeSettings(next)
+            settings = next
+            selectedPresetName = next.selectedPresetName(forOutput: selectedUID)
+            customPresets = next.presets.keys.sorted()
+            favoritePresets = next.favoritePresets ?? []
+            error = nil
+            return true
+        } catch { self.error = "Could not update presets: " + error.localizedDescription; return false }
+    }
+    @discardableResult func renamePreset(_ name: String, to newName: String) -> Bool {
+        updateLibrary { try $0.renamePreset(name, to: newName) }
+    }
+    func duplicatePreset(_ name: String) {
+        _ = updateLibrary { try $0.duplicatePreset(name) }
+    }
+    func deletePreset(_ name: String) {
+        guard let saved = settings.presets[name] else { error = "The preset no longer exists."; return }
+        let favorite = favoritePresets.contains(name)
+        if updateLibrary({
+            try $0.deletePreset(name)
+        }) { deletedPreset = (name, saved, favorite) }
+    }
+    func restoreDeletedPreset() {
+        guard let deletedPreset else { error = "There is no deleted preset to restore."; return }
+        if updateLibrary({
+            let name = $0.availablePresetName(deletedPreset.name)
+            $0.presets[name] = deletedPreset.profile
+            if deletedPreset.favorite {
+                var favorites = $0.favoritePresets ?? []
+                favorites.insert(name)
+                $0.favoritePresets = favorites
+            }
+        }) {
+            self.deletedPreset = nil
+        }
+    }
+    func toggleFavorite(_ name: String) {
+        _ = updateLibrary { try $0.toggleFavorite(name) }
+    }
+    func adjustPreamp(_ delta: Double) {
+        var next = profile
+        next.preamp = min(next.preampRange.upperBound, max(next.preampRange.lowerBound, next.preamp + delta))
+        do {
+            try route.update(next, bypass: bypass)
+            profile = next
+            if persist() { error = nil }
+        } catch { self.error = error.localizedDescription }
+    }
+    func exportEQ() {
+        let panel = NSSavePanel()
+        panel.title = "Export Equalizer APO settings"
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "Aural EQ.txt"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try AutoEQ.export(profile).write(to: url, atomically: true, encoding: .utf8)
+            error = nil; importNotice = "Exported EQ settings."
+        } catch { self.error = "Could not export EQ: " + error.localizedDescription }
+    }
+    func backupPresets() {
+        let panel = NSSavePanel()
+        panel.title = "Back up custom presets"
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "Aural presets.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(PresetBackup(presets: settings.presets, favorites: settings.favoritePresets))
+            _ = try PresetBackup.decode(data)
+            try data.write(to: url, options: .atomic)
+            error = nil; importNotice = "Backed up custom presets."
+        } catch { self.error = "Could not back up presets: " + error.localizedDescription }
+    }
+    func restorePresets() {
+        let panel = NSOpenPanel()
+        panel.title = "Restore custom presets"
+        panel.message = "Adds presets without replacing existing names or changing the current EQ."
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize
+            guard let size, size <= 4 * 1024 * 1024 else { throw AudioFailure(message: "Preset backups must be smaller than 4 MB.") }
+            let backup = try PresetBackup.decode(Data(contentsOf: url))
+            if updateLibrary({ $0.mergePresets(backup) }) {
+                importNotice = "Restored \(backup.presets.count) presets. Current EQ unchanged."
+            }
+        } catch { self.error = "Could not restore presets: " + error.localizedDescription }
     }
     func headroom() {
         var maximum = 0.0
@@ -208,11 +349,18 @@ import ServiceManagement
     }
     @discardableResult private func persist() -> Bool {
         settings.selectedUID = selectedUID
-        if !selectedUID.isEmpty { settings.devices[selectedUID] = profile }
         do {
-            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(settings).write(to: file, options: .atomic)
+            if !selectedUID.isEmpty {
+                settings.devices[selectedUID] = profile
+                try settings.setSelectedPreset(selectedPresetName, forOutput: selectedUID)
+            }
+            try writeSettings(settings)
             return true
         } catch { self.error = "Could not save settings: " + error.localizedDescription; return false }
     }
+    private func writeSettings(_ value: Settings) throws {
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(value).write(to: file, options: .atomic)
+    }
+
 }

@@ -130,7 +130,7 @@ struct OutputDevice: Identifiable, Equatable {
         if dsp != nil, let filters = profile.filters, filters.contains(where: { $0.enabled && $0.frequency >= sampleRate * 0.49 }) {
             throw AudioFailure(message: "An imported filter is too close to this output's Nyquist frequency. Choose a higher sample rate in Audio MIDI Setup before using this profile.")
         }
-        let filters = profile.dspFilters
+        let filters = profile.dspFilters(rate: sampleRate)
         if let dsp, !eq_update_filters(dsp, filters, UInt32(filters.count), profile.preamp, bypass) {
             throw AudioFailure(message: "The equalizer could not accept this setting. Stop and start processing to retry.")
         }
@@ -156,23 +156,5 @@ struct OutputDevice: Identifiable, Equatable {
         guard alive == 1, abs(rate - sampleRate) < 1, faults == 0 else {
             throw AudioFailure(message: "The output disconnected or its audio format changed. Processing stopped; select an output and start again.")
         }
-    }
-}
-
-extension Profile {
-    var dspFilters: [EQFilter] {
-        if let filters {
-            return filters.map { filter in
-                let type: UInt32
-                switch filter.kind { case .peak: type = 0; case .lowShelf: type = 1; case .highShelf: type = 2 }
-                return EQFilter(frequency: filter.frequency, gain: filter.enabled ? filter.gain : 0, q: filter.q, type: type)
-            }
-        }
-        let frequencies: [Double] = [31.5,63,125,250,500,1000,2000,4000,8000,16000]
-        return zip(frequencies, gains).map { EQFilter(frequency: $0.0, gain: $0.1, q: 1.4, type: 0) }
-    }
-    func response(_ frequency: Double, rate: Double, preamp: Double? = nil) -> Double {
-        let filters = dspFilters
-        return eq_response_filters(frequency, rate, filters, UInt32(filters.count), preamp ?? self.preamp)
     }
 }

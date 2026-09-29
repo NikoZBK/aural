@@ -1,6 +1,6 @@
 import Foundation
 
-struct FilterDraft: Identifiable {
+struct FilterDraft: Identifiable, Equatable {
     let id = UUID()
     var kind: ImportedFilter.Kind
     var frequency: String
@@ -15,7 +15,7 @@ struct FilterDraft: Identifiable {
 
     func filter(row: Int) throws -> ImportedFilter {
         guard let hz = Double(frequency.trimmingCharacters(in: .whitespaces)),
-              let db = Double(gain.trimmingCharacters(in: .whitespaces)),
+              let db = kind.usesGain ? Double(gain.trimmingCharacters(in: .whitespaces)) : 0,
               let quality = Double(q.trimmingCharacters(in: .whitespaces)) else {
             throw AudioFailure(message: "Filter \(row): enter numbers for frequency, gain, and Q (use a decimal point).")
         }
@@ -26,7 +26,7 @@ struct FilterDraft: Identifiable {
     }
 }
 
-struct ParametricDraft {
+struct ParametricDraft: Equatable {
     var filters: [FilterDraft]
     var preamp: String
     private let original: Profile
@@ -40,6 +40,26 @@ struct ParametricDraft {
         }).map { FilterDraft($0) }
     }
 
+    mutating func duplicateFilter(_ id: UUID) throws {
+        guard filters.count < 32 else { throw AudioFailure(message: "At most 32 filters are supported.") }
+        guard let index = filters.firstIndex(where: { $0.id == id }) else {
+            throw AudioFailure(message: "The filter no longer exists.")
+        }
+        let original = filters[index]
+        var copy = FilterDraft()
+        copy.kind = original.kind; copy.frequency = original.frequency
+        copy.gain = original.gain; copy.q = original.q; copy.enabled = original.enabled
+        filters.insert(copy, at: index + 1)
+    }
+
+    mutating func moveFilter(_ id: UUID, by offset: Int) throws {
+        guard let index = filters.firstIndex(where: { $0.id == id }),
+              offset == -1 || offset == 1, filters.indices.contains(index + offset) else {
+            throw AudioFailure(message: "The filter cannot move in that direction.")
+        }
+        filters.swapAt(index, index + offset)
+    }
+
     func profile() throws -> Profile {
         guard let db = Double(preamp.trimmingCharacters(in: .whitespaces)), db.isFinite, (-60...24).contains(db) else {
             throw AudioFailure(message: "Preamp must be a number from −60 to +24 dB.")
@@ -49,5 +69,28 @@ struct ParametricDraft {
         result.preamp = db
         result.sourceName = "Custom parametric EQ"
         return try result.validated()
+    }
+}
+
+// Bounded history is local to an editing session; applying remains explicit.
+struct EditHistory<Value> {
+    private var undoValues: [Value] = []
+    private var redoValues: [Value] = []
+    var canUndo: Bool { !undoValues.isEmpty }
+    var canRedo: Bool { !redoValues.isEmpty }
+    mutating func record(_ value: Value) {
+        undoValues.append(value)
+        if undoValues.count > 100 { undoValues.removeFirst() }
+        redoValues.removeAll()
+    }
+    mutating func undo(_ current: Value) throws -> Value {
+        guard let previous = undoValues.popLast() else { throw AudioFailure(message: "There are no edits to undo.") }
+        redoValues.append(current)
+        return previous
+    }
+    mutating func redo(_ current: Value) throws -> Value {
+        guard let next = redoValues.popLast() else { throw AudioFailure(message: "There are no edits to redo.") }
+        undoValues.append(current)
+        return next
     }
 }
