@@ -106,6 +106,8 @@ bash scripts/package.sh
 
 No third-party runtime dependencies or package downloads are required. Build outputs are ignored by Git. [Release and signing instructions](docs/RELEASING.md) describe optional Developer ID signing and notarization.
 
+The [future updates guide](docs/FUTURE-UPDATES.md) covers proposed priorities, code locations, compatibility rules, testing, and release handoffs.
+
 ## Implementation
 
 `Audio.swift` owns the private process tap and aggregate device. Aural excludes its own process to prevent feedback and mutes the original stream only while the tap is consumed. It uses the selected output's clock. The callback is stopped and destroyed before its DSP state is freed.

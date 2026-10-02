@@ -1,5 +1,7 @@
 # Releasing Aural
 
+For planning changes, preserving existing behavior, and choosing verification checks, start with the [future updates guide](FUTURE-UPDATES.md).
+
 ## Local release
 
 1. Update `VERSION` and the numeric `CFBundleVersion` in `scripts/build.sh`.
