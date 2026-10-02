@@ -337,3 +337,46 @@ do {
     catch { require(error is AudioFailure && referenced.presets == beforeDelete, "Rejected delete changed presets") }
 }
 print("PASS preset identity, legacy migration, modified EQ, duplicate ambiguity, selection persistence, validation and rename/delete references")
+
+// Channel directives must survive text and draft round-trips, never be silently folded to stereo.
+do {
+    let stereoText = """
+    Preamp: -6 dB
+    Channel: L
+    Filter 1: ON PK Fc 400 Hz Gain 3 dB Q 1
+    Channel: R
+    Filter 2: OFF NO Fc 3000 Hz Q 4
+    Channel: ALL
+    Filter 3: ON HSC Fc 9000 Hz Gain -2 dB Q 0.7
+    """
+    let original = try AutoEQ.parse(stereoText, name: "Channel fixture")
+    require(original.filters?.map(\.effectiveChannel) == [.left, .right, .stereo], "Channel directives did not target filters")
+    let exported = try AutoEQ.export(original)
+    let restored = try AutoEQ.parse(exported, name: "Roundtrip")
+    require(restored.hasSameEQ(as: original), "Channel-targeted EQ export changed response settings")
+    let draftProfile = try ParametricDraft(original).profile()
+    require(draftProfile.filters == original.filters, "Draft editing dropped filter channels")
+    var channelDraft = ParametricDraft(original)
+    let rightID = channelDraft.filters[1].id
+    try channelDraft.duplicateFilter(rightID)
+    require(channelDraft.filters[2].channel == .right && channelDraft.filters[2].id != rightID,
+            "Duplicating a filter must preserve its channel with a new identity")
+    channelDraft.filters[2].frequency = "2500"
+    let editedRight = try channelDraft.filters[2].filter(row: 3)
+    require(editedRight.effectiveChannel == .right && editedRight.frequency == 2500 && !editedRight.enabled,
+            "Editing a duplicated filter must preserve its channel and disabled state")
+    for text in ["Channel: C\nFilter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1", "Channel: L\nPreamp: -4 dB\nFilter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1"] {
+        do { _ = try AutoEQ.parse(text, name: "Invalid"); fatalError("Accepted unsupported channel semantics") }
+        catch { require(error is AudioFailure, "Unexpected channel parse failure") }
+    }
+    var effects = original
+    effects.stereo = StereoSettings(leftTrimDB: -3)
+    do { _ = try AutoEQ.export(effects); fatalError("Export silently discarded stereo effects") }
+    catch { require(error.localizedDescription.contains("stereo effects"), "Export must explain unsupported effects") }
+    var settings = Settings(presets: ["Stereo fixture": effects])
+    let data = try JSONEncoder().encode(PresetBackup(presets: settings.presets, favorites: []))
+    settings.presets = [:]
+    settings.mergePresets(try PresetBackup.decode(data))
+    require(settings.presets["Stereo fixture"] == effects, "Native preset backup lost stereo settings")
+}
+print("PASS channel text import/export, draft preservation, unsupported semantics and complete stereo backup")

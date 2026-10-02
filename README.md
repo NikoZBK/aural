@@ -14,30 +14,47 @@ Aural applies equalization to audio playing through a selected stereo output usi
 2. Eject the DMG and launch the installed app.
 3. Choose your output, click **Start EQ**, and allow system audio capture when prompted.
 
-**Signing:** the initial public release is ad-hoc signed, not Developer ID signed or notarized. macOS may require **System Settings → Privacy & Security → Open Anyway** after the first blocked launch. Follow [Apple's instructions](https://support.apple.com/102445) if you trust the download. Managed Macs may prohibit this. Developer ID signing and notarization are needed for a release that avoids this approval step.
+**Signing:** this release is ad-hoc signed, not Developer ID signed or notarized. macOS may require **System Settings → Privacy & Security → Open Anyway** after the first blocked launch. Follow [Apple's instructions](https://support.apple.com/102445) if you trust the download. Managed Macs may prohibit this. Developer ID signing and notarization are needed for a release that avoids this approval step.
 
 ## Updates
 
 Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings, or About. Aural shows the latest stable version and changelog. **Download Update** opens the universal installer download in your browser. Quit Aural, open the download, and replace the installed app; saved profiles remain in Application Support. The **Releases page** link is always available if the check fails. Updates are not automatically installed.
 
+## Screenshots
+
+The 1.0 workspace keeps the active preset, channel response, filter rack, and output controls in view.
+
+![Aural 1.0 equalizer workspace with left and right response curves and inline filter editing](docs/screenshots/workspace.jpg)
+
+Stereo and timing controls cover balance, width, crossfeed, channel trims, polarity, and delay.
+
+![Aural 1.0 stereo and timing controls](docs/screenshots/stereo-timing.jpg)
+
+Screenshots use an illustrative demo profile, not a headphone correction preset.
+
 ## Features
 
-- Ten adjustable bands from 31.5 Hz to 16 kHz, with preamp and automatic headroom.
-- Resizable dark workspace, frequency-response graph with hover inspection, and output peak meter in dBFS.
-- Filter studio with numbered rows, keyboard undo/redo, and a searchable preset library with favorites, backups, and restore.
-- Clipboard Copy/Paste and file export in Equalizer APO format.
-- Ten built-in presets: Flat, Warm, Voice, Detail, Bass Boost, Treble Boost, Classical, Electronic, Rock, and Vocal. Save your own named presets too.
-- Separate saved settings for each output device.
-- AutoEQ `ParametricEQ.txt` and `FixedBandEQ.txt` import, retaining exact frequencies, gain, Q, filter type, and preamp.
-- Peaking, low/high shelves, low/high pass, band-pass, notch, and all-pass filters; up to 32 filters.
-- Bypass, stereo-linked sample-peak protection, and menu bar controls.
-- Optional **Launch at login** and **Start EQ automatically**.
+- Three-pane audio workspace: searchable preset sidebar, response graph and inline filter rack, persistent output/preamp monitor.
+- Ten-band octave and 31-band third-octave layouts, exact numeric editing, gain faders, and up to 32 parametric filters.
+- Independent **left, right, or stereo** filter targets; peak, low/high shelf, low/high pass, band-pass, notch, and all-pass filters.
+- A/B comparison with independently editable snapshots, dashed reference curves, and 100-step workspace undo/redo.
+- Stereo effects: per-channel trims, balance, width, low-frequency crossfeed, mono sum, polarity inversion, and 0–30 ms channel delay.
+- Adaptive response graph, separate left/right curves, individual filter overlays, cursor inspection, and estimated EQ headroom.
+- Master preamp, automatic headroom including stereo gain, output peak meter in dBFS, and resettable peak hold.
+- Curve transforms: gain offset, scaling, inversion, and frequency shifts.
+- AutoEQ / Equalizer APO text import/export, clipboard Copy/Paste, and channel-aware text round trips.
+- Searchable preset library with favorites, preview curves, duplicate/rename/delete/undo-delete, and complete JSON backups.
+- Saved settings per output, menu-bar controls, keyboard shortcuts, optional login and automatic startup.
+
+The [feature comparison](docs/PEACE-FEATURE-ROADMAP.md) records what is implemented and what remains outside Aural's current engine.
 
 ## Using Aural
 
-Select the output that your apps use. Aural does not change the macOS default output or affect audio routed to a different device. **Stop** releases the audio route. **Bypass** removes EQ and preamp while retaining routing and peak protection. Closing the window leaves the menu bar app running; **Quit Aural** exits.
+Select the output that your apps use. Aural does not change the macOS default output or affect audio routed to a different device. **Stop** releases the audio route. **Bypass** removes EQ, preamp, and stereo effects while retaining routing and peak protection. Close the last Aural window with the red close button or **Command-W** to remove Aural from the Dock while keeping EQ and the menu bar controls running. Choose **Show Aural** from the headphones menu to bring the window and Dock icon back. Minimized windows keep their Dock access. **Quit Aural** or **Command-Q** stops EQ and exits completely.
 
-The main window and preset menu show the selected preset, with a **Modified** badge when its EQ values differ from the saved version. The selection is remembered separately for each output. Saving under a new name selects that preset; renaming updates its displayed name, and deleting it leaves the current sound as Custom EQ.
+The closed-eyes dog appears while EQ is processing. The original open-eyed dog listens when EQ is stopped or bypassed. The main window, About window, and running app's Dock icon update together, including after using controls in the menu bar. Finder keeps the original happy icon.
+
+The main window and preset menu show the selected preset, with an **EDITED** badge when its EQ values differ from the saved version. The selection is remembered separately for each output. Saving under a new name selects that preset; renaming updates its displayed name, and deleting it leaves the current sound as Custom EQ.
 
 Selecting a preset applies it immediately, enables EQ if stopped, and exits bypass. Switching between saved AutoEQ profiles and built-in presets keeps the active audio route running. A preset that is incompatible with the current sample rate is rejected without replacing the current sound.
 
@@ -45,11 +62,11 @@ The gear menu controls startup. With automatic EQ enabled, Aural restores the sa
 
 ### AutoEQ import
 
-Choose **Import / export file → Import AutoEQ…** (or the Equalizer menu) and select a UTF-8 parametric or fixed-band text export. The complete file is validated before current settings change. Import stops processing, replaces the previous EQ, and saves a named preset. Click **Start EQ** when ready. Repeated filenames receive a numeric suffix instead of overwriting existing presets.
+Choose **Files & backups → Import AutoEQ text…** (or the Equalizer menu) and select a UTF-8 parametric or fixed-band text export. The complete file is validated before current settings change. Import stops processing, replaces the previous EQ, and saves a named preset. Click **Start EQ** when ready. Repeated filenames receive a numeric suffix instead of overwriting existing presets.
 
-Click **Edit filters…** to adjust type (PK/LSC/HSC/LPQ/HPQ/BP/NO/AP), frequency, gain, Q, enabled state, and exact preamp. Add or remove filters up to the 32-filter limit. From graphic EQ, the editor starts with equivalent peaking filters. **Apply EQ** validates the complete draft and updates EQ immediately; **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset from the main window to reuse the changes. Imported values retain their precision until edited. Choose a built-in preset or **Reset to flat** to return to the ten sliders. Imports do not stack on top of the slider EQ.
+Use the inline filter rack to adjust type (PK/LSC/HSC/LPQ/HPQ/BP/NO/AP), frequency, gain, Q, enabled state, and exact preamp. Add or remove filters up to the 32-filter limit. From graphic EQ, the editor starts with equivalent peaking filters. **Profile actions → Edit as a draft…** opens a separate preview editor. **Apply EQ** validates the complete draft and updates EQ without starting a stopped engine; **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset from the main window to reuse the changes. Imported values retain their precision until edited. Choose **New layout → 10-band octave EQ** for a flat ten-band workspace, or select the 31-band layout. Layout changes are undoable and preserve stereo settings. Imports do not stack on top of the slider EQ.
 
-Supported commands are `Preamp` and numbered `Filter` lines using `PK`, `LSC`, or `HSC` with `Fc`, `Gain`, and `Q`; or `LPQ`, `HPQ`, `BP`, `NO`, and `AP` with `Fc` and explicit `Q` (no Gain field). Pass/notch filter gain is not adjustable; band-pass has unity peak gain. LPQ/HPQ are second-order filters with adjustable Q. Shorthand LP/HP, omitted Q, bandwidth syntax, and higher-order filters are not yet supported. Blank lines, `#` comments, OFF filters, CRLF, and a UTF-8 BOM are accepted. No Preamp line means 0 dB. Limits are 32 filters, 10–22000 Hz, −30 to +30 dB filter gain, Q 0.05–50, −60 to +24 dB imported preamp, and 64 KB file size. All filters may be disabled; their values remain saved and only preamp/peak protection affect audio. Global Bypass additionally bypasses preamp.
+Supported commands are a global `Preamp`, `Channel: ALL`, `Channel: L`, `Channel: R`, and numbered `Filter` lines using `PK`, `LSC`, or `HSC` with `Fc`, `Gain`, and `Q`; or `LPQ`, `HPQ`, `BP`, `NO`, and `AP` with `Fc` and explicit `Q` (no Gain field). Pass/notch filter gain is not adjustable; band-pass has unity peak gain. LPQ/HPQ are second-order filters with adjustable Q. Shorthand LP/HP, omitted Q, bandwidth syntax, and higher-order filters are not yet supported. Blank lines, `#` comments, OFF filters, CRLF, and a UTF-8 BOM are accepted. No Preamp line means 0 dB. Limits are 32 filters, 10–22000 Hz, −30 to +30 dB filter gain, Q 0.05–50, −60 to +24 dB imported preamp, and 64 KB file size. All filters may be disabled; their values remain saved and preamp, stereo effects, and peak protection still affect audio. Global Bypass additionally bypasses preamp and stereo effects. A per-channel `Preamp` command is rejected; use Aural’s channel trims for this.
 
 `GraphicEQ:` curves, WAV convolution, CSV measurements, and other APO commands are not supported. Use AutoEQ's **ParametricEQ.txt** or **FixedBandEQ.txt** export. No headphone correction profiles are included.
 
@@ -61,7 +78,7 @@ Settings and imported profiles are stored in the current user's `~/Library/Appli
 
 ## Current scope
 
-This is an early release. It supports a single stereo output stream in 32-bit float format at 32–192 kHz. It does not support mono/surround outputs, multi-stream interfaces, aggregate/multi-output setups, per-app mixing, convolution. Bluetooth, USB hardware, sleep/wake behavior, protected media, and extended operation need further hardware testing. Intel is cross-compiled; runtime checks to date were performed on Apple silicon.
+Aural currently targets stereo listening and calibration. It supports a single stereo output stream in 32-bit float format at 32–192 kHz. It does not support mono/surround outputs, multi-stream interfaces, aggregate/multi-output setups, per-app mixing, or convolution. Bluetooth, USB hardware, sleep/wake behavior, protected media, and extended operation need further hardware testing. Intel is cross-compiled; runtime checks to date were performed on Apple silicon.
 
 Latency depends on the device buffer size and has not been measured. Peak protection is a sample-peak limiter, not a true-peak mastering limiter. A built-in band at or above 49% of sample rate is disabled. For imported profiles, an enabled filter beyond that threshold prevents starting rather than silently changing the profile; select a higher sample rate in Audio MIDI Setup. The stopped response preview uses 48 kHz; processing uses the actual device rate.
 
@@ -110,13 +127,23 @@ Click **Copy settings (Equalizer APO format)** on a headphone EQ page, then **Pa
 
 ### Preset library and editing tools
 
-Click **Library** beside Presets, or choose **Equalizer → Preset library…** (⇧⌘P) to search, favorite, duplicate, rename, or delete presets. Built-in presets can be duplicated and favorited; renaming and deletion apply to custom presets. **Undo delete** restores the most recent deletion until Aural quits. Deleting or renaming a saved preset does not change the active EQ.
+Click the library icon beside Presets, or choose **Equalizer → Preset library…** (⇧⌘P) to search, favorite, duplicate, rename, or delete presets. Built-in presets can be duplicated and favorited; renaming and deletion apply to custom presets. **Undo delete** restores the most recent deletion until Aural quits. Deleting or renaming a saved preset does not change the active EQ.
 
 **Back up presets…** writes a versioned JSON file containing custom presets and favorites. **Restore presets…** validates the entire backup before merging; conflicting names receive numeric suffixes. Restore never replaces the current EQ or enables processing. Device selection, startup preferences, and per-device settings are not part of a preset backup.
 
 The menu bar now includes preset selection, favorites, and preamp adjustments in 1 dB steps within the current profile's limits. These controls preserve the current bypass and playback state when changing preamp. **Export EQ…** saves the current Equalizer APO settings to a text file.
 
-In **Edit filters…**, each row's actions menu can duplicate or move a filter up/down. **Undo** and **Redo** restore up to 100 draft edits, including filter additions/removals, order, values, enabled state, and preamp. These changes remain a draft until **Apply EQ**; **Cancel** leaves playback unchanged.
+In **Profile actions → Edit as a draft…**, each row's actions menu can duplicate or move a filter up/down. **Undo** and **Redo** restore up to 100 draft edits, including filter additions/removals, order, values, enabled state, and preamp. These changes remain a draft until **Apply EQ**; **Cancel** leaves playback unchanged.
+
+### Comparison, history, and stereo
+
+Select **B** to begin an A/B comparison from the current profile. Edits stay in the selected slot; selecting the other slot recalls its complete profile and preset identity. The dashed graph shows the other slot. Use the comparison menu to copy the active slot to the other or reset both. A/B and undo history are session-local and reset when changing output; save each version as a preset to retain it across launches.
+
+**Undo/Redo** covers main-window EQ and stereo changes, template replacement, transforms, preset application, and comparison. Slider drags form one undo step. Keyboard shortcuts are **⌥⌘Z / ⇧⌥⌘Z** for profile undo/redo, **⌥⌘1 / ⌥⌘2** for A/B, and **⌥⌘B** for bypass. These shortcuts work while Aural is active; ordinary text-field undo/copy/paste remain available. Stop/start and bypass are transport controls and are not part of profile history.
+
+**Stereo & timing** processes EQ output through normalized 700 Hz crossfeed, mid/side width (or mono sum), per-channel trim/balance/polarity, then fractional delay and sample-peak protection. Width 1 is original stereo; width 0 sums to mono. Mono occurs before channel calibration. Defaults are neutral and preserve legacy output. Delay settings add the specified delay; they are not measurements of total system latency. The graph displays EQ/preamp response and intentionally excludes stereo effects and peak protection. Auto headroom reserves a conservative stereo-gain bound, but does not guarantee true-peak headroom.
+
+APO text supports channel-targeted filters, but does not encode Aural's stereo effects. Copy/export rejects nonneutral stereo effects with an explanation, so they cannot be silently discarded. Save a preset and use **Files & backups → Back up presets…** to preserve the complete configuration, including stereo settings. Legacy presets remain compatible; new stereo/channel presets require Aural 1.0.0 or later.
 
 ### Engine verification
 
@@ -124,4 +151,6 @@ The engine tests measure response at 32, 44.1, 48, 96, and 192 kHz, check all-pa
 
 Filter equations follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/); text syntax follows the supported subset of the [Equalizer APO reference](https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/). Profiles containing new filter types require Aural 0.8.0 or later.
 
-The [0.9.0 interface notes](docs/RELEASE-0.9.0.md) describe the Ultra workspace. [0.9.2 release notes](docs/RELEASE-0.9.2.md) cover selected-preset display, the dog-with-headphones icon, and validation.
+The [0.9.0 interface notes](docs/RELEASE-0.9.0.md) describe the Ultra workspace. [0.9.2 release notes](docs/RELEASE-0.9.2.md) cover selected-preset display and the dog-with-headphones icon. [0.9.3 release notes](docs/RELEASE-0.9.3.md) cover running in the menu bar after closing the window. [0.9.4 release notes](docs/RELEASE-0.9.4.md) cover sleeping and happy icon states.
+
+[1.0.0 studio workspace notes](docs/RELEASE-1.0.0.md) cover the redesigned interface, channel EQ, stereo processing, A/B, and reversed dog states.

@@ -17,8 +17,11 @@ Requires macOS 14.2 or newer. Includes Apple silicon and Intel executables.
    off for a new installation. If macOS requires login-item approval, use the
    Open Login Items settings button.
 
-Use Stop or Quit to release the equalizer. Closing the window leaves Aural in
-the menu bar. Imported AutoEQ files belong to you and are not bundled.
+Use Stop or Quit to release the equalizer. Closing the last Aural window with
+the red close button or Command-W removes it from the Dock while keeping EQ
+and the headphones menu running. Choose Show Aural from that menu to reopen
+the window. Quit Aural or Command-Q exits completely. Imported AutoEQ files
+belong to you and are not bundled.
 
 UPDATING
 Quit Aural, replace the installed app, then reopen it. Your settings live in

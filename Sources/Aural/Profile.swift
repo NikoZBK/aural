@@ -5,6 +5,16 @@ struct AudioFailure: LocalizedError {
     var errorDescription: String? { message }
 }
 struct ImportedFilter: Codable, Equatable {
+    enum Channel: String, Codable, CaseIterable {
+        case stereo = "ALL", left = "L", right = "R"
+        var label: String {
+            switch self {
+            case .stereo: return "Stereo"
+            case .left: return "Left"
+            case .right: return "Right"
+            }
+        }
+    }
     enum Kind: String, Codable, CaseIterable {
         case peak = "PK", lowShelf = "LSC", highShelf = "HSC"
         case lowPass = "LPQ", highPass = "HPQ", bandPass = "BP", notch = "NO", allPass = "AP"
@@ -27,6 +37,12 @@ struct ImportedFilter: Codable, Equatable {
     var gain: Double
     var q: Double
     var enabled: Bool
+    var channel: Channel?
+    var effectiveChannel: Channel { channel ?? .stereo }
+    static func == (lhs: ImportedFilter, rhs: ImportedFilter) -> Bool {
+        lhs.kind == rhs.kind && lhs.frequency == rhs.frequency && lhs.gain == rhs.gain &&
+        lhs.q == rhs.q && lhs.enabled == rhs.enabled && lhs.effectiveChannel == rhs.effectiveChannel
+    }
     func validate() throws {
         guard frequency.isFinite, (10...22000).contains(frequency), gain.isFinite, abs(gain) <= 30,
               q.isFinite, (0.05...50).contains(q) else {
@@ -37,14 +53,47 @@ struct ImportedFilter: Codable, Equatable {
         }
     }
 }
+struct StereoSettings: Codable, Equatable {
+    var leftTrimDB = 0.0
+    var rightTrimDB = 0.0
+    var balance = 0.0
+    var width = 1.0
+    var crossfeed = 0.0
+    var leftDelayMS = 0.0
+    var rightDelayMS = 0.0
+    var invertLeft = false
+    var invertRight = false
+    var mono = false
+
+    var isNeutral: Bool { self == StereoSettings() }
+    // A conservative peak bound; crossfeed is normalized and polarity/delay
+    // cannot increase a channel's peak. Reserve this in addition to EQ headroom.
+    var headroomGainDB: Double {
+        let left = pow(10, leftTrimDB / 20) * (1 - max(0, balance))
+        let right = pow(10, rightTrimDB / 20) * (1 + min(0, balance))
+        return 20 * log10(max(left, right) * (mono ? 1 : max(1, width)))
+    }
+    func validate() throws {
+        guard [leftTrimDB, rightTrimDB].allSatisfy({ $0.isFinite && (-24...12).contains($0) }),
+              balance.isFinite, (-1...1).contains(balance),
+              width.isFinite, (0...2).contains(width),
+              crossfeed.isFinite, (0...1).contains(crossfeed),
+              [leftDelayMS, rightDelayMS].allSatisfy({ $0.isFinite && (0...30).contains($0) }) else {
+            throw AudioFailure(message: "Stereo settings must use −24 to +12 dB trims, balance −1 to +1, width 0–200%, crossfeed 0–100%, and delays 0–30 ms.")
+        }
+    }
+}
+
 struct Profile: Codable, Equatable {
     var gains = Array(repeating: 0.0, count: 10)
     var preamp = 0.0
     var filters: [ImportedFilter]?
     var sourceName: String?
+    var stereo: StereoSettings?
+    var stereoSettings: StereoSettings { stereo ?? StereoSettings() }
     var preampRange: ClosedRange<Double> { filters == nil ? -24...0 : -60...24 }
     func hasSameEQ(as other: Profile) -> Bool {
-        gains == other.gains && preamp == other.preamp && filters == other.filters
+        gains == other.gains && preamp == other.preamp && filters == other.filters && stereoSettings == other.stereoSettings
     }
     func validated() throws -> Profile {
         guard gains.count == 10, gains.allSatisfy({ $0.isFinite && abs($0) <= 12 }),
@@ -57,6 +106,7 @@ struct Profile: Codable, Equatable {
             }
             for filter in filters { try filter.validate() }
         }
+        try stereoSettings.validate()
         return self
     }
 }

@@ -19,6 +19,7 @@ struct FilterEditor: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     preamp
+                    preview
                     filterList
                     guidance
                 }
@@ -31,7 +32,7 @@ struct FilterEditor: View {
         .font(.system(size: 13))
         .textFieldStyle(.roundedBorder)
         .padding(24)
-        .frame(width: 820, height: 720)
+        .frame(width: 930, height: 750)
         .background(AuralStyle.background)
         .preferredColorScheme(.dark)
         .tint(AuralStyle.accent)
@@ -51,7 +52,7 @@ struct FilterEditor: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
                 Text("Filter studio").font(.system(size: 24, weight: .semibold))
-                Text("Shape your sound with parametric EQ.")
+                Text("Preview the complete chain before applying.")
                     .foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
@@ -63,6 +64,16 @@ struct FilterEditor: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(draft.filters.count) of 32 filters")
+        }
+    }
+
+    @ViewBuilder private var preview: some View {
+        switch Result(catching: { try draft.profile() }) {
+        case .success(let profile):
+            ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
+                .equatable().frame(height: 205).auralPanel(padding: 14)
+        case .failure(let failure):
+            AuralNotice(message: "Preview unavailable: " + failure.localizedDescription, isError: true)
         }
     }
 
@@ -127,6 +138,7 @@ struct FilterEditor: View {
             Text("#").frame(width: 24)
             Text("On").frame(width: 28)
             Text("Type").frame(width: 166, alignment: .leading)
+            Text("Channel").frame(width: 66, alignment: .leading)
             Text("Frequency · Hz").frame(width: 122, alignment: .leading)
             Text("Gain · dB").frame(width: 100, alignment: .leading)
             Text("Q").frame(width: 80, alignment: .leading)
@@ -154,6 +166,11 @@ struct FilterEditor: View {
                 }
             }
             .labelsHidden().frame(width: 166)
+            Picker("Filter \(number) channel", selection: filter.channel) {
+                Text("L+R").tag(ImportedFilter.Channel.stereo)
+                Text("Left").tag(ImportedFilter.Channel.left)
+                Text("Right").tag(ImportedFilter.Channel.right)
+            }.labelsHidden().frame(width: 66)
             TextField("Frequency", text: filter.frequency)
                 .frame(width: 122)
                 .accessibilityLabel("Filter \(number) frequency in hertz")

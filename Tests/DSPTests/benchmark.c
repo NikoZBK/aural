@@ -19,7 +19,7 @@ int main(void) {
         if(block%8==0) {
             for(unsigned i=0;i<EQMaxFilters;i++) {
                 unsigned type=i%8;
-                filters[i]=(EQFilter){100+i*500+(block%2),type<3 ? 2 : 0,.707,type,false};
+                filters[i]=(EQFilter){100+i*500+(block%2),type<3 ? 2 : 0,.707,type,false,EQChannelStereo};
             }
             // Alternate preamp so the benchmark includes repeated two-chain fades.
             assert(eq_update_filters(eq,filters,EQMaxFilters,block%16 ? -10 : -12,false));

@@ -65,7 +65,7 @@ int main(void) {
     planar->mBuffers[1].mData=NULL;eq_process(eq,planar,out);assert(eq_faults(eq)==1);
     for(int i=0;i<128;i++)assert(outL[i]==0&&outR[i]==0);
     puts("PASS planar buffers and invalid-buffer fault reporting");free(planar);free(out);eq_destroy(eq);
-    EQFilter custom={1000,6,.707,0,false};
+    EQFilter custom={1000,6,.707,0,false,EQChannelStereo};
     for(unsigned type=0;type<3;type++) {
         eq=eq_create(48000,0);assert(eq);custom.type=type;
         assert(eq_update_filters(eq,&custom,1,0,false));tone(.1,1);process(eq,2);
@@ -77,7 +77,7 @@ int main(void) {
         if(type==2) {assert(fabs(eq_response_filters(10,48000,&custom,1,0))<.01);assert(fabs(eq_response_filters(20000,48000,&custom,1,0)-6)<.01);}
         eq_destroy(eq);
     }
-    custom=(EQFilter){1234,-7.3,3.21,0,false};
+    custom=(EQFilter){1234,-7.3,3.21,0,false,EQChannelStereo};
     assert(fabs(eq_response_filters(1234,48000,&custom,1,-6.7)+14)<.001);
     custom.q=.7;double wide=eq_response_filters(2000,48000,&custom,1,0);
     custom.q=5;double narrow=eq_response_filters(2000,48000,&custom,1,0);assert(wide<narrow-1);
@@ -88,12 +88,12 @@ int main(void) {
     // Keep one engine alive while switching filter count, frequency, Q and kind.
     eq=eq_create(48000,0);assert(eq);
     EQFilter layouts[4][10]={
-        {{1000,4,1.4,0,false},{3000,-2,1.4,0,false},{8000,3,1.4,0,false}},
-        {{120,3,.7,1,false},{1000,-5,2,0,false},{6000,2,.8,2,false}},
-        {{1000,6,.707,0,false}},
-        {{31.5,2,1.4,0,false},{63,3,1.4,0,false},{125,2,1.4,0,false},{250,1,1.4,0,false},
-         {500,0,1.4,0,false},{1000,0,1.4,0,false},{2000,-1,1.4,0,false},{4000,-1,1.4,0,false},
-         {8000,0,1.4,0,false},{16000,0,1.4,0,false}}
+        {{1000,4,1.4,0,false,EQChannelStereo},{3000,-2,1.4,0,false,EQChannelStereo},{8000,3,1.4,0,false,EQChannelStereo}},
+        {{120,3,.7,1,false,EQChannelStereo},{1000,-5,2,0,false,EQChannelStereo},{6000,2,.8,2,false,EQChannelStereo}},
+        {{1000,6,.707,0,false,EQChannelStereo}},
+        {{31.5,2,1.4,0,false,EQChannelStereo},{63,3,1.4,0,false,EQChannelStereo},{125,2,1.4,0,false,EQChannelStereo},{250,1,1.4,0,false,EQChannelStereo},
+         {500,0,1.4,0,false,EQChannelStereo},{1000,0,1.4,0,false,EQChannelStereo},{2000,-1,1.4,0,false,EQChannelStereo},{4000,-1,1.4,0,false,EQChannelStereo},
+         {8000,0,1.4,0,false,EQChannelStereo},{16000,0,1.4,0,false,EQChannelStereo}}
     };
     unsigned counts[]={3,3,1,10,false};
     float liveIn[256],liveOut[256];

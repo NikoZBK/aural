@@ -1,12 +1,16 @@
 import SwiftUI
 
 struct AboutView: View {
+    @ObservedObject var icon: AppIconController
     @Environment(\.openWindow) private var openWindow
     private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development" }
     private var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—" }
     var body: some View {
         VStack(spacing: 14) {
-            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 88, height: 88).accessibilityHidden(true)
+            Group {
+                if let image = icon.image { Image(nsImage: image).resizable() }
+                else { Image(systemName: "headphones").resizable().scaledToFit().padding(14) }
+            }.frame(width: 88, height: 88).accessibilityHidden(true)
             VStack(spacing: 4) {
                 Text("Aural").font(.system(size: 27, weight: .semibold))
                 Text("Version \(version) (\(build))").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -26,7 +30,7 @@ struct AboutView: View {
             }.font(.system(size: 11))
             Text("macOS 14.2+ · Apple silicon & Intel\nBuilt with SwiftUI and Core Audio. Independent of Apple and AutoEQ.")
                 .font(.system(size: 10)).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-            Button("Check for Updates…") { openWindow(id: "updates") }
+            Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
             Text("This build is not notarized by Apple.").font(.system(size: 10)).foregroundStyle(.secondary)
         }.padding(26).frame(width: 380).background(AuralStyle.background)
             .preferredColorScheme(.dark).tint(AuralStyle.accent)

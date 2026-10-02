@@ -7,9 +7,21 @@ enum { EQBands = 10, EQMaxFilters = 32 };
 enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
        EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass };
 // disabled defaults to false for existing C initializers. Gain applies only to EQ/shelves.
-typedef struct { double frequency, gain, q; unsigned type; bool disabled; } EQFilter;
+enum { EQChannelStereo, EQChannelLeft, EQChannelRight };
+typedef struct { double frequency, gain, q; unsigned type; bool disabled; unsigned channel; } EQFilter;
+// width=1 is neutral; use eq_stereo_default() instead of a zero initializer.
+// Balance attenuates the opposite side, crossfeed is a normalized 700 Hz blend,
+// and mono sums before per-channel correction. Delays use linear interpolation.
+typedef struct {
+    double leftTrimDB, rightTrimDB, balance, width, crossfeed, leftDelayMS, rightDelayMS;
+    bool invertLeft, invertRight, mono;
+} EQStereo;
+EQStereo eq_stereo_default(void);
+bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass, const EQStereo *stereo);
 bool eq_update_filters(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass);
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp);
+// Stereo returns the larger L/R response for conservative automatic headroom.
+double eq_response_filters_channel(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp, unsigned channel);
 extern const double EQFrequencies[EQBands];
 EQ * _Nullable eq_create(double sampleRate, unsigned inputOffset);
 void eq_destroy(EQ *eq);

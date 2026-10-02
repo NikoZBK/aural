@@ -1,9 +1,18 @@
 import CoreAudio
 import Foundation
 import DSP
+import OSLog
+
+struct CoreAudioFailure: LocalizedError {
+    let status: OSStatus
+    let action: String
+    var errorDescription: String? {
+        "\(action) failed (Core Audio \(status)). If access was denied, enable Aural in System Settings → Privacy & Security → Screen & System Audio Recording, then reopen it."
+    }
+}
 
 func check(_ status: OSStatus, _ action: String) throws {
-    guard status == noErr else { throw AudioFailure(message: "\(action) failed (Core Audio \(status)). If access was denied, enable Aural in System Settings → Privacy & Security → Screen & System Audio Recording, then reopen it.") }
+    guard status == noErr else { throw CoreAudioFailure(status: status, action: action) }
 }
 func address(_ selector: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) -> AudioObjectPropertyAddress {
     AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
@@ -36,6 +45,7 @@ struct OutputDevice: Identifiable, Equatable {
 }
 
 @MainActor final class AudioRoute {
+    private static let logger = Logger(subsystem: "local.aural.equalizer", category: "AudioRoute")
     private var tap: AudioObjectID = 0
     private var aggregate: AudioObjectID = 0
     private var proc: AudioDeviceIOProcID?
@@ -48,15 +58,22 @@ struct OutputDevice: Identifiable, Equatable {
 
     static func devices() throws -> [OutputDevice] {
         try ids(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices).compactMap { id in
-            let streams = try ids(id, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
-            guard !streams.isEmpty else { return nil }
-            let uid = try audioString(id, kAudioDevicePropertyDeviceUID)
-            guard !uid.hasPrefix("local.aural.") else { return nil }
-            // Initial release supports a single stereo output stream; do not discard surround channels.
-            guard streams.count == 1 else { return nil }
-            let format = try scalar(streams[0], kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription())
-            guard format.mChannelsPerFrame == 2 else { return nil }
-            return OutputDevice(id: id, uid: uid, name: try audioString(id, kAudioObjectPropertyName))
+            do {
+                let streams = try ids(id, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
+                guard !streams.isEmpty else { return nil }
+                let uid = try audioString(id, kAudioDevicePropertyDeviceUID)
+                guard !uid.hasPrefix("local.aural.") else { return nil }
+                // Supports one stereo output stream; never discard surround channels.
+                guard streams.count == 1 else { return nil }
+                let format = try scalar(streams[0], kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription())
+                guard format.mChannelsPerFrame == 2 else { return nil }
+                return OutputDevice(id: id, uid: uid, name: try audioString(id, kAudioObjectPropertyName))
+            } catch let failure as CoreAudioFailure where failure.status == kAudioHardwareBadDeviceError || failure.status == kAudioHardwareBadObjectError {
+                // Device/stream IDs can expire between enumeration and property
+                // reads. A disconnected device must not hide the healthy outputs.
+                logger.warning("Skipped unavailable audio device \(id, privacy: .public): \(failure.localizedDescription, privacy: .public)")
+                return nil
+            }
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
     static func defaultOutput() throws -> AudioObjectID {
@@ -131,7 +148,8 @@ struct OutputDevice: Identifiable, Equatable {
             throw AudioFailure(message: "An imported filter is too close to this output's Nyquist frequency. Choose a higher sample rate in Audio MIDI Setup before using this profile.")
         }
         let filters = profile.dspFilters(rate: sampleRate)
-        if let dsp, !eq_update_filters(dsp, filters, UInt32(filters.count), profile.preamp, bypass) {
+        var stereo = profile.dspStereo
+        if let dsp, !eq_update_filters_stereo(dsp, filters, UInt32(filters.count), profile.preamp, bypass, &stereo) {
             throw AudioFailure(message: "The equalizer could not accept this setting. Stop and start processing to retry.")
         }
     }

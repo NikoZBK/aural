@@ -7,10 +7,12 @@ struct FilterDraft: Identifiable, Equatable {
     var gain: String
     var q: String
     var enabled: Bool
+    var channel: ImportedFilter.Channel
 
     init(_ filter: ImportedFilter = ImportedFilter(kind: .peak, frequency: 1000, gain: 0, q: 1.4, enabled: true)) {
         kind = filter.kind; frequency = String(filter.frequency)
         gain = String(filter.gain); q = String(filter.q); enabled = filter.enabled
+        channel = filter.effectiveChannel
     }
 
     func filter(row: Int) throws -> ImportedFilter {
@@ -19,7 +21,7 @@ struct FilterDraft: Identifiable, Equatable {
               let quality = Double(q.trimmingCharacters(in: .whitespaces)) else {
             throw AudioFailure(message: "Filter \(row): enter numbers for frequency, gain, and Q (use a decimal point).")
         }
-        let result = ImportedFilter(kind: kind, frequency: hz, gain: db, q: quality, enabled: enabled)
+        let result = ImportedFilter(kind: kind, frequency: hz, gain: db, q: quality, enabled: enabled, channel: channel == .stereo ? nil : channel)
         do { try result.validate() }
         catch { throw AudioFailure(message: "Filter \(row): \(error.localizedDescription)") }
         return result
@@ -49,6 +51,7 @@ struct ParametricDraft: Equatable {
         var copy = FilterDraft()
         copy.kind = original.kind; copy.frequency = original.frequency
         copy.gain = original.gain; copy.q = original.q; copy.enabled = original.enabled
+        copy.channel = original.channel
         filters.insert(copy, at: index + 1)
     }
 

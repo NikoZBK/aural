@@ -35,13 +35,145 @@ static double measure(EQ *eq, double rate, double frequency, double *correlation
     double sineGain=(ys*cc-yc*sc)/determinant, cosineGain=(yc*ss-ys*sc)/determinant;
     return 10*log10(fmax(1e-30,sineGain*sineGain+cosineGain*cosineGain));
 }
+static void frame(EQ *eq, float left, float right, float result[2]) {
+    float inputSamples[2]={left,right};
+    AudioBufferList input={1,{{2,sizeof(inputSamples),inputSamples}}}, output={1,{{2,2*sizeof(float),result}}};
+    eq_process(eq,&input,&output);
+}
+static void settle(EQ *eq, float left, float right, float result[2]) {
+    for (unsigned i=0;i<16000;i++) frame(eq,left,right,result);
+    assert(eq_faults(eq)==0);
+}
+static double crossfeed_ratio(EQ *eq, double frequency) {
+    double leftPower=0,rightPower=0;
+    float out[2];
+    for (unsigned i=0;i<48000;i++) {
+        frame(eq,.05*sin(2*M_PI*frequency*i/48000),0,out);
+        if (i>=24000) { leftPower+=out[0]*out[0]; rightPower+=out[1]*out[1]; }
+    }
+    return sqrt(rightPower/leftPower);
+}
+static void stereo_tests(void) {
+    EQFilter flat={1000,0,1,EQFilterPeak,false,EQChannelStereo};
+    EQStereo neutral=eq_stereo_default(),s=neutral;
+    float out[2];
+    EQ *eq=eq_create(48000,0); assert(eq);
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    settle(eq,.125,-.25,out);
+    assert(out[0]==.125f && out[1]==-.25f);
+    s.leftTrimDB=-6; s.rightTrimDB=6; s.balance=.5; s.invertRight=true;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.1,.1,out);
+    assert(fabs(out[0]-.1*pow(10,-6.0/20)*.5)<1e-7);
+    assert(fabs(out[1]+.1*pow(10,6.0/20))<1e-7);
+    s=neutral; s.balance=-1;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.1,.2,out);
+    assert(out[0]==.1f && out[1]==0);
+    s=neutral; s.width=0;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.1,.3,out);
+    assert(fabs(out[0]-.2)<1e-7 && out[0]==out[1]);
+    s.width=2;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.1,-.1,out);
+    assert(out[0]==.2f && out[1]==-.2f);
+    s.mono=true;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.1,-.1,out);
+    assert(out[0]==0 && out[1]==0);
+    s=neutral; s.crossfeed=1;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.2,.2,out);
+    assert(fabs(out[0]-.2)<1e-7 && out[0]==out[1]); // Normalized mono remains unity at DC.
+    assert(crossfeed_ratio(eq,100)>.98 && crossfeed_ratio(eq,10000)<.09);
+    s=(EQStereo){12,-24,-.7,2,1,30,17,true,true,true};
+    assert(eq_update_filters_stereo(eq,&flat,1,-12,true,&s)); settle(eq,.125,-.25,out);
+    assert(out[0]==.125f && out[1]==-.25f); // Full-chain bypass, including channel delay.
+    s=neutral; s.leftTrimDB=NAN; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    s=neutral; s.rightTrimDB=12.01; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    s=neutral; s.balance=-1.01; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    s=neutral; s.width=2.01; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    s=neutral; s.crossfeed=-.01; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    s=neutral; s.leftDelayMS=30.01; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    s=neutral; s.rightDelayMS=INFINITY; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    eq_destroy(eq);
+    puts("PASS stereo defaults, trims, balance, polarity, mid/side width, mono, frequency-shaped crossfeed and full-chain bypass");
+
+    const double rates[]={32000,44100,48000,96000,192000};
+    for (unsigned r=0;r<5;r++) {
+        eq=eq_create(rates[r],0); assert(eq);
+        s=neutral; s.leftDelayMS=1.25; s.rightDelayMS=30;
+        assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,0,0,out);
+        double delay[2]={s.leftDelayMS*rates[r]/1000,s.rightDelayMS*rates[r]/1000};
+        for (unsigned i=0;i<6000;i++) {
+            frame(eq,i==0 ? .2 : 0,i==0 ? .1 : 0,out);
+            for (unsigned c=0;c<2;c++) {
+                unsigned whole=(unsigned)delay[c]; double fraction=delay[c]-whole;
+                double expected=(c==0 ? .2 : .1)*(i==whole ? 1-fraction : (i==whole+1 ? fraction : 0));
+                assert(fabs(out[c]-expected)<1e-7);
+            }
+        }
+        assert(eq_faults(eq)==0); eq_destroy(eq);
+    }
+    puts("PASS fractional stereo delay impulse timing, maximum delay and ring wrap at five sample rates");
+
+    eq=eq_create(48000,0); s=neutral;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.05,.05,out);
+    s.leftDelayMS=30; s.rightDelayMS=25;
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+    for (unsigned i=0;i<10000;i++) {
+        frame(eq,.05,.05,out);
+        assert(fabs(out[0]-.05)<1e-7 && fabs(out[1]-.05)<1e-7);
+    }
+    double previous=.05,largestStep=0;
+    for (unsigned i=0;i<20000;i++) {
+        if (i<5000 && i%64==0) {
+            s.invertLeft=!s.invertLeft; s.width=s.width==2 ? 0 : 2;
+            s.leftDelayMS=s.leftDelayMS==30 ? 0 : 30;
+            assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s));
+        }
+        if (i==5000) { s=neutral; assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); }
+        frame(eq,.05,.05,out);
+        largestStep=fmax(largestStep,fabs(out[0]-previous)); previous=out[0];
+        assert(isfinite(out[0]) && isfinite(out[1]));
+    }
+    assert(largestStep<.001 && out[0]==.05f && out[1]==.05f && eq_faults(eq)==0);
+    eq_destroy(eq);
+    puts("PASS delay warmup without signal drop, rapid stereo edits, smooth polarity transitions and latest target");
+}
+static void channel_tests(void) {
+    EQ *eq=eq_create(48000,0); assert(eq);
+    EQFilter filters[]={{1000,6,1,EQFilterPeak,false,EQChannelLeft},
+                        {1000,-9,1,EQFilterPeak,false,EQChannelRight}};
+    for (unsigned routing=0;routing<2;routing++) {
+        if (routing==1) filters[0].channel=EQChannelRight;
+        assert(eq_update_filters(eq,filters,2,-3,false));
+        double powers[2]={0},inputPower=0; float out[2];
+        for (unsigned i=0;i<24000;i++) {
+            float sample=.02*sin(2*M_PI*1000*i/48000);
+            frame(eq,sample,sample,out);
+            if (i>12000) {
+                inputPower+=sample*sample;
+                for (unsigned c=0;c<2;c++) powers[c]+=out[c]*out[c];
+            }
+        }
+        double expected[2]={routing==0 ? 3 : -3, routing==0 ? -12 : -6};
+        for (unsigned c=0;c<2;c++) {
+            assert(fabs(10*log10(powers[c]/inputPower)-expected[c])<.001);
+            assert(fabs(eq_response_filters_channel(1000,48000,filters,2,-3,c+1)-expected[c])<1e-8);
+        }
+        assert(fabs(eq_response_filters(1000,48000,filters,2,-3)-fmax(expected[0],expected[1]))<1e-8);
+        assert(eq_faults(eq)==0);
+    }
+    filters[0].channel=3; assert(!eq_update_filters(eq,filters,2,0,false));
+    assert(isnan(eq_response_filters_channel(1000,48000,filters,2,0,3)));
+    eq_destroy(eq);
+    puts("PASS independent L/R filter magnitude, live channel rerouting, graph response and conservative stereo peak");
+}
 int main(void) {
+    stereo_tests();
+    channel_tests();
     const double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         double rate=rates[r];
         for (unsigned type=EQFilterLowPass;type<=EQFilterAllPass;type++) {
             EQ *eq=eq_create(rate,0); assert(eq);
-            EQFilter filter={1000,0,M_SQRT1_2,type,false};
+            EQFilter filter={1000,0,M_SQRT1_2,type,false,EQChannelStereo};
             assert(eq_update_filters(eq,&filter,1,0,false));
             double phase,db=measure(eq,rate,1000,&phase);
             if(type==EQFilterLowPass || type==EQFilterHighPass) assert(fabs(db+3.01029995664)<.02);
@@ -75,14 +207,14 @@ int main(void) {
 
     // Disabled gain filters must preserve their saved gain while acting as identity.
     for(unsigned type=0;type<=EQFilterHighShelf;type++) {
-        EQ *eq=eq_create(48000,0); EQFilter filter={1000,12,.7,type,true};
+        EQ *eq=eq_create(48000,0); EQFilter filter={1000,12,.7,type,true,EQChannelStereo};
         assert(eq_update_filters(eq,&filter,1,0,false));
         assert(fabs(measure(eq,48000,1000,NULL))<.001);
         assert(eq_response_filters(1000,48000,&filter,1,0)==0);
         eq_destroy(eq);
     }
     EQ *eq=eq_create(48000,0); assert(eq);
-    EQFilter invalid={1000,1,.7,EQFilterLowPass,false};
+    EQFilter invalid={1000,1,.7,EQFilterLowPass,false,EQChannelStereo};
     assert(!eq_update_filters(eq,&invalid,1,0,false));
     invalid.gain=0; invalid.frequency=24000; assert(!eq_update_filters(eq,&invalid,1,0,false));
     invalid.frequency=22000;
@@ -98,7 +230,7 @@ int main(void) {
     float in[128],out[128];
     for(unsigned i=0;i<128;i++) in[i]=.05;
     AudioBufferList input={1,{{2,sizeof(in),in}}}, output={1,{{2,sizeof(out),out}}};
-    EQFilter filter={1000,0,.707,EQFilterHighPass,false};
+    EQFilter filter={1000,0,.707,EQFilterHighPass,false,EQChannelStereo};
     assert(eq_update_filters(eq,&filter,1,0,false));
     double previous=.05,largestStep=0;
     for(unsigned block=0;block<160;block++) {
@@ -133,7 +265,7 @@ int main(void) {
                 for(unsigned b=0;b<EQMaxFilters;b++) {
                     unsigned type=(b+block/80)%8;
                     filters[b]=(EQFilter){b%2 ? 10 : fmin(22000,rates[r]*.48),type<3 ? (b%2 ? 30 : -30) : 0,
-                        b%2 ? .05 : 50,type,block%160==0};
+                        b%2 ? .05 : 50,type,block%160==0,EQChannelStereo};
                 }
                 assert(eq_update_filters(eq,filters,EQMaxFilters,-12,false));
             }

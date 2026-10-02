@@ -4,16 +4,25 @@ import Foundation
 enum AutoEQ {
     static func export(_ profile: Profile) throws -> String {
         _ = try profile.validated()
+        guard profile.stereoSettings == StereoSettings() else {
+            throw AudioFailure(message: "Equalizer APO text export cannot preserve Aural's stereo effects. Reset Stereo & timing before exporting EQ text, or save a preset and use Back up presets to preserve the complete configuration.")
+        }
         // Use the same fixed-band conversion as the filter editor.
         let parametric = try ParametricDraft(profile).profile()
         guard let filters = parametric.filters else {
             throw AudioFailure(message: "Could not prepare EQ filters for copying.")
         }
-        let lines = filters.enumerated().map { index, filter in
+        var lines = ["Preamp: \(parametric.preamp) dB"]
+        var channel = ImportedFilter.Channel.stereo
+        for (index, filter) in filters.enumerated() {
+            if filter.effectiveChannel != channel {
+                channel = filter.effectiveChannel
+                lines.append("Channel: \(channel.rawValue)")
+            }
             let gain = filter.kind.usesGain ? " Gain \(filter.gain) dB" : ""
-            return "Filter \(index + 1): \(filter.enabled ? "ON" : "OFF") \(filter.kind.rawValue) Fc \(filter.frequency) Hz\(gain) Q \(filter.q)"
+            lines.append("Filter \(index + 1): \(filter.enabled ? "ON" : "OFF") \(filter.kind.rawValue) Fc \(filter.frequency) Hz\(gain) Q \(filter.q)")
         }
-        return (["Preamp: \(parametric.preamp) dB"] + lines).joined(separator: "\n") + "\n"
+        return lines.joined(separator: "\n") + "\n"
     }
 
     static func parse(_ text: String, name: String) throws -> Profile {
@@ -23,6 +32,7 @@ enum AutoEQ {
         let filterPattern = try NSRegularExpression(pattern: "^Filter\\s+(\\d+):\\s+(ON|OFF)\\s+(PK|LSC|HSC)\\s+Fc\\s+" + number + "\\s+Hz\\s+Gain\\s+" + number + "\\s+dB\\s+Q\\s+" + number + "$", options: [.caseInsensitive])
         let passPattern = try NSRegularExpression(pattern: "^Filter\\s+(\\d+):\\s+(ON|OFF)\\s+(LPQ|HPQ|BP|NO|AP)\\s+Fc\\s+" + number + "\\s+Hz\\s+Q\\s+" + number + "$", options: [.caseInsensitive])
         var filters: [ImportedFilter] = [], preamp: Double?, identifiers = Set<Int>()
+        var channel = ImportedFilter.Channel.stereo
         let content = text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
         for (index, original) in content.components(separatedBy: .newlines).enumerated() {
             let line = String(original.prefix(while: { $0 != "#" })).trimmingCharacters(in: .whitespaces)
@@ -35,7 +45,14 @@ enum AutoEQ {
             if line.lowercased().hasPrefix("graphiceq:") {
                 throw failure("GraphicEQ curves are not supported. Download AutoEQ's ParametricEQ.txt or FixedBandEQ.txt export instead.")
             }
-            if let fields = groups(preampPattern) {
+            if line.lowercased().hasPrefix("channel:") {
+                let target = line.dropFirst("Channel:".count).trimmingCharacters(in: .whitespaces).uppercased()
+                guard let next = ImportedFilter.Channel(rawValue: target) else {
+                    throw failure("Supported channel targets are ALL, L, or R. Surround channels and routing expressions are not supported.")
+                }
+                channel = next
+            } else if let fields = groups(preampPattern) {
+                guard channel == .stereo else { throw failure("Per-channel Preamp commands are not supported in text import. Place the master Preamp before Channel commands, then use Stereo & timing for channel trims.") }
                 guard preamp == nil, let value = Double(fields[0]), value.isFinite, (-60...24).contains(value) else {
                     throw failure("Use one Preamp line with a value between −60 and +24 dB.")
                 }
@@ -46,12 +63,13 @@ enum AutoEQ {
                       let frequency = Double(fields[3]), let gain = Double(fields[4]), let q = Double(fields[5]) else {
                     throw failure("Invalid filter parameters.")
                 }
-                let filter = ImportedFilter(kind: kind, frequency: frequency, gain: gain, q: q, enabled: fields[1].uppercased() == "ON")
+                var filter = ImportedFilter(kind: kind, frequency: frequency, gain: gain, q: q, enabled: fields[1].uppercased() == "ON")
+                filter.channel = channel == .stereo ? nil : channel
                 do { try filter.validate() } catch { throw failure(error.localizedDescription) }
                 filters.append(filter)
                 guard filters.count <= 32 else { throw failure("At most 32 filters are supported.") }
             } else {
-                throw failure("Unsupported or malformed setting. Expected Preamp; PK/LSC/HSC with Fc, Gain and Q; or LPQ/HPQ/BP/NO/AP with Fc and Q. Unsupported commands are not applied.")
+                throw failure("Unsupported or malformed setting. Expected Preamp, Channel ALL/L/R, or a supported Filter with Fc and Q (and Gain for peaks/shelves). Unsupported commands are not applied.")
             }
         }
         return try Profile(preamp: preamp ?? 0, filters: filters, sourceName: name).validated()

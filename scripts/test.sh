@@ -15,3 +15,17 @@ xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/PresetLibrary.swift Sourc
 xcrun clang -std=c11 -I Sources/DSP/include -c Sources/DSP/DSP.c -o .build/dsp-bridge.o
 xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Tests/BridgeTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/bridge-tests
 .build/bridge-tests
+
+xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/ProfileWorkspace.swift Tests/WorkflowTests/main.swift -o .build/workflow-tests
+.build/workflow-tests
+
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
+.build/response-tests
+
+# Exercise the actual window lifecycle controller without launching audio or showing UI.
+xcrun swiftc -parse-as-library Sources/Aural/WindowPresence.swift Tests/WindowTests/main.swift -framework AppKit -o .build/window-tests
+.build/window-tests
+
+# Exercise processing-driven icon updates without changing the real app icon or audio.
+xcrun swiftc -parse-as-library Sources/Aural/AppIcon.swift Tests/IconTests/main.swift -framework AppKit -o .build/icon-tests
+.build/icon-tests

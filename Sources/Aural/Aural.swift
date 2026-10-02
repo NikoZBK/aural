@@ -1,21 +1,42 @@
 import SwiftUI
 
 @main struct AuralApp: App {
-    @StateObject private var model = Model()
+    @NSApplicationDelegateAdaptor(AuralAppDelegate.self) private var delegate
+    private var model: Model { delegate.model }
     var body: some Scene {
-        Window("Aural", id: "main") { MainView(model: model) }
-            .defaultSize(width: 1040, height: 920)
+        Window("Aural", id: "main") { MainView(model: model, icon: delegate.icon).background(WindowRegistration()) }
+            .defaultSize(width: 1240, height: 820)
             .windowResizability(.contentMinSize)
             .commands { AuralCommands(model: model) }
-        Window("Preset library", id: "presets") { PresetLibraryView(model: model) }
+        Window("Preset library", id: "presets") { PresetLibraryView(model: model).background(WindowRegistration()) }
             .defaultSize(width: 800, height: 580)
             .windowResizability(.contentMinSize)
-        Window("About Aural", id: "about") { AboutView() }
+        Window("About Aural", id: "about") { AboutView(icon: delegate.icon).background(WindowRegistration()) }
             .windowResizability(.contentSize)
-        Window("Software updates", id: "updates") { UpdatesView() }
+        Window("Software updates", id: "updates") { UpdatesView().background(WindowRegistration()) }
             .windowResizability(.contentSize)
         MenuBarExtra("Aural", systemImage: "headphones") { MenuBarControls(model: model) }
     }
+}
+
+@MainActor final class AuralAppDelegate: NSObject, NSApplicationDelegate {
+    let model: Model
+    let icon: AppIconController
+
+    override init() {
+        let model = Model()
+        self.model = model
+        icon = AppIconController(running: model.$running.eraseToAnyPublisher(), bypass: model.$bypass.eraseToAnyPublisher()) { [weak model] message in
+            model?.error = message
+        }
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) { icon.startUpdatingApplicationIcon() }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationWillTerminate(_ notification: Notification) { model.stop() }
 }
 
 struct AuralCommands: Commands {
@@ -24,17 +45,26 @@ struct AuralCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {}
         CommandMenu("Equalizer") {
+            Button(model.undoLabel) { model.undoProfile() }.disabled(!model.canUndo)
+                .keyboardShortcut("z", modifiers: [.command, .option])
+            Button(model.redoLabel) { model.redoProfile() }.disabled(!model.canRedo)
+                .keyboardShortcut("z", modifiers: [.command, .option, .shift])
+            Divider()
+            Button("Compare A") { model.selectComparison(.a) }.keyboardShortcut("1", modifiers: [.command, .option])
+            Button("Compare B") { model.selectComparison(.b) }.keyboardShortcut("2", modifiers: [.command, .option])
+            Button("Bypass EQ") { model.setBypass(!model.bypass) }.keyboardShortcut("b", modifiers: [.command, .option])
+            Divider()
             Button("Copy EQ") { model.copyEQ() }.keyboardShortcut("c", modifiers: [.command, .shift])
             Button("Paste EQ") { model.pasteEQ() }.keyboardShortcut("v", modifiers: [.command, .shift])
             Button("Import AutoEQ…") { model.importAutoEQ() }
             Button("Export EQ…") { model.exportEQ() }
             Divider()
-            Button("Preset library…") { openWindow(id: "presets") }
+            Button("Preset library…") { openWindow.showAuralWindow("presets") }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .appInfo) {
-            Button("About Aural") { openWindow(id: "about"); NSApp.activate(ignoringOtherApps: true) }
-            Button("Check for Updates…") { openWindow(id: "updates"); NSApp.activate(ignoringOtherApps: true) }
+            Button("About Aural") { openWindow.showAuralWindow("about") }
+            Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         }
     }
 }
@@ -44,20 +74,25 @@ struct MenuBarControls: View {
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         Button(model.running ? "Stop equalization" : "Start equalization") { model.running ? model.stop() : model.start() }
-        Toggle("Bypass EQ", isOn: $model.bypass).onChange(of: model.bypass) { model.change() }
+        Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }
-        Button("Preset library…") { openWindow(id: "presets"); NSApp.activate(ignoringOtherApps: true) }
+        Button("Preset library…") { openWindow.showAuralWindow("presets") }
         Menu("Preamp: \(model.profile.preamp, specifier: "%.2f") dB") {
             Button("Increase 1 dB") { model.adjustPreamp(1) }
                 .disabled(model.profile.preamp >= model.profile.preampRange.upperBound)
             Button("Decrease 1 dB") { model.adjustPreamp(-1) }
                 .disabled(model.profile.preamp <= model.profile.preampRange.lowerBound)
         }
+        Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
+            Button("A") { model.selectComparison(.a) }
+            Button("B") { model.selectComparison(.b) }
+            Button("Copy current to other slot") { model.copyComparisonToOther() }
+        }
         Divider()
-        Button("Show Aural") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
-        Button("About Aural") { openWindow(id: "about"); NSApp.activate(ignoringOtherApps: true) }
-        Button("Check for Updates…") { openWindow(id: "updates"); NSApp.activate(ignoringOtherApps: true) }
-        Button("Quit Aural") { model.stop(); NSApp.terminate(nil) }.keyboardShortcut("q")
+        Button("Show Aural") { openWindow.showAuralWindow("main") }
+        Button("About Aural") { openWindow.showAuralWindow("about") }
+        Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
+        Button("Quit Aural") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 }
 
@@ -76,8 +111,8 @@ struct StartupSettings: View {
                 Button("Open Login Items settings") { model.openLoginSettings() }
             }
             Divider()
-            Button("About Aural") { openWindow(id: "about") }
-            Button("Check for Updates…") { openWindow(id: "updates") }
+            Button("About Aural") { openWindow.showAuralWindow("about") }
+            Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         }.padding(18).frame(width: 300).onAppear { model.refreshLoginStatus() }
     }
 }

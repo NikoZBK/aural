@@ -60,7 +60,7 @@ struct PresetLibraryView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Preset library").font(.system(size: 23, weight: .semibold))
-                Text("Your favorite sounds, ready to recall.")
+                Text("Search, compare, and organize your saved configurations.")
                     .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
@@ -184,6 +184,10 @@ struct PresetLibraryView: View {
                 Text(isCustom ? "A saved EQ from your personal collection." : "A listening curve included with Aural.")
                     .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            if let profile = model.presetProfile(named: name) {
+                ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
+                    .equatable().frame(height: 220)
             }
             VStack(alignment: .leading, spacing: 9) {
                 Button { model.apply(name) } label: {
