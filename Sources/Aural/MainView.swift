@@ -6,6 +6,7 @@ struct MainView: View {
     @State private var showStartup = false
     @State private var showFilterEditor = false
     @State private var page = StudioPage.equalizer
+    @StateObject private var submissions = PrecisionSubmissionCoordinator()
 
     private var status: String { model.running ? (model.bypass ? "Bypassed" : "Processing") : "Stopped" }
     private var statusColor: Color { model.running ? (model.bypass ? AuralStyle.warning : AuralStyle.accent) : AuralStyle.secondary }
@@ -14,20 +15,25 @@ struct MainView: View {
         VStack(spacing: 0) {
             header
             Divider().overlay(AuralStyle.border)
-            HStack(spacing: 0) {
-                StudioSidebar(model: model).frame(width: 184)
-                Divider().overlay(AuralStyle.border)
-                GeometryReader { geometry in
-                    workspace(graphHeight: min(246, max(160, geometry.size.height * 0.30)))
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                Divider().overlay(AuralStyle.border)
-                MonitorPanel(model: model).frame(width: 218)
+            if model.interfaceMode == .easy {
+                EasyModeView(model: model)
+            } else {
+                HStack(spacing: 0) {
+                    StudioSidebar(model: model, submissions: submissions).frame(width: 184)
+                    Divider().overlay(AuralStyle.border)
+                    GeometryReader { geometry in
+                        workspace(graphHeight: min(246, max(160, geometry.size.height * 0.30)))
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Divider().overlay(AuralStyle.border)
+                    MonitorPanel(model: model, submissions: submissions).frame(width: 218)
+                }
             }
             Divider().overlay(AuralStyle.border)
             footer
         }
-        .frame(minWidth: 1060, minHeight: 700)
+        .frame(minWidth: model.interfaceMode == .easy ? 900 : 1060, minHeight: model.interfaceMode == .easy ? 640 : 700)
         .background(AuralStyle.background).preferredColorScheme(.dark).tint(AuralStyle.accent)
+        .focusedSceneValue(\.precisionSubmissions, submissions)
         .sheet(isPresented: $showFilterEditor) { FilterEditor(model: model) }
     }
 
@@ -38,8 +44,15 @@ struct MainView: View {
                 else { Image(systemName: "headphones").resizable().scaledToFit().padding(5) }
             }.frame(width: 35, height: 35).accessibilityHidden(true)
             Text("AURAL").font(.system(size: 18, weight: .bold)).tracking(2)
-            Text("AUDIO WORKSPACE").font(.system(size: 9, weight: .medium)).tracking(1.2)
-                .foregroundStyle(AuralStyle.secondary)
+            if model.interfaceMode == .professional {
+                Text("EQUALIZER").font(.system(size: 9, weight: .medium)).tracking(1.2)
+                    .foregroundStyle(AuralStyle.secondary)
+            }
+            Picker("Interface mode", selection: Binding(get: { model.interfaceMode }, set: changeInterfaceMode)) {
+                ForEach(InterfaceMode.allCases, id: \.self) { mode in Text(mode.label).tag(mode) }
+            }.pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                .accessibilityLabel("Interface mode")
+                .help("Simple shows presets and outputs. Professional shows every control. Your current sound stays active in either mode.")
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(statusColor).frame(width: 6, height: 6)
@@ -64,7 +77,7 @@ struct MainView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
-                    AuralSectionLabel(title: "Active profile")
+                    AuralSectionLabel(title: "Current preset")
                     HStack(spacing: 8) {
                         Text(model.selectedPresetName ?? "Custom EQ").font(.system(size: 20, weight: .semibold))
                             .lineLimit(1).help(model.currentPresetTitle)
@@ -81,12 +94,12 @@ struct MainView: View {
                 Button { model.redoProfile() } label: { Image(systemName: "arrow.uturn.forward") }
                     .buttonStyle(AuralButtonStyle()).disabled(!model.canRedo).help(model.redoLabel).accessibilityLabel(model.redoLabel)
                 Menu {
-                    Button("Edit as a draft…") { showFilterEditor = true }
+                    Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }
                     Divider()
-                    Button("Copy EQ") { model.copyEQ() }
-                    Button("Export EQ…") { model.exportEQ() }
+                    Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }
+                    Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }
                 } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 24)
-                    .accessibilityLabel("Profile actions")
+                    .accessibilityLabel("EQ options")
             }
             notices
             ResponseCurve(profile: model.profile, rate: model.responseRate, bypass: model.bypass, running: model.running,
@@ -94,22 +107,22 @@ struct MainView: View {
                 .equatable().frame(height: graphHeight).auralPanel(padding: 14)
             comparison
             HStack {
-                Picker("Workspace", selection: $page) {
+                Picker("Controls", selection: Binding(get: { page }, set: changePage)) {
                     Text("Equalizer").tag(StudioPage.equalizer)
-                    Text("Stereo & timing").tag(StudioPage.stereo)
+                    Text("Stereo & delay").tag(StudioPage.stereo)
                 }.pickerStyle(.segmented).labelsHidden().frame(width: 242)
                 Spacer()
                 if page == .equalizer {
-                    Menu("New layout") {
-                        Button("10-band octave EQ") { model.useGraphicTemplate(bands: 10) }
-                        Button("31-band third-octave EQ") { model.useGraphicTemplate(bands: 31) }
-                    }.fixedSize().help("Start a flat layout. Undo restores your previous curve.")
+                    Menu("Band layout") {
+                        Button("10-band octave EQ") { if submitPendingInput() { model.useGraphicTemplate(bands: 10) } }
+                        Button("31-band third-octave EQ") { if submitPendingInput() { model.useGraphicTemplate(bands: 31) } }
+                    }.fixedSize().help("Choose how many bands to start with. Undo restores your previous EQ.")
                 }
             }
             if page == .equalizer {
-                FilterRack(model: model).frame(maxHeight: .infinity)
+                FilterRack(model: model, submissions: submissions).frame(maxHeight: .infinity)
             } else {
-                StereoPanel(model: model).frame(maxHeight: .infinity)
+                StereoPanel(model: model, submissions: submissions).frame(maxHeight: .infinity)
             }
         }.padding(18)
     }
@@ -122,40 +135,51 @@ struct MainView: View {
             Button("B") { model.selectComparison(.b) }
                 .buttonStyle(AuralButtonStyle(prominent: model.comparisonSlot == .b)).help("Listen to comparison B")
             Menu {
-                Button("Copy \(model.comparisonSlot.rawValue.uppercased()) to other slot") { model.copyComparisonToOther() }
-                Button("Reset both to current profile") { model.captureComparison() }
+                Button("Copy \(model.comparisonSlot.rawValue.uppercased()) to other slot") { if submitPendingInput() { model.copyComparisonToOther() } }
+                Button("Reset both to current EQ") { if submitPendingInput() { model.captureComparison() } }
             } label: { Image(systemName: "doc.on.doc") }.menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 22)
                 .accessibilityLabel("Comparison actions")
             Spacer()
-            Text(model.comparisonAvailable ? "Edits stay in the selected slot" : "Select B to start a comparison")
+            Text(model.comparisonAvailable ? "Changes stay in A or B" : "Select B to start a comparison")
                 .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary)
         }.accessibilityElement(children: .contain).accessibilityLabel("A/B comparison")
     }
 
-    @ViewBuilder private var notices: some View {
-        if let notice = model.startupNotice {
-            HStack { AuralNotice(message: notice); Button("Cancel") { model.stop() }.buttonStyle(AuralButtonStyle()) }
-        }
-        if let message = model.error ?? model.importNotice {
-            HStack(alignment: .top, spacing: 4) {
-                AuralNotice(message: message, isError: model.error != nil)
-                Button { model.error = nil; model.importNotice = nil } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).padding(8).accessibilityLabel("Dismiss notice")
-            }
-        }
-    }
+    private var notices: some View { SessionNotices(model: model) }
 
     private var footer: some View {
         HStack(spacing: 7) {
             Circle().fill(statusColor).frame(width: 5, height: 5).accessibilityHidden(true)
-            Text(model.running ? "CORE AUDIO  /  STEREO" : "OFFLINE PREVIEW")
-            Text("·").foregroundStyle(AuralStyle.border)
-            Text(String(format: "%g kHz", model.responseRate / 1000)).monospacedDigit()
+            if model.interfaceMode == .professional {
+                Text(model.running ? "STEREO OUTPUT" : "PREVIEW")
+                Text("·").foregroundStyle(AuralStyle.border)
+                Text(String(format: "%g kHz", model.responseRate / 1000)).monospacedDigit()
+            } else {
+                Text(status)
+            }
             Spacer()
             Text("Close window to keep EQ in the menu bar").foregroundStyle(AuralStyle.secondary)
             Image(systemName: "lock.shield").accessibilityHidden(true)
         }.font(.system(size: 9, weight: .medium)).tracking(0.3).foregroundStyle(AuralStyle.secondary)
             .padding(.horizontal, 18).frame(height: 27)
+    }
+
+    private func submitPendingInput() -> Bool {
+        switch submissions.submitActive() {
+        case .rejected: return false
+        case .submitted: return model.error == nil
+        case .unchanged: return true
+        }
+    }
+
+    private func changeInterfaceMode(_ mode: InterfaceMode) {
+        guard mode != model.interfaceMode, submitPendingInput() else { return }
+        model.setInterfaceMode(mode)
+    }
+
+    private func changePage(_ next: StudioPage) {
+        guard next != page, submitPendingInput() else { return }
+        page = next
     }
 }
 

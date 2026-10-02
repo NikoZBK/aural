@@ -7,10 +7,13 @@ struct FilterEditor: View {
     @State private var error: String?
     @State private var history = EditHistory<ParametricDraft>()
     @State private var restoringHistory = false
+    @State private var sourceRevision: Int
+    private var sourceChanged: Bool { sourceRevision != model.editRevision }
 
     init(model: Model) {
         self.model = model
         _draft = State(initialValue: ParametricDraft(model.profile))
+        _sourceRevision = State(initialValue: model.editRevision)
     }
 
     var body: some View {
@@ -24,6 +27,13 @@ struct FilterEditor: View {
                     guidance
                 }
             }.scrollIndicators(.visible)
+            if sourceChanged {
+                HStack(alignment: .top, spacing: 12) {
+                    AuralNotice(message: "The active EQ changed while this draft was open. Your draft is retained; reload the current EQ before applying edits.", isError: true)
+                    Button("Reload current EQ") { reloadCurrent() }.buttonStyle(AuralButtonStyle())
+                        .help("Replace this editor's draft with the current EQ and clear its local undo history")
+                }
+            }
             if let error {
                 AuralNotice(message: error, isError: true)
             }
@@ -32,7 +42,7 @@ struct FilterEditor: View {
         .font(.system(size: 13))
         .textFieldStyle(.roundedBorder)
         .padding(24)
-        .frame(width: 930, height: 750)
+        .frame(minWidth: 900, idealWidth: 930, minHeight: 520, idealHeight: 750)
         .background(AuralStyle.background)
         .preferredColorScheme(.dark)
         .tint(AuralStyle.accent)
@@ -51,8 +61,8 @@ struct FilterEditor: View {
                 .background(AuralStyle.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
-                Text("Filter studio").font(.system(size: 24, weight: .semibold))
-                Text("Preview the complete chain before applying.")
+                Text("Filter editor").font(.system(size: 24, weight: .semibold))
+                Text("Check your changes before applying them.")
                     .foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
@@ -67,14 +77,18 @@ struct FilterEditor: View {
         }
     }
 
-    @ViewBuilder private var preview: some View {
-        switch Result(catching: { try draft.profile() }) {
-        case .success(let profile):
-            ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
-                .equatable().frame(height: 205).auralPanel(padding: 14)
-        case .failure(let failure):
-            AuralNotice(message: "Preview unavailable: " + failure.localizedDescription, isError: true)
+    private var preview: some View {
+        Group {
+            switch Result(catching: { try draft.profile() }) {
+            case .success(let profile):
+                ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
+                    .equatable().frame(height: 205).auralPanel(padding: 14)
+            case .failure(let failure):
+                AuralNotice(message: "Preview unavailable: " + failure.localizedDescription, isError: true)
+            }
         }
+        // Partial numeric input must not make the form jump while a field is focused.
+        .frame(height: 233, alignment: .top)
     }
 
     private var preamp: some View {
@@ -102,7 +116,7 @@ struct FilterEditor: View {
     private var filterList: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                AuralSectionLabel(title: "Filter chain", systemImage: "line.3.horizontal.decrease")
+                AuralSectionLabel(title: "Filters", systemImage: "line.3.horizontal.decrease")
                 Spacer()
                 Button("Add filter", systemImage: "plus") { draft.filters.append(FilterDraft()) }
                     .buttonStyle(AuralButtonStyle())
@@ -114,7 +128,7 @@ struct FilterEditor: View {
                     Image(systemName: "waveform.path")
                         .font(.system(size: 28)).foregroundStyle(AuralStyle.accent)
                         .accessibilityHidden(true)
-                    Text("Your filter chain is empty").fontWeight(.medium)
+                    Text("No filters added yet").fontWeight(.medium)
                     Text("Add at least one filter before applying your EQ.")
                         .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
                 }
@@ -237,33 +251,61 @@ struct FilterEditor: View {
         .foregroundStyle(AuralStyle.secondary)
     }
 
+    private func restoreDraft(_ next: ParametricDraft) {
+        // A no-op replacement has no onChange callback to consume suppression.
+        restoringHistory = next != draft
+        draft = next
+    }
+
+    private func reloadCurrent() {
+        restoreDraft(ParametricDraft(model.profile))
+        sourceRevision = model.editRevision
+        history = EditHistory<ParametricDraft>()
+        error = nil
+    }
+
     private var footer: some View {
         VStack(spacing: 14) {
             Divider().overlay(AuralStyle.border)
             HStack(spacing: 8) {
                 Button("Undo", systemImage: "arrow.uturn.backward") {
-                    do { let previous = try history.undo(draft); restoringHistory = true; draft = previous; error = nil }
+                    do { let previous = try history.undo(draft); restoreDraft(previous); error = nil }
                     catch { self.error = error.localizedDescription }
                 }
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canUndo)
-                .keyboardShortcut("z", modifiers: .command)
+                .keyboardShortcut("z", modifiers: [.command, .option])
                 Button("Redo", systemImage: "arrow.uturn.forward") {
-                    do { let next = try history.redo(draft); restoringHistory = true; draft = next; error = nil }
+                    do { let next = try history.redo(draft); restoreDraft(next); error = nil }
                     catch { self.error = error.localizedDescription }
                 }
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canRedo)
-                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .keyboardShortcut("z", modifiers: [.command, .option, .shift])
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction).buttonStyle(AuralButtonStyle())
                 Button("Apply EQ") {
+                    guard !sourceChanged else {
+                        error = "The active EQ changed. Reload the current EQ before applying this draft."
+                        return
+                    }
                     do {
                         let profile = try draft.profile()
+                        let previousProfile = model.profile
+                        let previousOutput = model.selectedUID
+                        let previousPreset = model.selectedPresetName
                         if model.replaceProfile(profile) { dismiss() }
-                        else { error = model.error }
+                        else {
+                            // Rejected audio settings also invalidate inline field drafts.
+                            // Keep this editor usable if that failed Apply left its source intact.
+                            if model.profile == previousProfile && model.selectedUID == previousOutput &&
+                                model.selectedPresetName == previousPreset {
+                                sourceRevision = model.editRevision
+                            }
+                            error = model.error
+                        }
                     } catch { self.error = error.localizedDescription }
                 }
-                .keyboardShortcut(.defaultAction).buttonStyle(AuralButtonStyle(prominent: true))
+                .keyboardShortcut(.defaultAction).buttonStyle(AuralButtonStyle(prominent: true)).disabled(sourceChanged)
             }
             Text("Changes stay in this editor until you apply.")
                 .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)

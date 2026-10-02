@@ -2,32 +2,33 @@ import SwiftUI
 
 struct StereoPanel: View {
     @ObservedObject var model: Model
+    let submissions: PrecisionSubmissionCoordinator
     private var settings: StereoSettings { model.profile.stereoSettings }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    AuralSectionLabel(title: "Stereo processing", systemImage: "arrow.left.and.right")
+                    AuralSectionLabel(title: "Stereo controls", systemImage: "arrow.left.and.right")
                     Spacer()
-                    Button("Reset stereo") { model.resetStereoSettings() }.buttonStyle(AuralButtonStyle())
+                    Button("Reset stereo") { if submitPendingInput() { model.resetStereoSettings() } }.buttonStyle(AuralButtonStyle())
                         .help("Restore neutral stereo settings, leaving EQ unchanged")
                 }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 14) {
-                        AuralSectionLabel(title: "Image")
+                        AuralSectionLabel(title: "Stereo balance")
                         control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, decimals: 2)
                         HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
                             .font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
                         control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, decimals: 2)
                             .disabled(settings.mono)
-                        Toggle("Mono sum", isOn: flag(\.mono)).toggleStyle(.checkbox).font(.system(size: 12))
+                        Toggle("Mono", isOn: flag(\.mono)).toggleStyle(.checkbox).font(.system(size: 12))
                             .help("Sum left and right to mono before channel trims, polarity, and delay.")
                         control("Crossfeed", value: settings.crossfeed, range: 0...1, suffix: "", keyPath: \.crossfeed, decimals: 2)
                         Text("Crossfeed blends low frequencies from the opposite channel for headphone listening.")
                             .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.frame(maxWidth: .infinity).auralPanel(padding: 14)
                     VStack(alignment: .leading, spacing: 14) {
-                        AuralSectionLabel(title: "Channel calibration")
+                        AuralSectionLabel(title: "Left & right")
                         control("Left trim", value: settings.leftTrimDB, range: -24...12, suffix: "dB", keyPath: \.leftTrimDB)
                         control("Right trim", value: settings.rightTrimDB, range: -24...12, suffix: "dB", keyPath: \.rightTrimDB)
                         Divider().overlay(AuralStyle.border)
@@ -35,20 +36,23 @@ struct StereoPanel: View {
                         delay("Right delay", value: settings.rightDelayMS, keyPath: \.rightDelayMS)
                         Toggle("Invert left polarity", isOn: flag(\.invertLeft)).toggleStyle(.checkbox)
                         Toggle("Invert right polarity", isOn: flag(\.invertRight)).toggleStyle(.checkbox)
-                        Text("Delay adds 0–30 ms to the selected channel. The response graph shows EQ and preamp only.")
+                        Text("Delay adds 0–30 ms to the selected channel. The curve shows EQ and preamp only.")
                             .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.font(.system(size: 12)).frame(maxWidth: .infinity).auralPanel(padding: 14)
                 }
             }.padding(.bottom, 8)
-        }.scrollIndicators(.visible)
+        }.scrollIndicators(.visible).onDisappear { model.endProfileGesture() }
     }
     private func flag(_ keyPath: WritableKeyPath<StereoSettings, Bool>) -> Binding<Bool> {
         Binding(get: { settings[keyPath: keyPath] }, set: { value in
+            guard submitPendingInput() else { return }
+            model.endProfileGesture()
             var next = settings; next[keyPath: keyPath] = value; model.setStereoSettings(next)
         })
     }
     private func numeric(_ keyPath: WritableKeyPath<StereoSettings, Double>) -> Binding<Double> {
         Binding(get: { settings[keyPath: keyPath] }, set: { value in
+            guard submitPendingInput() else { return }
             var next = settings; next[keyPath: keyPath] = value; model.setStereoSettings(next)
         })
     }
@@ -57,7 +61,10 @@ struct StereoPanel: View {
         VStack(spacing: 6) {
             HStack(spacing: 4) {
                 Text(title).font(.system(size: 11, weight: .medium)).frame(maxWidth: .infinity, alignment: .leading)
-                PrecisionField(value: value, range: range, label: "\(title) \(suffix)", decimals: decimals, revision: model.editRevision) { numeric(keyPath).wrappedValue = $0 }.frame(width: 58)
+                PrecisionField(value: value, range: range, label: "\(title) \(suffix)", decimals: decimals, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
+                    model.endProfileGesture()
+                    var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
+                }.frame(width: 58)
                 if !suffix.isEmpty { Text(suffix).font(.system(size: 9)).foregroundStyle(AuralStyle.secondary) }
             }
             Slider(value: numeric(keyPath), in: range,
@@ -68,8 +75,18 @@ struct StereoPanel: View {
     private func delay(_ title: String, value: Double, keyPath: WritableKeyPath<StereoSettings, Double>) -> some View {
         HStack {
             Text(title).font(.system(size: 11)).frame(maxWidth: .infinity, alignment: .leading)
-            PrecisionField(value: value, range: 0...30, label: "\(title) in milliseconds", revision: model.editRevision) { numeric(keyPath).wrappedValue = $0 }.frame(width: 68)
+            PrecisionField(value: value, range: 0...30, label: "\(title) in milliseconds", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
+                model.endProfileGesture()
+                var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
+            }.frame(width: 68)
             Text("ms").font(.system(size: 10)).foregroundStyle(AuralStyle.secondary)
+        }
+    }
+    private func submitPendingInput() -> Bool {
+        switch submissions.submitActive() {
+        case .rejected: return false
+        case .submitted: return model.error == nil
+        case .unchanged: return true
         }
     }
 }

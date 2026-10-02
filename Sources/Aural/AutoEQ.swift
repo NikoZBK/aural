@@ -5,7 +5,7 @@ enum AutoEQ {
     static func export(_ profile: Profile) throws -> String {
         _ = try profile.validated()
         guard profile.stereoSettings == StereoSettings() else {
-            throw AudioFailure(message: "Equalizer APO text export cannot preserve Aural's stereo effects. Reset Stereo & timing before exporting EQ text, or save a preset and use Back up presets to preserve the complete configuration.")
+            throw AudioFailure(message: "Equalizer APO text export cannot preserve Aural's stereo effects. Reset Stereo & delay before exporting EQ text, or save a preset and use Back up presets to preserve the complete configuration.")
         }
         // Use the same fixed-band conversion as the filter editor.
         let parametric = try ParametricDraft(profile).profile()
@@ -33,7 +33,10 @@ enum AutoEQ {
         let passPattern = try NSRegularExpression(pattern: "^Filter\\s+(\\d+):\\s+(ON|OFF)\\s+(LPQ|HPQ|BP|NO|AP)\\s+Fc\\s+" + number + "\\s+Hz\\s+Q\\s+" + number + "$", options: [.caseInsensitive])
         var filters: [ImportedFilter] = [], preamp: Double?, identifiers = Set<Int>()
         var channel = ImportedFilter.Channel.stereo
-        let content = text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
+        // Windows exports use CRLF, which CharacterSet.newlines otherwise splits
+        // twice and incorrectly counts as two lines in import diagnostics.
+        let withoutBOM = text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
+        let content = withoutBOM.replacingOccurrences(of: "\r\n", with: "\n")
         for (index, original) in content.components(separatedBy: .newlines).enumerated() {
             let line = String(original.prefix(while: { $0 != "#" })).trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
@@ -52,7 +55,7 @@ enum AutoEQ {
                 }
                 channel = next
             } else if let fields = groups(preampPattern) {
-                guard channel == .stereo else { throw failure("Per-channel Preamp commands are not supported in text import. Place the master Preamp before Channel commands, then use Stereo & timing for channel trims.") }
+                guard channel == .stereo else { throw failure("Per-channel Preamp commands are not supported in text import. Place the master Preamp before Channel commands, then use Stereo & delay for channel trims.") }
                 guard preamp == nil, let value = Double(fields[0]), value.isFinite, (-60...24).contains(value) else {
                     throw failure("Use one Preamp line with a value between −60 and +24 dB.")
                 }

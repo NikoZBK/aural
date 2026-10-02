@@ -93,7 +93,10 @@ struct Profile: Codable, Equatable {
     var stereoSettings: StereoSettings { stereo ?? StereoSettings() }
     var preampRange: ClosedRange<Double> { filters == nil ? -24...0 : -60...24 }
     func hasSameEQ(as other: Profile) -> Bool {
-        gains == other.gains && preamp == other.preamp && filters == other.filters && stereoSettings == other.stereoSettings
+        // Parametric filters replace the graphic bands. Their retained slider
+        // values are inactive and need not survive an APO text round trip.
+        let sameBands = filters != nil || gains == other.gains
+        return sameBands && preamp == other.preamp && filters == other.filters && stereoSettings == other.stereoSettings
     }
     func validated() throws -> Profile {
         guard gains.count == 10, gains.allSatisfy({ $0.isFinite && abs($0) <= 12 }),
@@ -111,6 +114,17 @@ struct Profile: Codable, Equatable {
     }
 }
 
+enum InterfaceMode: String, Codable, CaseIterable {
+    case easy, professional
+
+    var label: String {
+        switch self {
+        case .easy: return "Simple"
+        case .professional: return "Professional"
+        }
+    }
+}
+
 struct Settings: Codable {
     var devices: [String: Profile] = [:]
     var presets: [String: Profile] = [:]
@@ -118,6 +132,25 @@ struct Settings: Codable {
     var startEQAutomatically: Bool?
     var favoritePresets: Set<String>?
     var selectedPresets: [String: String]?
+    var interfaceMode: InterfaceMode = .easy
+
+    private enum CodingKeys: String, CodingKey {
+        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode
+    }
+}
+
+extension Settings {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        devices = try values.decode([String: Profile].self, forKey: .devices)
+        presets = try values.decode([String: Profile].self, forKey: .presets)
+        selectedUID = try values.decode(String.self, forKey: .selectedUID)
+        startEQAutomatically = try values.decodeIfPresent(Bool.self, forKey: .startEQAutomatically)
+        favoritePresets = try values.decodeIfPresent(Set<String>.self, forKey: .favoritePresets)
+        selectedPresets = try values.decodeIfPresent([String: String].self, forKey: .selectedPresets)
+        // Keep the full controls visible for people upgrading an existing install.
+        interfaceMode = try values.decodeIfPresent(InterfaceMode.self, forKey: .interfaceMode) ?? .professional
+    }
 }
 
 // Broad listening curves, ordered from 31.5 Hz to 16 kHz.

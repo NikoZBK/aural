@@ -64,6 +64,27 @@ var enabledSettings = oldSettings
 enabledSettings.startEQAutomatically = true
 let restoredSettings = try JSONDecoder().decode(Settings.self, from: JSONEncoder().encode(enabledSettings))
 require(restoredSettings.startEQAutomatically == true && restoredSettings.selectedUID == "headphones", "Startup preference did not persist")
+require(Settings().interfaceMode == .easy, "New installs should start in Simple mode")
+require(oldSettings.interfaceMode == .professional, "Existing installs should retain the full controls")
+for mode in InterfaceMode.allCases {
+    var preferences = enabledSettings
+    preferences.interfaceMode = mode
+    preferences.devices["headphones"] = precise
+    preferences.presets["Saved EQ"] = precise
+    preferences.favoritePresets = ["Saved EQ"]
+    preferences.selectedPresets = ["headphones": "Saved EQ"]
+    let roundTrip = try JSONDecoder().decode(Settings.self, from: JSONEncoder().encode(preferences))
+    require(roundTrip.interfaceMode == mode, "Interface mode did not persist")
+    require(roundTrip.devices == preferences.devices && roundTrip.presets == preferences.presets &&
+            roundTrip.selectedPresets == preferences.selectedPresets && roundTrip.favoritePresets == preferences.favoritePresets &&
+            roundTrip.startEQAutomatically == true && roundTrip.selectedUID == "headphones",
+            "Interface preference persistence changed EQ or preset settings")
+}
+do {
+    _ = try JSONDecoder().decode(Settings.self, from: Data(#"{"devices":{},"presets":{},"selectedUID":"","interfaceMode":"invalid"}"#.utf8))
+    fatalError("An invalid interface mode should report corrupt settings")
+} catch { require(error is DecodingError, "Unexpected interface mode decoding error") }
+print("PASS Simple defaults, Professional legacy migration, interface mode persistence and invalid-value rejection")
 let now = Date(timeIntervalSince1970: 1000)
 let startup = StartupPlan(outputUID: "headphones", deadline: now.addingTimeInterval(60))
 require(startup.decision(availableUIDs: ["speakers"], now: now) == .wait, "Must not substitute speakers for headphones")
@@ -380,3 +401,82 @@ do {
     require(settings.presets["Stereo fixture"] == effects, "Native preset backup lost stereo settings")
 }
 print("PASS channel text import/export, draft preservation, unsupported semantics and complete stereo backup")
+
+// Diagnostics must identify physical lines in Windows exports as well as LF files.
+for newline in ["\n", "\r\n", "\r"] {
+    let invalidFile = ["Preamp: -3 dB", "Filter 1: ON PK Fc 1000 Hz Gain 2 dB Q 1", "Include: other.txt"]
+        .joined(separator: newline)
+    rejects(invalidFile, contains: "Line 3:")
+    rejects("\u{FEFF}" + invalidFile, contains: "Line 3:")
+}
+print("PASS LF, CRLF, and CR import diagnostic line numbers, with and without BOM")
+
+do {
+    // Older or externally authored settings may contain a custom factory-name
+    // collision. Duplicate must copy the same preset that the UI displays/applies.
+    var collision = Settings(presets: ["Flat": precise])
+    let displayed = collision.preset(named: "Flat")
+    try collision.duplicatePreset("Flat")
+    require(collision.presets["Flat copy"] == displayed,
+            "Duplicate copied hidden custom values instead of the displayed factory preset")
+    collision.favoritePresets = ["Flat"]
+    try collision.setSelectedPreset("Flat", forOutput: "output")
+    let beforePresets = collision.presets
+    do { try collision.renamePreset("Flat", to: "Renamed"); fatalError("Renamed a factory name through a hidden custom collision") }
+    catch { require(error is AudioFailure, "Unexpected factory rename error") }
+    do { try collision.deletePreset("Flat"); fatalError("Deleted a factory name through a hidden custom collision") }
+    catch { require(error is AudioFailure, "Unexpected factory delete error") }
+    require(collision.presets == beforePresets && collision.favoritePresets == ["Flat"] &&
+            collision.selectedPresetName(forOutput: "output") == "Flat",
+            "Rejected factory edits must preserve saved presets, favorites, and output selection")
+    let archive = try PresetBackup.decode(JSONEncoder().encode(
+        PresetBackup(presets: ["Flat": precise], favorites: ["Flat", "Warm"])))
+    var restored = Settings()
+    restored.mergePresets(archive)
+    require(restored.presets["Flat (2)"] == precise, "Restore lost a custom preset with a reserved name")
+    require(restored.favoritePresets == ["Flat (2)", "Warm"],
+            "Restore must map a custom favorite once, without favoriting an unrelated factory preset")
+    var alreadyFavorited = Settings(favoritePresets: ["Flat"])
+    alreadyFavorited.mergePresets(archive)
+    require(alreadyFavorited.favoritePresets == ["Flat", "Flat (2)", "Warm"],
+            "Restoring a name collision must preserve existing factory favorites")
+}
+print("PASS factory-name collisions in duplication and restored favorites")
+
+do {
+    var offline = Settings(presets: ["Offline EQ": precise])
+    require(offline.selectedPresetName(forOutput: "", fallback: "Offline EQ") == "Offline EQ",
+            "Offline editing must retain a valid current preset without an output record")
+    try offline.toggleFavorite("Offline EQ")
+    try offline.duplicatePreset("Offline EQ")
+    require(offline.selectedPresetName(forOutput: "", fallback: "Offline EQ") == "Offline EQ",
+            "Favorite or duplicate must not clear the offline selection")
+    require(offline.selectedPresetName(forOutput: "other-output", fallback: "Offline EQ") == nil,
+            "Offline selection must not leak into an unrelated output")
+    try offline.renamePreset("Offline EQ", to: "Renamed offline EQ")
+    require(offline.selectedPresetName(forOutput: "", fallback: "Renamed offline EQ") == "Renamed offline EQ",
+            "Offline selection must follow the explicit renamed identity")
+    try offline.deletePreset("Renamed offline EQ")
+    require(offline.selectedPresetName(forOutput: "", fallback: "Renamed offline EQ") == nil,
+            "Deleting an offline preset must invalidate its identity")
+}
+print("PASS offline preset selection through library edits without cross-output identity leakage")
+
+do {
+    let graphic = Profile.builtInPresets["Warm"]!
+    let converted = try ParametricDraft(graphic).profile()
+    let roundTrip = try AutoEQ.parse(AutoEQ.export(converted), name: "Converted graphic EQ")
+    require(converted.gains != roundTrip.gains && converted.filters == roundTrip.filters,
+            "Regression fixture must retain different inactive graphic values with the same active filters")
+    require(converted.hasSameEQ(as: roundTrip) && roundTrip.hasSameEQ(as: converted),
+            "Inactive graphic gains must not mark identical parametric EQ as modified")
+    var edited = roundTrip
+    edited.filters?[0].gain += 1
+    require(!converted.hasSameEQ(as: edited), "Changes to an active parametric filter must still count")
+    var changedGraphic = graphic
+    changedGraphic.gains[0] += 1
+    require(!graphic.hasSameEQ(as: changedGraphic), "Active graphic gains must still count")
+    require(!graphic.hasSameEQ(as: converted) && !converted.hasSameEQ(as: graphic),
+            "Switching EQ representations must remain a document change")
+}
+print("PASS parametric EQ identity ignores inactive graphic gains while retaining active changes")

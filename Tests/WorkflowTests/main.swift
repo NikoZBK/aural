@@ -49,6 +49,20 @@ while bounded.canUndo { current = try bounded.undo(current: current); undoCount 
 require(undoCount == 100, "History must retain exactly the latest 100 real changes")
 print("PASS profile history coalescing, no-ops, labels, bounded capacity, redo branching, and empty-history errors")
 
+var interruptedGesture = ProfileWorkspace()
+interruptedGesture.beginGesture(label: "Slider drag")
+interruptedGesture.record(before: initial, after: first, label: "Preamp")
+interruptedGesture.record(before: first, after: final, label: "Apply preset", coalescing: false)
+require(interruptedGesture.undoLabel == "Apply preset", "Discrete action inherited the unfinished slider's label")
+require(try interruptedGesture.undo(current: final) == first, "Preset application merged into the previous slider drag")
+require(try interruptedGesture.undo(current: first) == initial, "Ending a gesture early lost its undo step")
+interruptedGesture.beginGesture(label: "Another slider")
+interruptedGesture.record(before: initial, after: first, label: "Preamp")
+interruptedGesture.record(before: first, after: first, label: "No-op command", coalescing: false)
+interruptedGesture.record(before: first, after: final, label: "Next edit")
+require(try interruptedGesture.undo(current: final) == first, "Even an unchanged discrete command must finish the old gesture")
+print("PASS discrete action and no-op boundaries during an unfinished slider gesture")
+
 var comparison = ProfileWorkspace()
 require(!comparison.comparisonAvailable, "Comparison must be explicitly captured")
 rejects("uncaptured comparison") { _ = try comparison.selectComparison(.b, current: initial) }

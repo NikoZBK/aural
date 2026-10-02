@@ -52,7 +52,10 @@ struct ProfileWorkspace {
     }
 
     mutating func record(before: ProfileSnapshot, after: ProfileSnapshot, label: String,
-                         previousComparisonSlot: ComparisonSlot? = nil) {
+                         previousComparisonSlot: ComparisonSlot? = nil, coalescing: Bool = true) {
+        // Presets, templates, and other discrete actions are separate edits even
+        // if SwiftUI has not yet delivered a disappearing slider's end callback.
+        if !coalescing { endGesture() }
         guard before != after else { return }
         if gestureID == nil || recordedGestureID != gestureID {
             undoEntries.append(Entry(snapshot: before, label: gestureLabel ?? label,

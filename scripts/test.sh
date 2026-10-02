@@ -19,8 +19,15 @@ xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/Pr
 xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/ProfileWorkspace.swift Tests/WorkflowTests/main.swift -o .build/workflow-tests
 .build/workflow-tests
 
+# Preserve imported precision while distinguishing explicit numeric edits from display formatting.
+xcrun swiftc -parse-as-library Sources/Aural/PrecisionInput.swift Tests/PrecisionTests/main.swift -o .build/precision-tests
+.build/precision-tests
+
 xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
 .build/response-tests
+
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Headroom.swift Tests/HeadroomTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/headroom-tests
+.build/headroom-tests
 
 # Exercise the actual window lifecycle controller without launching audio or showing UI.
 xcrun swiftc -parse-as-library Sources/Aural/WindowPresence.swift Tests/WindowTests/main.swift -framework AppKit -o .build/window-tests

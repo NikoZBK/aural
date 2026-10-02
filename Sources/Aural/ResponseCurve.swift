@@ -65,30 +65,43 @@ private struct InteractiveResponseCurve: View {
         return bypass ? "Bypassed, flat response" : "Includes preamp, \(rate / 1000) kilohertz \(running ? "processing" : "preview")"
     }
 
+    private func header(compact: Bool) -> some View {
+        HStack(spacing: compact ? 8 : 12) {
+            AuralSectionLabel(title: "EQ curve", systemImage: "waveform.path").fixedSize()
+            if analysis?.hasChannelFilters == true {
+                Picker("Response channel", selection: $channel) {
+                    ForEach(ResponseChannel.allCases, id: \.self) { channel in
+                        Text(channel.label).tag(channel)
+                    }
+                }.pickerStyle(.segmented).labelsHidden().controlSize(.small)
+                    .frame(width: 116, height: 22)
+                    .help("Inspect left and right independently. Teal is left, blue is right. Peak/headroom always covers both channels.")
+            }
+            Spacer(minLength: 8)
+            if comparisonProfile != nil {
+                Group {
+                    if compact { Image(systemName: "line.diagonal").accessibilityLabel("Reference curve") }
+                    else { Label("Reference", systemImage: "line.diagonal") }
+                }.fixedSize().foregroundStyle(AuralStyle.secondary)
+                    .help("Dashed line: the captured comparison EQ, including its preamp.")
+            }
+            Toggle(isOn: $showFilters) {
+                if compact { Image(systemName: "line.3.horizontal.decrease") }
+                else { Text("Filter curves") }
+            }
+            .toggleStyle(.button).controlSize(.small).fixedSize()
+            .accessibilityLabel("Filter curves")
+            .disabled(bypass)
+            .help("Overlay each enabled filter without preamp. Disabled filters are excluded.")
+        }.font(.system(size: 11, weight: .medium))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                AuralSectionLabel(title: "EQ response", systemImage: "waveform.path")
-                if analysis?.hasChannelFilters == true {
-                    Picker("Response channel", selection: $channel) {
-                        ForEach(ResponseChannel.allCases, id: \.self) { channel in
-                            Text(channel.label).tag(channel)
-                        }
-                    }.pickerStyle(.segmented).labelsHidden().controlSize(.small)
-                        .frame(width: 116, height: 22)
-                        .help("Inspect left and right independently. Teal is left, blue is right. Peak/headroom always covers both channels.")
-                }
-                Spacer(minLength: 8)
-                if comparisonProfile != nil {
-                    Label("Reference", systemImage: "line.diagonal")
-                        .foregroundStyle(AuralStyle.secondary)
-                        .help("Dashed line: the captured comparison EQ, including its preamp.")
-                }
-                Toggle("Filter curves", isOn: $showFilters)
-                    .toggleStyle(.button).controlSize(.small)
-                    .disabled(bypass)
-                    .help("Overlay each enabled filter without preamp. Disabled filters are excluded.")
-            }.font(.system(size: 11, weight: .medium)).frame(height: 24)
+            ViewThatFits(in: .horizontal) {
+                header(compact: false)
+                header(compact: true)
+            }.frame(height: 24)
             GeometryReader { geometry in
                 if let analysis {
                     let scale = analysis.scale(showFilters: showFilters, channel: channel)
@@ -124,7 +137,7 @@ private struct InteractiveResponseCurve: View {
                     Text(hoverReadout)
                         .foregroundStyle(color)
                 } else {
-                    Text(bypass ? "BYPASS · UNITY" : String(format: "%g kHz · %@", rate / 1000, running ? "PROCESSING" : "PREVIEW"))
+                    Text(bypass ? "BYPASSED · 0 dB" : String(format: "%g kHz · %@", rate / 1000, running ? "PROCESSING" : "PREVIEW"))
                         .foregroundStyle(AuralStyle.secondary)
                 }
                 Spacer(minLength: 4)

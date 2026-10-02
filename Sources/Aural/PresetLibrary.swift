@@ -29,8 +29,11 @@ extension Settings {
         Profile.builtInPresets[name] ?? presets[name]
     }
 
-    func selectedPresetName(forOutput uid: String) -> String? {
-        guard let name = selectedPresets?[uid], preset(named: name) != nil else { return nil }
+    func selectedPresetName(forOutput uid: String, fallback: String? = nil) -> String? {
+        // Offline edits have no output record. Keep their current selection while
+        // editing the library, but never transfer that selection to another output.
+        let selection = uid.isEmpty ? fallback : selectedPresets?[uid]
+        guard let name = selection, preset(named: name) != nil else { return nil }
         return name
     }
 
@@ -75,6 +78,9 @@ extension Settings {
     }
 
     mutating func renamePreset(_ old: String, to proposed: String) throws {
+        guard Profile.builtInPresets[old] == nil else {
+            throw AudioFailure(message: "Built-in presets cannot be renamed. Duplicate the preset first.")
+        }
         guard let profile = presets[old] else { throw AudioFailure(message: "The preset no longer exists.") }
         let name = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw AudioFailure(message: "Enter a preset name.") }
@@ -88,6 +94,9 @@ extension Settings {
     }
 
     mutating func deletePreset(_ name: String) throws {
+        guard Profile.builtInPresets[name] == nil else {
+            throw AudioFailure(message: "Built-in presets cannot be deleted.")
+        }
         guard presets[name] != nil else { throw AudioFailure(message: "The preset no longer exists.") }
         presets.removeValue(forKey: name)
         favoritePresets?.remove(name)
@@ -104,7 +113,7 @@ extension Settings {
     }
 
     mutating func duplicatePreset(_ name: String) throws {
-        guard let profile = presets[name] ?? Profile.builtInPresets[name] else {
+        guard let profile = preset(named: name) else {
             throw AudioFailure(message: "The preset no longer exists.")
         }
         presets[availablePresetName(name + " copy")] = profile
@@ -117,7 +126,12 @@ extension Settings {
             presets[restored] = backup.presets[name]
             if backup.favorites?.contains(name) == true { favorites.insert(restored) }
         }
-        favorites.formUnion((backup.favorites ?? []).intersection(Profile.builtInPresets.keys))
+        // A custom name that matches a factory name was already mapped to its
+        // restored name above. Do not also favorite an unrelated factory preset.
+        let factoryFavorites = (backup.favorites ?? [])
+            .subtracting(backup.presets.keys)
+            .intersection(Profile.builtInPresets.keys)
+        favorites.formUnion(factoryFavorites)
         favoritePresets = favorites
     }
 }

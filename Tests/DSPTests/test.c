@@ -62,8 +62,10 @@ int main(void) {
     AudioBufferList *out=calloc(1,bytes);assert(out);out->mNumberBuffers=2;
     out->mBuffers[0]=(AudioBuffer){1,sizeof(outL),outL};out->mBuffers[1]=(AudioBuffer){1,sizeof(outR),outR};
     eq_process(eq,planar,out);assert(memcmp(left,outL,sizeof(left))==0);assert(memcmp(right,outR,sizeof(right))==0);
+    assert(eq_peak(eq)==.1f);
     planar->mBuffers[1].mData=NULL;eq_process(eq,planar,out);assert(eq_faults(eq)==1);
     for(int i=0;i<128;i++)assert(outL[i]==0&&outR[i]==0);
+    assert(eq_peak(eq)==0);
     puts("PASS planar buffers and invalid-buffer fault reporting");free(planar);free(out);eq_destroy(eq);
     EQFilter custom={1000,6,.707,0,false,EQChannelStereo};
     for(unsigned type=0;type<3;type++) {

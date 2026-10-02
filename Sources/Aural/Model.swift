@@ -18,6 +18,7 @@ import ServiceManagement
     @Published private(set) var deletedPreset: (name: String, profile: Profile, favorite: Bool)?
     @Published private(set) var favoritePresets: Set<String> = []
     @Published private(set) var startEQAutomatically = false
+    @Published private(set) var interfaceMode: InterfaceMode = .easy
     @Published private(set) var loginStatus = SMAppService.mainApp.status
     @Published private(set) var startupNotice: String?
     @Published private(set) var editRevision = 0
@@ -61,6 +62,7 @@ import ServiceManagement
                 settings = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
                 for p in Array(settings.devices.values) + Array(settings.presets.values) { _ = try p.validated() }
             }
+            interfaceMode = settings.interfaceMode
             settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
@@ -97,6 +99,17 @@ import ServiceManagement
         }
     }
     func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
+    func setInterfaceMode(_ mode: InterfaceMode) {
+        guard interfaceMode != mode else { return }
+        var next = settings
+        next.interfaceMode = mode
+        do {
+            try writeSettings(next)
+            settings = next
+            interfaceMode = mode
+            error = nil
+        } catch { self.error = "Could not save interface mode: " + error.localizedDescription }
+    }
     func setStartAutomatically(_ enabled: Bool) {
         if enabled, selected == nil { error = "Select a connected output before enabling automatic EQ."; return }
         let previous = startEQAutomatically
@@ -201,7 +214,8 @@ import ServiceManagement
     // and undoable, and the user receives a save error rather than a false success.
     @discardableResult private func commitProfile(_ proposed: ProfileSnapshot, label: String,
                                                  nextBypass: Bool? = nil,
-                                                 nextWorkspace: ProfileWorkspace? = nil) -> Bool {
+                                                 nextWorkspace: ProfileWorkspace? = nil,
+                                                 coalescing: Bool = false) -> Bool {
         do {
             var snapshot = proposed
             snapshot.profile = try snapshot.profile.validated()
@@ -215,12 +229,16 @@ import ServiceManagement
                 try candidate.setSelectedPreset(snapshot.selectedPresetName, forOutput: selectedUID)
             }
             try route.update(snapshot.profile, bypass: nextBypass ?? bypass)
+            // Focus can submit an unchanged number after another editor opens.
+            // Only a different document or comparison target invalidates its draft.
+            let documentChanged = snapshot != committedProfile ||
+                (nextWorkspace?.comparisonSlot ?? workspace.comparisonSlot) != workspace.comparisonSlot
             if let nextWorkspace { workspace = nextWorkspace }
-            else { workspace.record(before: committedProfile, after: snapshot, label: label) }
+            else { workspace.record(before: committedProfile, after: snapshot, label: label, coalescing: coalescing) }
             profile = snapshot.profile
             selectedPresetName = snapshot.selectedPresetName
             committedProfile = snapshot
-            editRevision += 1
+            if documentChanged { editRevision += 1 }
             workspace.updateComparison(snapshot)
             if let nextBypass { bypass = nextBypass }
             settings = candidate
@@ -273,17 +291,17 @@ import ServiceManagement
             importNotice = "Copied \(comparisonSlot.rawValue) to \(comparisonSlot.other.rawValue)."
         } catch { self.error = error.localizedDescription }
     }
-    private func editProfile(_ label: String, _ edit: (Profile) throws -> Profile) {
+    private func editProfile(_ label: String, coalescing: Bool = false, _ edit: (Profile) throws -> Profile) {
         do {
             let next = try edit(profile)
-            _ = commitProfile(ProfileSnapshot(profile: next, selectedPresetName: selectedPresetName), label: label)
+            _ = commitProfile(ProfileSnapshot(profile: next, selectedPresetName: selectedPresetName), label: label, coalescing: coalescing)
         } catch { self.error = error.localizedDescription }
     }
     func setPreamp(_ value: Double) {
-        editProfile("Adjust preamp") { var next = $0; next.preamp = value; return next }
+        editProfile("Adjust preamp", coalescing: true) { var next = $0; next.preamp = value; return next }
     }
     func setGraphicGain(at index: Int, to value: Double) {
-        editProfile("Adjust graphic band") {
+        editProfile("Adjust graphic band", coalescing: true) {
             guard $0.filters == nil, $0.gains.indices.contains(index) else {
                 throw AudioFailure(message: "This graphic band no longer exists.")
             }
@@ -291,7 +309,7 @@ import ServiceManagement
         }
     }
     func setStereoSettings(_ value: StereoSettings) {
-        editProfile("Adjust stereo") { var next = $0; next.stereo = value.isNeutral ? nil : value; return next }
+        editProfile("Adjust stereo", coalescing: true) { var next = $0; next.stereo = value.isNeutral ? nil : value; return next }
     }
     func resetStereoSettings() {
         editProfile("Reset stereo") { var next = $0; next.stereo = nil; return next }
@@ -317,7 +335,7 @@ import ServiceManagement
         }
     }
     func updateFilter(at index: Int, with filter: ImportedFilter) {
-        editProfile("Edit filter") { try ProfileTools.updateFilter($0, at: index, with: filter) }
+        editProfile("Edit filter", coalescing: true) { try ProfileTools.updateFilter($0, at: index, with: filter) }
     }
     func duplicateFilter(at index: Int) {
         editProfile("Duplicate filter") { try ProfileTools.duplicateFilter($0, at: index) }
@@ -332,26 +350,26 @@ import ServiceManagement
         let name = presetName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, factory[name] == nil else { error = "Choose a preset name other than a built-in preset."; return }
         let saved = profile
-        if updateLibrary({
+        if updateLibrary(selecting: name, {
             _ = try saved.validated()
             $0.presets[name] = saved
             if !selectedUID.isEmpty { try $0.setSelectedPreset(name, forOutput: selectedUID) }
         }) {
-            selectedPresetName = name
-            committedProfile.selectedPresetName = name
-            workspace.updateComparison(committedProfile)
-            editRevision += 1
             presetName = ""
         }
     }
-    @discardableResult private func updateLibrary(_ edit: (inout Settings) throws -> Void) -> Bool {
+    @discardableResult private func updateLibrary(selecting requestedSelection: String? = nil,
+                                                 _ edit: (inout Settings) throws -> Void) -> Bool {
         var next = settings
         do {
             try edit(&next)
+            let selection = requestedSelection ?? next.selectedPresetName(forOutput: selectedUID, fallback: selectedPresetName)
+            if let selection, next.preset(named: selection) == nil {
+                throw AudioFailure(message: "The selected preset no longer exists.")
+            }
             // Persist the candidate before publishing the library mutation.
             try writeSettings(next)
             settings = next
-            let selection = next.selectedPresetName(forOutput: selectedUID)
             if selectedPresetName != selection { editRevision += 1 }
             selectedPresetName = selection
             committedProfile.selectedPresetName = selectedPresetName
@@ -363,8 +381,10 @@ import ServiceManagement
         } catch { self.error = "Could not update presets: " + error.localizedDescription; return false }
     }
     @discardableResult func renamePreset(_ name: String, to newName: String) -> Bool {
-        let changed = updateLibrary { try $0.renamePreset(name, to: newName) }
-        if changed { workspace.renamePreset(name, to: newName.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selection = selectedPresetName == name ? trimmedName : nil
+        let changed = updateLibrary(selecting: selection) { try $0.renamePreset(name, to: newName) }
+        if changed { workspace.renamePreset(name, to: trimmedName) }
         return changed
     }
     func duplicatePreset(_ name: String) {
@@ -399,6 +419,7 @@ import ServiceManagement
     }
     func adjustPreamp(_ delta: Double) {
         guard delta.isFinite else { error = "Preamp adjustment must be a finite number."; return }
+        workspace.endGesture()
         setPreamp(min(profile.preampRange.upperBound, max(profile.preampRange.lowerBound, profile.preamp + delta)))
     }
     func exportEQ() {
@@ -444,13 +465,7 @@ import ServiceManagement
         } catch { self.error = "Could not restore presets: " + error.localizedDescription }
     }
     func headroom() {
-        var maximum = 0.0
-        for i in 0...1000 {
-            let f = 20 * pow(min(20000, responseRate * 0.48)/20, Double(i)/1000)
-            maximum = max(maximum, profile.response(f, rate: responseRate, preamp: 0))
-        }
-        maximum = max(0, maximum + profile.stereoSettings.headroomGainDB)
-        let preamp = min(profile.preampRange.upperBound, max(profile.preampRange.lowerBound, -ceil(maximum * 10)/10))
+        let preamp = Headroom.preamp(for: profile, rate: responseRate)
         editProfile("Calculate headroom") { var next = $0; next.preamp = preamp; return next }
     }
     func start() {

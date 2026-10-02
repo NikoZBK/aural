@@ -68,40 +68,53 @@ struct PrecisionField: View {
     let label: String
     var decimals = 2
     var revision = 0
+    let currentRevision: () -> Int
+    weak var submissions: PrecisionSubmissionCoordinator? = nil
     let commit: (Double) -> Void
-    @State private var text = ""
+    @State private var draft = PrecisionInput()
     @State private var invalid = false
-    @State private var draftRevision = 0
+    @State private var fieldID = UUID()
     @FocusState private var focused: Bool
 
     var body: some View {
-        TextField(label, text: $text)
+        TextField(label, text: Binding(get: { draft.text }, set: { draft.edit($0); invalid = false }))
             .textFieldStyle(.plain).multilineTextAlignment(.trailing)
             .font(.system(size: 12, design: .monospaced)).monospacedDigit()
             .padding(.horizontal, 7).frame(height: 27)
             .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? AuralStyle.accent : AuralStyle.border)))
-            .focused($focused).onSubmit { submit() }
-            .onChange(of: focused) { wasFocused, isFocused in if wasFocused && !isFocused { submit() } }
-            .onChange(of: value) { _, _ in restore() }
-            .onChange(of: revision) { _, _ in restore() }
-            .onAppear { restore() }
+            .focused($focused).onSubmit { _ = submit() }
+            .onChange(of: focused) { wasFocused, isFocused in
+                if isFocused { registerSubmission() }
+                else if wasFocused { _ = submit(); submissions?.deactivate(fieldID) }
+            }
+            .onChange(of: value) { _, _ in restore(); registerSubmission() }
+            .onChange(of: revision) { _, _ in restore(); registerSubmission() }
+            .onAppear { restore(); registerSubmission() }
+            .onDisappear { submissions?.deactivate(fieldID) }
             .accessibilityLabel(label)
             .accessibilityHint(invalid ? "Invalid number. Use \(range.lowerBound) to \(range.upperBound)." : "Press Return to apply. Escape cancels.")
             .help(invalid ? "Enter a number from \(range.lowerBound) to \(range.upperBound)." : label)
             .onExitCommand { restore(); focused = false }
     }
-    private func restore() { text = String(format: "%.*f", decimals, value); invalid = false; draftRevision = revision }
-    private func submit() {
-        // Focus loss can precede onChange when a preset or A/B replaces this field.
-        guard draftRevision == revision else { restore(); return }
-        guard let number = Double(text.trimmingCharacters(in: .whitespacesAndNewlines)), number.isFinite, range.contains(number) else {
+    private func restore() { draft.restore(value: value, decimals: decimals, revision: revision); invalid = false }
+    private func registerSubmission() {
+        if focused { submissions?.activate(fieldID, submit: submit) }
+    }
+    private func submit() -> PrecisionSubmissionCoordinator.Result {
+        // A focus-loss callback may arrive after another control replaces the EQ.
+        switch draft.submission(in: range, revision: currentRevision()) {
+        case .stale: restore(); return .rejected
+        case .unchanged: invalid = false; return .unchanged
+        case .invalid:
             invalid = true
             NSSound.beep()
-            return
+            return .rejected
+        case .value(let number):
+            draft.accept()
+            commit(number)
+            invalid = false
+            return .submitted
         }
-        // Display rounding must never quantize an untouched imported value.
-        if text != String(format: "%.*f", decimals, value) { commit(number) }
-        invalid = false
     }
 }

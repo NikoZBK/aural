@@ -180,12 +180,16 @@ static void begin_transition(EQ *eq) {
     if (same_settings(&old->settings,&eq->target)) return;
     reset_history(next);
     next->settings=eq->target;
-    // Only an unchanged prefix has the same input history. Never copy stale state
-    // downstream of an edited filter or a changed preamp.
-    if (old->settings.preamp==next->settings.preamp) {
-        for (unsigned b=0;b<old->settings.count && b<next->settings.count;b++) {
-            if (!same_filter(old->settings.filters[b],next->settings.filters[b])) break;
-            for (unsigned c=0;c<2;c++) { next->z1[c][b]=old->z1[c][b]; next->z2[c][b]=old->z2[c][b]; }
+    // An unchanged prefix has the same input history. Its linear filter states
+    // scale exactly with preamp amplitude; discarding them on a volume change
+    // would temporarily remove slow bass correction after the crossfade ends.
+    // Never copy state downstream of an edited filter.
+    double scale=next->settings.amplitude/old->settings.amplitude;
+    for (unsigned b=0;b<old->settings.count && b<next->settings.count;b++) {
+        if (!same_filter(old->settings.filters[b],next->settings.filters[b])) break;
+        for (unsigned c=0;c<2;c++) {
+            next->z1[c][b]=old->z1[c][b]*scale;
+            next->z2[c][b]=old->z2[c][b]*scale;
         }
     }
     eq->transitionFrame=0;
@@ -254,6 +258,7 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         out[c]=channel(output,c,&os[c],&outf[c]);
     }
     if (!in[0] || !in[1] || !out[0] || !out[1] || inf[0]!=outf[0] || inf[1]!=outf[0] || outf[1]!=outf[0]) {
+        atomic_store_explicit(&eq->peak,0,memory_order_relaxed);
         atomic_fetch_add_explicit(&eq->faults,1,memory_order_relaxed); return;
     }
     if (eq->pending && !eq->transitioning) begin_transition(eq);

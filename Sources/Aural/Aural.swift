@@ -1,5 +1,16 @@
 import SwiftUI
 
+private struct PrecisionSubmissionsKey: FocusedValueKey {
+    typealias Value = PrecisionSubmissionCoordinator
+}
+
+extension FocusedValues {
+    var precisionSubmissions: PrecisionSubmissionCoordinator? {
+        get { self[PrecisionSubmissionsKey.self] }
+        set { self[PrecisionSubmissionsKey.self] = newValue }
+    }
+}
+
 @main struct AuralApp: App {
     @NSApplicationDelegateAdaptor(AuralAppDelegate.self) private var delegate
     private var model: Model { delegate.model }
@@ -42,22 +53,28 @@ import SwiftUI
 struct AuralCommands: Commands {
     @ObservedObject var model: Model
     @Environment(\.openWindow) private var openWindow
+    @FocusedValue(\.precisionSubmissions) private var submissions
     var body: some Commands {
         CommandGroup(replacing: .newItem) {}
         CommandMenu("Equalizer") {
-            Button(model.undoLabel) { model.undoProfile() }.disabled(!model.canUndo)
-                .keyboardShortcut("z", modifiers: [.command, .option])
-            Button(model.redoLabel) { model.redoProfile() }.disabled(!model.canRedo)
-                .keyboardShortcut("z", modifiers: [.command, .option, .shift])
-            Divider()
-            Button("Compare A") { model.selectComparison(.a) }.keyboardShortcut("1", modifiers: [.command, .option])
-            Button("Compare B") { model.selectComparison(.b) }.keyboardShortcut("2", modifiers: [.command, .option])
+            if model.interfaceMode == .professional {
+                Button(model.undoLabel) { model.undoProfile() }.disabled(!model.canUndo)
+                    .keyboardShortcut("z", modifiers: [.command, .option])
+                Button(model.redoLabel) { model.redoProfile() }.disabled(!model.canRedo)
+                    .keyboardShortcut("z", modifiers: [.command, .option, .shift])
+                Divider()
+                Button("Compare A") { model.selectComparison(.a) }.keyboardShortcut("1", modifiers: [.command, .option])
+                Button("Compare B") { model.selectComparison(.b) }.keyboardShortcut("2", modifiers: [.command, .option])
+                Divider()
+            }
             Button("Bypass EQ") { model.setBypass(!model.bypass) }.keyboardShortcut("b", modifiers: [.command, .option])
             Divider()
-            Button("Copy EQ") { model.copyEQ() }.keyboardShortcut("c", modifiers: [.command, .shift])
+            if model.interfaceMode == .professional {
+                Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.keyboardShortcut("c", modifiers: [.command, .shift])
+            }
             Button("Paste EQ") { model.pasteEQ() }.keyboardShortcut("v", modifiers: [.command, .shift])
             Button("Import AutoEQ…") { model.importAutoEQ() }
-            Button("Export EQ…") { model.exportEQ() }
+            if model.interfaceMode == .professional { Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } } }
             Divider()
             Button("Preset library…") { openWindow.showAuralWindow("presets") }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
@@ -65,6 +82,13 @@ struct AuralCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
+        }
+    }
+    private func submitPendingInput() -> Bool {
+        switch submissions?.submitActive() ?? .unchanged {
+        case .rejected: return false
+        case .submitted: return model.error == nil
+        case .unchanged: return true
         }
     }
 }
@@ -77,16 +101,18 @@ struct MenuBarControls: View {
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }
         Button("Preset library…") { openWindow.showAuralWindow("presets") }
-        Menu("Preamp: \(model.profile.preamp, specifier: "%.2f") dB") {
-            Button("Increase 1 dB") { model.adjustPreamp(1) }
-                .disabled(model.profile.preamp >= model.profile.preampRange.upperBound)
-            Button("Decrease 1 dB") { model.adjustPreamp(-1) }
-                .disabled(model.profile.preamp <= model.profile.preampRange.lowerBound)
-        }
-        Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
-            Button("A") { model.selectComparison(.a) }
-            Button("B") { model.selectComparison(.b) }
-            Button("Copy current to other slot") { model.copyComparisonToOther() }
+        if model.interfaceMode == .professional {
+            Menu("Preamp: \(model.profile.preamp, specifier: "%.2f") dB") {
+                Button("Increase 1 dB") { model.adjustPreamp(1) }
+                    .disabled(model.profile.preamp >= model.profile.preampRange.upperBound)
+                Button("Decrease 1 dB") { model.adjustPreamp(-1) }
+                    .disabled(model.profile.preamp <= model.profile.preampRange.lowerBound)
+            }
+            Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
+                Button("A") { model.selectComparison(.a) }
+                Button("B") { model.selectComparison(.b) }
+                Button("Copy current to other slot") { model.copyComparisonToOther() }
+            }
         }
         Divider()
         Button("Show Aural") { openWindow.showAuralWindow("main") }
@@ -104,7 +130,7 @@ struct StartupSettings: View {
             Text("Startup").font(.headline)
             Toggle("Launch at login", isOn: Binding(get: { model.launchAtLoginRequested }, set: model.setLaunchAtLogin))
             Toggle("Start EQ automatically", isOn: Binding(get: { model.startEQAutomatically }, set: model.setStartAutomatically))
-            Text("Use the saved output and profile on launch. Wait up to 60 seconds if the device is disconnected. Stop pauses EQ for this session.")
+            Text("Use the saved output and preset on launch. Wait up to 60 seconds if the device is disconnected. Stop pauses EQ for this session.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if model.loginStatus == .requiresApproval {
                 Text("macOS approval is needed to launch at login.").font(.caption).foregroundStyle(.orange)

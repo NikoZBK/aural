@@ -165,9 +165,47 @@ static void channel_tests(void) {
     eq_destroy(eq);
     puts("PASS independent L/R filter magnitude, live channel rerouting, graph response and conservative stereo peak");
 }
+static void preamp_history_tests(void) {
+    const double rates[]={32000,44100,48000,96000,192000};
+    const double preamps[]={-6,-18,6,0};
+    for (unsigned r=0;r<5;r++) {
+        double rate=rates[r];
+        EQ *eq=eq_create(rate,0),*reference=eq_create(rate,0);
+        assert(eq && reference);
+        // Slow bass correction makes discarded IIR history audible well beyond
+        // a 20 ms fade. Compare against the same uninterrupted filter history.
+        EQFilter filter={20,18,20,EQFilterPeak,false,EQChannelStereo};
+        assert(eq_update_filters(eq,&filter,1,0,false));
+        assert(eq_update_filters(reference,&filter,1,0,false));
+        float out[2],base[2];
+        unsigned sample=0;
+        for (;sample<(unsigned)rate;sample++) {
+            float input=.001*sin(2*M_PI*20*sample/rate);
+            frame(eq,input,input,out); frame(reference,input,input,base);
+        }
+        double oldAmplitude=1;
+        unsigned fade=(unsigned)ceil(rate*.02);
+        for (unsigned p=0;p<4;p++) {
+            assert(eq_update_filters(eq,&filter,1,preamps[p],false));
+            double amplitude=pow(10,preamps[p]/20);
+            for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
+                float input=.001*sin(2*M_PI*20*sample/rate);
+                frame(eq,input,input,out); frame(reference,input,input,base);
+                double mix=fmin(1,(double)i/fade);
+                double expected=base[0]*(oldAmplitude*(1-mix)+amplitude*mix);
+                assert(fabs(out[0]-expected)<2e-8 && out[0]==out[1]);
+            }
+            oldAmplitude=amplitude;
+        }
+        assert(eq_faults(eq)==0 && eq_faults(reference)==0);
+        eq_destroy(eq);eq_destroy(reference);
+    }
+    puts("PASS preamp cuts and boosts preserve slow-filter history and fade magnitude at five sample rates");
+}
 int main(void) {
     stereo_tests();
     channel_tests();
+    preamp_history_tests();
     const double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         double rate=rates[r];
@@ -252,6 +290,7 @@ int main(void) {
     unsigned faults=eq_faults(eq); input.mBuffers[0].mDataByteSize-=1;
     eq_process(eq,&input,&output); assert(eq_faults(eq)==faults+1);
     for(unsigned i=0;i<128;i++) assert(out[i]==0);
+    assert(eq_peak(eq)==0);
     eq_destroy(eq);
     printf("PASS rapid transitions, latest target, continuity (max step %.8f), malformed input and fault containment\n",largestStep);
 
