@@ -31,3 +31,5 @@ All twelve regression suites passed for build 20. Native checks on an isolated i
 Build 21 packages the verified changes as version 1.1.0. The [condensed release notes](RELEASE-1.1.0.md) summarize the update. Import/updater regression checks, universal compilation, strict signatures, DMG verification, ZIP/DMG app equality, installer contents, and SHA-256 checks passed. The installed app reports Version 1.1.0 (21) in About, preserves the latest saved settings, and resumes audio processing. These checks were completed locally before publication.
 
 Release build 22 makes the drag-position conversion from `CGFloat` to `Double` explicit, resolving an operator ambiguity found by the macOS 15 CI compiler. The gain mapping and measurements above are unchanged.
+
+The pane regression checks wait for SwiftUI to attach the requested mode before inspecting its native dividers. This accommodates asynchronous observed-model rendering on macOS 15 without skipping any resizing or state-preservation assertions.
