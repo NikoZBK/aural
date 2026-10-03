@@ -116,7 +116,8 @@ private struct EQGainBar: View {
                 .gesture(DragGesture(minimumDistance: 0).onChanged { event in
                     guard adjustable else { return }
                     if !dragging { guard begin() else { return }; dragging = true; focused = true }
-                    change(EQBarScale.gain(at: 1 - (event.location.y - 4) / height, in: range))
+                    let position = Double((event.location.y - 4) / height)
+                    change(EQBarScale.gain(at: 1 - position, in: range))
                 }.onEnded { _ in if dragging { dragging = false; end() } })
                 .simultaneousGesture(TapGesture(count: 2).onEnded { adjust(to: 0) })
         }.accessibilityElement(children: .ignore).accessibilityLabel(label)
