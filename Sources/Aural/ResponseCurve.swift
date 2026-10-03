@@ -28,15 +28,26 @@ private struct InteractiveResponseCurve: View {
     @State private var hoverFraction: Double?
     @State private var showFilters = false
     @State private var channel = ResponseChannel.both
-    @State private var analysis: ResponseAnalysis?
+    @State private var result: AnalysisResult?
 
-    private struct Input: Equatable {
+    private struct Input: Equatable, Sendable {
         let profile: Profile
         let rate: Double
         let bypass: Bool
         let comparison: Profile?
     }
+    private struct AnalysisResult {
+        let input: Input
+        let analysis: ResponseAnalysis
+    }
     private var input: Input { Input(profile: profile, rate: rate, bypass: bypass, comparison: comparisonProfile) }
+    // Never pair a previous curve with the current profile's scale or hover values.
+    private var analysis: ResponseAnalysis? { result?.input == input ? result?.analysis : nil }
+    private var hasChannelFilters: Bool {
+        ((profile.filters ?? []) + (comparisonProfile?.filters ?? [])).contains {
+            $0.enabled && $0.effectiveChannel != .stereo
+        }
+    }
 
     private var color: Color { bypass ? AuralStyle.secondary : AuralStyle.accent }
     private var maximumFrequency: Double { min(20000, rate * 0.49) }
@@ -68,14 +79,14 @@ private struct InteractiveResponseCurve: View {
     private func header(compact: Bool) -> some View {
         HStack(spacing: compact ? 8 : 12) {
             AuralSectionLabel(title: "EQ curve", systemImage: "waveform.path").fixedSize()
-            if analysis?.hasChannelFilters == true {
+            if hasChannelFilters {
                 Picker("Response channel", selection: $channel) {
                     ForEach(ResponseChannel.allCases, id: \.self) { channel in
                         Text(channel.label).tag(channel)
                     }
                 }.pickerStyle(.segmented).labelsHidden().controlSize(.small)
                     .frame(width: 116, height: 22)
-                    .help("Inspect left and right independently. Teal is left, blue is right. Peak/headroom always covers both channels.")
+                    .help("Inspect left and right independently. Left uses your accent color; right is dotted blue. Peak/headroom always covers both channels.")
             }
             Spacer(minLength: 8)
             if comparisonProfile != nil {
@@ -128,9 +139,12 @@ private struct InteractiveResponseCurve: View {
                         @unknown default: break
                         }
                     }
+                } else {
+                    Text("Updating curve…").font(.caption).foregroundStyle(AuralStyle.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .background(Color.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 8))
+            .background(AuralStyle.plotBackground, in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(AuralStyle.border))
             HStack(spacing: 14) {
                 if hoverFraction != nil {
@@ -155,8 +169,13 @@ private struct InteractiveResponseCurve: View {
                     .help("The vertical scale expands to fit every displayed curve.")
             }.font(.system(size: 10, weight: .medium, design: .monospaced)).lineLimit(1)
         }
-        .onChange(of: input, initial: true) { _, input in
-            analysis = ResponseAnalysis(profile: input.profile, rate: input.rate, bypass: input.bypass, comparisonProfile: input.comparison)
+        .task(id: input) {
+            let input = input
+            let updated = await EQAnalysisWorker.shared.calculate {
+                ResponseAnalysis(profile: input.profile, rate: input.rate, bypass: input.bypass, comparisonProfile: input.comparison)
+            }
+            guard !Task.isCancelled, let updated else { return }
+            result = AnalysisResult(input: input, analysis: updated)
         }
         .help("Filter and preamp response; stereo effects and peak protection are not plotted. Hover to inspect values. The logarithmic frequency axis ends below the sample rate’s Nyquist limit.")
     }
@@ -167,10 +186,12 @@ private struct InteractiveResponseCurve: View {
 /// a View's State storage, which can otherwise leave its retained drawing one edit behind.
 private struct ResponseCanvas: View {
     let drawing: ResponsePlotDrawing
+    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
+        // An unchanged EQ still needs to redraw when the inherited appearance changes.
         Canvas { [drawing] context, size in
             drawing.draw(context: context, size: size)
-        }
+        }.environment(\.colorScheme, colorScheme)
     }
 }
 
@@ -217,7 +238,7 @@ private struct ResponsePlotDrawing {
 
         for db in scale.ticks {
             context.stroke(line(from: CGPoint(x: left, y: y(db)), to: CGPoint(x: right, y: y(db))),
-                           with: .color(.white.opacity(db == 0 ? 0.22 : 0.06)), lineWidth: 1)
+                           with: .color(AuralStyle.grid.opacity(db == 0 ? 0.22 : 0.06)), lineWidth: 1)
             context.draw(Text(db == 0 ? "0" : String(format: "%+.0f", db))
                 .font(.system(size: 9, design: .monospaced)).foregroundColor(AuralStyle.secondary),
                 at: CGPoint(x: left - 9, y: y(db)), anchor: .trailing)
@@ -227,7 +248,7 @@ private struct ResponsePlotDrawing {
                 let frequency = decade * Double(multiple)
                 guard (20...maximumFrequency).contains(frequency) else { continue }
                 context.stroke(line(from: CGPoint(x: x(frequency), y: top), to: CGPoint(x: x(frequency), y: bottom)),
-                               with: .color(.white.opacity(multiple == 1 ? 0.09 : 0.03)), lineWidth: 1)
+                               with: .color(AuralStyle.grid.opacity(multiple == 1 ? 0.09 : 0.03)), lineWidth: 1)
             }
         }
 
@@ -252,7 +273,8 @@ private struct ResponsePlotDrawing {
             fill.closeSubpath()
             context.fill(fill, with: .color(traceColor.opacity(0.045)))
             context.stroke(combined, with: .color(traceColor.opacity(0.10)), lineWidth: 5)
-            context.stroke(combined, with: .color(traceColor), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            context.stroke(combined, with: .color(traceColor),
+                           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: channel == .right ? [2, 3] : []))
         }
 
         if let hoverFraction {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AboutView: View {
+    @ObservedObject var model: Model
     @ObservedObject var icon: AppIconController
     @Environment(\.openWindow) private var openWindow
     private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development" }
@@ -32,7 +33,6 @@ struct AboutView: View {
                 .font(.system(size: 10)).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
             Text("This build is not notarized by Apple.").font(.system(size: 10)).foregroundStyle(.secondary)
-        }.padding(26).frame(width: 380).background(AuralStyle.background)
-            .preferredColorScheme(.dark).tint(AuralStyle.accent)
+        }.padding(26).frame(width: 380).auralAppearance(model.theme)
     }
 }

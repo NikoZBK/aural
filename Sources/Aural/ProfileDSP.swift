@@ -1,5 +1,15 @@
 import DSP
 
+/// Profiles and sample rates are validated before reaching UI analysis.
+/// The C sampler shares the engine's coefficients and avoids rebuilding them per point.
+func sampledResponse(_ frequencies: [Double], rate: Double, filters: [EQFilter], preamp: Double, channel: UInt32) -> [Double] {
+    var values = [Double](repeating: 0, count: frequencies.count)
+    let accepted = eq_response_filters_channel_samples(frequencies, UInt32(frequencies.count), rate,
+                                                       filters, UInt32(filters.count), preamp, channel, &values)
+    precondition(accepted, "Response sampling requires a valid rate/channel/preamp and at most 32 filters.")
+    return values
+}
+
 extension Profile {
     var dspStereo: EQStereo {
         let settings = stereoSettings

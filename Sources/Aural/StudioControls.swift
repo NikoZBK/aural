@@ -136,11 +136,11 @@ struct MonitorPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 21) {
-                OutputSelection(model: model)
+                OutputSelection(model: model, submissions: submissions)
                 Divider().overlay(AuralStyle.border)
-                preamp
+                PreampControls(model: model, submissions: submissions)
                 Divider().overlay(AuralStyle.border)
-                StudioMeter(peak: model.peak, running: model.running)
+                StudioMeter(meter: model.meter, running: model.running)
                 Divider().overlay(AuralStyle.border)
                 VStack(alignment: .leading, spacing: 9) {
                     AuralSectionLabel(title: "Audio processing")
@@ -154,7 +154,22 @@ struct MonitorPanel: View {
         }.background(AuralStyle.surface)
             .onDisappear { model.endProfileGesture() }
     }
-    private var preamp: some View {
+    private func stage(_ number: String, _ title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(number).font(.system(size: 9, design: .monospaced)).foregroundStyle(AuralStyle.accent).padding(.top, 2)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 11, weight: .medium))
+                Text(detail).font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
+            }
+        }.padding(.vertical, 4)
+    }
+
+}
+
+struct PreampControls: View {
+    @ObservedObject var model: Model
+    let submissions: PrecisionSubmissionCoordinator
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             AuralSectionLabel(title: "Preamp")
             HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -171,18 +186,10 @@ struct MonitorPanel: View {
                 }
                 Text("dB").font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
             }
-            Button { if submitPendingInput() { model.headroom() } } label: { Label("Auto preamp", systemImage: "arrow.down.to.line").frame(maxWidth: .infinity) }
+            Button { if submitPendingInput() { model.headroom() } } label: { Label(model.calculatingHeadroom ? "Calculating…" : "Auto preamp", systemImage: "arrow.down.to.line").frame(maxWidth: .infinity) }
+                .disabled(model.calculatingHeadroom)
                 .buttonStyle(AuralButtonStyle()).help("Estimate a preamp level that leaves room for EQ boosts and stereo adjustments.")
         }
-    }
-    private func stage(_ number: String, _ title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(number).font(.system(size: 9, design: .monospaced)).foregroundStyle(AuralStyle.accent).padding(.top, 2)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.system(size: 11, weight: .medium))
-                Text(detail).font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
-            }
-        }.padding(.vertical, 4)
     }
     private func submitPendingInput() -> Bool {
         switch submissions.submitActive() {
@@ -195,6 +202,8 @@ struct MonitorPanel: View {
 
 struct OutputSelection: View {
     @ObservedObject var model: Model
+    let submissions: PrecisionSubmissionCoordinator
+    @State private var selectionRevision = 0
     var comfortable = false
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -204,21 +213,32 @@ struct OutputSelection: View {
                 Button { model.refresh() } label: { Image(systemName: "arrow.clockwise").frame(width: comfortable ? 30 : 16, height: comfortable ? 28 : 16) }
                     .buttonStyle(.plain).foregroundStyle(AuralStyle.secondary).accessibilityLabel("Refresh outputs").help("Refresh audio devices")
             }
-            Picker("Output device", selection: Binding(get: { model.selectedUID }, set: model.select)) {
+            Picker("Output device", selection: Binding(get: { model.selectedUID }, set: selectOutput)) {
                 if model.selected == nil { Text("Select an output").tag(model.selectedUID) }
                 ForEach(model.devices) { Text($0.name).tag($0.uid) }
-            }.labelsHidden().frame(maxWidth: .infinity).controlSize(comfortable ? .large : .regular)
+            }.labelsHidden().frame(maxWidth: .infinity).controlSize(comfortable ? .large : .regular).id(selectionRevision)
                 .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default.")
             Text(comfortable ? "Choose the output your apps are using. Changing output stops EQ; press Start EQ when you are ready." : (model.running ? String(format: "Stereo · %g kHz", model.responseRate / 1000) : "Select output, then Start EQ"))
                 .font(.system(size: comfortable ? 13 : 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
+    private func selectOutput(_ uid: String) {
+        guard uid != model.selectedUID else { return }
+        switch submissions.submitActive() {
+        case .rejected: selectionRevision += 1; return
+        case .submitted where model.error != nil: selectionRevision += 1; return
+        default: break
+        }
+        model.select(uid)
+        if model.selectedUID != uid { selectionRevision += 1 }
+    }
 }
 
-private struct StudioMeter: View {
-    let peak: Float
+struct StudioMeter: View {
+    @ObservedObject var meter: AudioMeter
     let running: Bool
     @State private var heldPeak: Float = 0
+    private var peak: Float { meter.peak }
     private var db: Double { running && peak > 0 ? 20 * log10(Double(peak)) : -90 }
     private var heldDB: String { heldPeak > 0 ? String(format: "%.1f", 20 * log10(Double(heldPeak))) : "−∞" }
     var body: some View {

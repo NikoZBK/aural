@@ -23,6 +23,13 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 
 Peaking, Q-based low/high shelf, second-order low/high pass, band-pass, notch, and all-pass filters are implemented. Live control updates use prepared coefficients and preallocated chains. Audio callbacks allocate no memory, acquire no locks, perform no file I/O, and make no Swift/UI calls. Channel/stereo additions preserve default output and complete bypass semantics; the safety limiter remains active during bypass.
 
+## Added in Aural 1.1
+
+- System, Light, and Dark themes are saved across launches and applied to all windows, graphs, menus, and native file panels. Every theme uses the macOS accent color. The original dark appearance remains the default.
+- Simple and Professional share gain bars at the current EQ's actual frequencies. Imported filter metadata stays intact; Reset EQ resets gains and preamp with one-step Undo.
+- Both mode panels prepare at startup. Response analysis and login-status checks use workers, and metering updates are isolated from the main model.
+- Native dividers resize panes in both modes and the preset library. Simple adds everyday EQ, output, and stereo controls; responsive layouts keep them reachable.
+
 ## What's still missing
 
 | Feature | Current limit | Work needed |
@@ -37,7 +44,7 @@ Peaking, Q-based low/high shelf, second-order low/high pass, band-pass, notch, a
 | Live spectrum / measurements | EQ curve and output sample peak only | Bounded FFT telemetry outside the realtime callback, calibration, measurement metadata and validation. |
 | Hearing/test-tone workflows | No generated tones or hearing assessment | User-controlled level/ramp/mute, separate calibration flow and validated playback behavior. |
 | Full APO command language | Strict documented subset | Native equivalents for routing, includes, expressions and per-channel preamp, with explicit semantics and sandboxed file resolution. |
-| Other languages and light appearance | English and a dark interface only | String catalogs, locale-aware numeric entry, translated layouts and accessibility review. |
+| Other languages | English only | String catalogs, locale-aware numeric entry, translated layouts and accessibility review. |
 
 These features need more audio processing, hardware testing, or work with outside data sources before Aural can support them.
 

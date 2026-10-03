@@ -320,6 +320,12 @@ OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID proc, uns
     OSStatus result=AudioObjectSetPropertyData(device,&address,0,NULL,(UInt32)size,usage);
     free(usage); return result;
 }
+static double response_gain(Coeff a, double c1, double s1, double c2, double s2) {
+    double nr=a.b0+a.b1*c1+a.b2*c2, ni=-a.b1*s1-a.b2*s2;
+    double dr=1+a.a1*c1+a.a2*c2, di=-a.a1*s1-a.a2*s2;
+    // Exact notch zeros have -infinite gain. Floor only the plotted magnitude.
+    return 10*log10(fmax(1e-30,(nr*nr+ni*ni)/(dr*dr+di*di)));
+}
 double eq_response_filters_channel(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp, unsigned channel) {
     if (channel==EQChannelStereo) {
         return fmax(eq_response_filters_channel(frequency,rate,filters,count,preamp,EQChannelLeft),
@@ -327,15 +333,35 @@ double eq_response_filters_channel(double frequency, double rate, const EQFilter
     }
     if (channel>EQChannelRight) return NAN;
     double result=preamp, w=2*M_PI*frequency/rate;
+    double c1=cos(w), s1=sin(w), c2=cos(2*w), s2=sin(2*w);
     for (unsigned i=0;i<count;i++) {
         if (filters[i].channel!=EQChannelStereo && filters[i].channel!=channel) continue;
         Coeff a=coeff(filters[i],filters[i].gain,rate);
-        double nr=a.b0+a.b1*cos(w)+a.b2*cos(2*w), ni=-a.b1*sin(w)-a.b2*sin(2*w);
-        double dr=1+a.a1*cos(w)+a.a2*cos(2*w), di=-a.a1*sin(w)-a.a2*sin(2*w);
-        // Exact notch zeros have -infinite gain. Floor only the plotted magnitude.
-        result+=10*log10(fmax(1e-30,(nr*nr+ni*ni)/(dr*dr+di*di)));
+        result+=response_gain(a,c1,s1,c2,s2);
     }
     return result;
+}
+bool eq_response_filters_channel_samples(const double *frequencies, unsigned frequencyCount, double rate,
+    const EQFilter *filters, unsigned count, double preamp, unsigned channel, double *decibels) {
+    if (count>EQMaxFilters || channel>EQChannelRight || !isfinite(rate) || rate<=0 || !isfinite(preamp)) return false;
+    Coeff coefficients[EQMaxFilters];
+    for (unsigned i=0;i<count;i++) coefficients[i]=coeff(filters[i],filters[i].gain,rate);
+    for (unsigned f=0;f<frequencyCount;f++) {
+        double w=2*M_PI*frequencies[f]/rate;
+        double c1=cos(w), s1=sin(w), c2=cos(2*w), s2=sin(2*w);
+        double left=preamp, right=preamp;
+        for (unsigned i=0;i<count;i++) {
+            unsigned target=filters[i].channel;
+            if (channel!=EQChannelStereo && target!=EQChannelStereo && target!=channel) continue;
+            Coeff a=coefficients[i];
+            if (a.b0==1 && a.b1==0 && a.b2==0 && a.a1==0 && a.a2==0) continue;
+            double gain=response_gain(a,c1,s1,c2,s2);
+            if (target!=EQChannelRight) left+=gain;
+            if (target!=EQChannelLeft) right+=gain;
+        }
+        decibels[f]=channel==EQChannelLeft ? left : channel==EQChannelRight ? right : fmax(left,right);
+    }
+    return true;
 }
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp) {
     return eq_response_filters_channel(frequency,rate,filters,count,preamp,EQChannelStereo);

@@ -43,9 +43,7 @@ struct FilterEditor: View {
         .textFieldStyle(.roundedBorder)
         .padding(24)
         .frame(minWidth: 900, idealWidth: 930, minHeight: 520, idealHeight: 750)
-        .background(AuralStyle.background)
-        .preferredColorScheme(.dark)
-        .tint(AuralStyle.accent)
+        .auralAppearance(model.theme)
         .onChange(of: draft) { previous, _ in
             if restoringHistory { restoringHistory = false }
             else { history.record(previous) }

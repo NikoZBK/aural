@@ -37,12 +37,13 @@ These captures show the earlier **Easy** label; the app now calls it **Simple**.
 ## Features
 
 - **Simple mode** for choosing a preset and listening, and **Professional mode** for the complete set of EQ and stereo controls.
+- Saved **System, Light, and Dark** themes across windows, graphs, and native dialogs, using your macOS accent color.
 - Presets, the EQ curve, editable filters, and output controls together in one window.
 - Ten-band and 31-band EQ, sliders and exact numbers, and up to 32 adjustable filters.
 - Filters for the **left, right, or both channels**, including peak, shelf, pass, notch, and all-pass types.
 - A/B comparison: edit two versions, switch between them, and compare their curves. Undo or redo up to 100 changes.
 - Stereo controls for left/right level, balance, width, crossfeed, mono, polarity, and 0–30 ms delay.
-- Separate left/right EQ curves, individual filter curves, and values shown as you move over the curve.
+- Separate left/right EQ curves (solid accent and dotted blue), individual filter curves, and values shown as you move over the curve.
 - Preamp, **Auto preamp** to help prevent clipping, and an output level meter that remembers the highest level.
 - Adjust all band gains at once, reduce or invert their effect, or shift their frequencies.
 - Copy, paste, import, and export AutoEQ / Equalizer APO text, including left/right filter settings.
@@ -54,6 +55,12 @@ The [feature comparison](docs/PEACE-FEATURE-ROADMAP.md) lists what Aural support
 ## Using Aural
 
 Use the **Simple / Professional** switch at the top of the window to choose how many controls you see. Simple mode keeps preset selection, output selection, and EQ on/off within reach. Professional mode shows the EQ curve, filters, preamp, A/B comparison, and stereo controls. Switching modes keeps your current sound and settings; advanced adjustments stay active in Simple mode. Aural remembers your choice. New installations start in Simple mode, and existing installations keep Professional mode when upgrading.
+
+Both panels prepare when Aural opens, with loading blocks covering the initial preparation, and retain their controls between switches. Both modes show draggable EQ bars at the active EQ's actual frequencies and gains: drag up to boost and down to cut, double-click for 0 dB, or use the arrow keys on a focused bar. Switching views never creates a flat EQ. Imported filters keep their frequency, Q, type, channel, and enabled state; filters without adjustable gain show an inactive bar. **Reset EQ** in either mode sets band gains and preamp to 0 dB while preserving filter settings and stereo adjustments; one Undo restores the previous EQ. Professional's **Rows** button opens exact numeric editing.
+
+Drag the dividers to resize the preset, editing, and output panes. Each mode retains its pane widths when switching; minimum widths keep controls usable. The preset library also has a draggable divider. Simple includes preamp/Auto preamp, balance, mono, stereo width, headphone blend, output level, and Undo/Redo; its cards use one or two columns according to the available space. Meter readings update the meter independently, while curve and Auto preamp calculations run in the background. Auto preamp shows its progress and rejects a result if the EQ or output changed during calculation.
+
+Choose **Theme** in the gear settings, **View** menu, or headphones menu. **System** follows your Mac's light/dark appearance; **Light** and **Dark** keep a fixed appearance. Every theme uses your macOS accent color for highlights, buttons, and the main EQ curve. The choice is saved and applies immediately to all Aural windows, popovers, graphs, and file dialogs. Changing themes keeps the current EQ, playback, and drafts. Dark remains the default for both new and existing installations.
 
 Select the output that your apps use. Aural does not change the macOS default output or affect sound playing through another device. **Stop** returns audio to its normal path. **Bypass** turns off EQ, preamp, and stereo effects while keeping Aural's audio connection and peak protection active. Close the last Aural window with the red close button or **Command-W** to remove Aural from the Dock while keeping EQ and the menu bar controls running. Choose **Show Aural** from the headphones menu to bring the window and Dock icon back. Minimized windows keep their Dock access. **Quit Aural** or **Command-Q** stops EQ and exits completely.
 
@@ -69,7 +76,7 @@ The gear menu controls startup. With automatic EQ enabled, Aural restores the sa
 
 Choose **Files & backups → Import AutoEQ text…** (or the Equalizer menu) and select a UTF-8 parametric or fixed-band text export. The complete file is validated before current settings change. Import stops processing, replaces the previous EQ, and saves a named preset. Click **Start EQ** when ready. Repeated filenames receive a numeric suffix instead of overwriting existing presets.
 
-Edit filters directly in the main window: choose their type, frequency, gain, Q (which controls filter width), and whether they are enabled. Set the exact overall gain with **Preamp**. Add or remove filters up to the 32-filter limit. **EQ options → Edit as a draft…** opens a separate editor where you can preview changes before applying them. **Apply EQ** checks the complete draft and updates EQ; if EQ was stopped, it stays stopped. **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset to reuse the changes. Imported values retain their precision until edited. Choose **Band layout → 10-band octave EQ** for a flat ten-band EQ, or select the 31-band layout. You can undo a layout change, and it preserves stereo settings. Imports replace the previous EQ rather than adding to it.
+Edit filters directly in the main window: choose their type, frequency, gain, Q (which controls filter width), and whether they are enabled. Set the exact overall gain with **Preamp**. Add or remove filters up to the 32-filter limit. **EQ options → Edit as a draft…** opens a separate editor where you can preview changes before applying them. **Apply EQ** checks the complete draft and updates EQ; if EQ was stopped, it stays stopped. **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset to reuse the changes. Imported values retain their precision until edited. To replace the current EQ deliberately, choose **New EQ → New flat 10-band EQ** or **New flat 31-band EQ** in Professional. You can undo a layout change, and it preserves stereo settings. Imports replace the previous EQ rather than adding to it.
 
 Supported commands are a global `Preamp`, `Channel: ALL`, `Channel: L`, `Channel: R`, and numbered `Filter` lines using `PK`, `LSC`, or `HSC` with `Fc`, `Gain`, and `Q`; or `LPQ`, `HPQ`, `BP`, `NO`, and `AP` with `Fc` and explicit `Q` (no Gain field). Pass/notch filter gain is not adjustable; band-pass has unity peak gain. LPQ/HPQ are second-order filters with adjustable Q. Shorthand LP/HP, omitted Q, bandwidth syntax, and higher-order filters are not yet supported. Blank lines, `#` comments, OFF filters, CRLF, and a UTF-8 BOM are accepted. No Preamp line means 0 dB. Limits are 32 filters, 10–22000 Hz, −30 to +30 dB filter gain, Q 0.05–50, −60 to +24 dB imported preamp, and 64 KB file size. All filters may be disabled; their values remain saved and preamp, stereo effects, and peak protection still affect audio. Global Bypass additionally bypasses preamp and stereo effects. A per-channel `Preamp` command is rejected; use Aural’s channel trims for this.
 
@@ -161,3 +168,5 @@ Filter equations follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-
 The [0.9.0 interface notes](docs/RELEASE-0.9.0.md) describe the earlier Ultra interface. [0.9.2 release notes](docs/RELEASE-0.9.2.md) cover selected-preset display and the dog-with-headphones icon. [0.9.3 release notes](docs/RELEASE-0.9.3.md) cover running in the menu bar after closing the window. [0.9.4 release notes](docs/RELEASE-0.9.4.md) cover sleeping and happy icon states.
 
 [1.0.0 release notes](docs/RELEASE-1.0.0.md) cover the redesigned equalizer, left/right EQ, stereo controls, A/B comparison, and reversed dog states.
+
+[1.1 release notes](docs/RELEASE-1.1.0.md) cover system-accent themes, faster mode switching, visual EQ bars, Reset EQ, and resizable panes.

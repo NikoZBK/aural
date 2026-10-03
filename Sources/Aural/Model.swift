@@ -9,7 +9,7 @@ import ServiceManagement
     @Published var profile = Profile()
     @Published var bypass = false
     @Published var running = false
-    @Published var peak: Float = 0
+    let meter = AudioMeter()
     @Published var error: String?
     @Published var presetName = ""
     @Published var customPresets: [String] = []
@@ -19,9 +19,11 @@ import ServiceManagement
     @Published private(set) var favoritePresets: Set<String> = []
     @Published private(set) var startEQAutomatically = false
     @Published private(set) var interfaceMode: InterfaceMode = .easy
-    @Published private(set) var loginStatus = SMAppService.mainApp.status
+    @Published private(set) var theme: AuralTheme = .dark
+    @Published private(set) var loginStatus: SMAppService.Status?
     @Published private(set) var startupNotice: String?
     @Published private(set) var editRevision = 0
+    @Published private(set) var calculatingHeadroom = false
     @Published private var workspace = ProfileWorkspace()
     private var committedProfile = ProfileSnapshot(profile: Profile(), selectedPresetName: nil)
     var canUndo: Bool { workspace.canUndo }
@@ -42,6 +44,9 @@ import ServiceManagement
     private var timer: Timer?
     private var ticks = 0
     private var observers: [NSObjectProtocol] = []
+    private var loginStatusRefresh: Task<Void, Never>?
+    private let readLoginStatus: @Sendable () -> SMAppService.Status
+    private var headroomTask: Task<Void, Never>?
     private let file: URL
     var selected: OutputDevice? { devices.first { $0.uid == selectedUID } }
     var responseRate: Double { running ? route.sampleRate : 48000 }
@@ -55,14 +60,16 @@ import ServiceManagement
         guard let selectedPresetName else { return "Custom EQ" }
         return selectedPresetName + (isPresetModified ? " · Modified" : "")
     }
-    init() {
-        file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
+    init(settingsFile: URL? = nil, readLoginStatus: @escaping @Sendable () -> SMAppService.Status = { SMAppService.mainApp.status }) {
+        self.readLoginStatus = readLoginStatus
+        file = settingsFile ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
         do {
             if FileManager.default.fileExists(atPath: file.path) {
                 settings = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
                 for p in Array(settings.devices.values) + Array(settings.presets.values) { _ = try p.validated() }
             }
             interfaceMode = settings.interfaceMode
+            theme = settings.theme
             settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
@@ -79,6 +86,7 @@ import ServiceManagement
             favoritePresets = settings.favoritePresets ?? []
         } catch { pendingStartup = nil; startupNotice = nil; self.error = error.localizedDescription }
         committedProfile = ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName)
+        refreshLoginStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.poll() }
         }
@@ -87,7 +95,16 @@ import ServiceManagement
         })
     }
     var launchAtLoginRequested: Bool { loginStatus == .enabled || loginStatus == .requiresApproval }
-    func refreshLoginStatus() { loginStatus = SMAppService.mainApp.status }
+    func refreshLoginStatus() {
+        loginStatusRefresh?.cancel()
+        let readStatus = readLoginStatus
+        loginStatusRefresh = Task { [weak self] in
+            // ServiceManagement performs synchronous XPC. Never block layout or input.
+            let status = await Task.detached(priority: .utility) { readStatus() }.value
+            guard !Task.isCancelled, let self else { return }
+            if self.loginStatus != status { self.loginStatus = status }
+        }
+    }
     func setLaunchAtLogin(_ enabled: Bool) {
         do {
             if enabled { try SMAppService.mainApp.register() }
@@ -106,9 +123,21 @@ import ServiceManagement
         do {
             try writeSettings(next)
             settings = next
+            endProfileGesture()
             interfaceMode = mode
             error = nil
         } catch { self.error = "Could not save interface mode: " + error.localizedDescription }
+    }
+    func setTheme(_ theme: AuralTheme) {
+        guard self.theme != theme else { return }
+        var next = settings
+        next.theme = theme
+        do {
+            try writeSettings(next)
+            settings = next
+            self.theme = theme
+            error = nil
+        } catch { self.error = "Could not save theme: " + error.localizedDescription }
     }
     func setStartAutomatically(_ enabled: Bool) {
         if enabled, selected == nil { error = "Select a connected output before enabling automatic EQ."; return }
@@ -188,7 +217,7 @@ import ServiceManagement
         // Validate everything before changing the profile or stopping audio.
         startGeneration += 1
         pendingStartup = nil; startupNotice = nil
-        try route.stop(); running = false; peak = 0
+        try route.stop(); running = false; meter.update(0)
         let name = settings.availablePresetName(base)
         let previous = committedProfile
         profile = imported
@@ -255,7 +284,10 @@ import ServiceManagement
     }
 
     func beginProfileGesture(label: String) { workspace.beginGesture(label: label) }
-    func endProfileGesture() { workspace.endGesture() }
+    func endProfileGesture() {
+        guard workspace.hasActiveGesture else { return }
+        workspace.endGesture()
+    }
     func undoProfile() {
         var next = workspace
         do {
@@ -308,6 +340,16 @@ import ServiceManagement
             var next = $0; next.gains[index] = value; return next
         }
     }
+    func setBandGain(at index: Int, to value: Double) {
+        guard let filters = profile.filters else { setGraphicGain(at: index, to: value); return }
+        guard filters.indices.contains(index), filters[index].kind.usesGain else {
+            error = "This band does not have an adjustable gain."
+            return
+        }
+        var filter = filters[index]
+        filter.gain = value
+        updateFilter(at: index, with: filter)
+    }
     func setStereoSettings(_ value: StereoSettings) {
         editProfile("Adjust stereo", coalescing: true) { var next = $0; next.stereo = value.isNeutral ? nil : value; return next }
     }
@@ -319,6 +361,13 @@ import ServiceManagement
     }
     func transformGains(scale: Double, offset: Double) {
         editProfile("Transform gains") { try ProfileTools.transformGains($0, scale: scale, offset: offset) }
+    }
+    func resetEQ() {
+        editProfile("Reset EQ") {
+            var next = try ProfileTools.transformGains($0, scale: 0, offset: 0)
+            next.preamp = 0
+            return next
+        }
     }
     func shiftFrequencies(octaves: Double) {
         editProfile("Shift frequencies") { try ProfileTools.shiftFrequencies($0, octaves: octaves) }
@@ -465,8 +514,20 @@ import ServiceManagement
         } catch { self.error = "Could not restore presets: " + error.localizedDescription }
     }
     func headroom() {
-        let preamp = Headroom.preamp(for: profile, rate: responseRate)
-        editProfile("Calculate headroom") { var next = $0; next.preamp = preamp; return next }
+        headroomTask?.cancel()
+        let snapshot = profile, rate = responseRate, revision = editRevision, output = selectedUID
+        calculatingHeadroom = true
+        headroomTask = Task { [weak self] in
+            let preamp = await EQAnalysisWorker.shared.calculate { Headroom.preamp(for: snapshot, rate: rate) }
+            guard !Task.isCancelled, let preamp, let self else { return }
+            self.calculatingHeadroom = false
+            guard self.editRevision == revision, self.selectedUID == output, self.responseRate == rate,
+                  self.profile.hasSameEQ(as: snapshot) else {
+                self.error = "The EQ changed while calculating headroom. Click Auto preamp again."
+                return
+            }
+            self.editProfile("Calculate headroom") { var next = $0; next.preamp = preamp; return next }
+        }
     }
     func start() {
         pendingStartup = nil; startupNotice = nil
@@ -484,7 +545,7 @@ import ServiceManagement
     func stop() {
         startGeneration += 1
         pendingStartup = nil; startupNotice = nil
-        do { try route.stop(); running = false; peak = 0 }
+        do { try route.stop(); running = false; meter.update(0) }
         catch { self.error = error.localizedDescription }
     }
     func refresh() {
@@ -493,18 +554,17 @@ import ServiceManagement
     private func fail(_ failure: Error) {
         pendingStartup = nil; startupNotice = nil
         let reason = failure.localizedDescription
-        do { try route.stop(); running = false; peak = 0; error = reason }
+        do { try route.stop(); running = false; meter.update(0); error = reason }
         catch { self.error = reason + " Cleanup: " + error.localizedDescription + " Quit Aural to release its route." }
     }
     private func poll() {
-        peak = route.peak
+        meter.update(route.peak)
         ticks += 1
         guard ticks % 10 == 0 else { return }
         do {
             if running { try route.verify() }
             let current = try AudioRoute.devices()
             if current != devices { devices = current }
-            refreshLoginStatus()
             if let plan = pendingStartup {
                 switch plan.decision(availableUIDs: current.map(\.uid), now: Date()) {
                 case .wait: break

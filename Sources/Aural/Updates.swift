@@ -44,6 +44,7 @@ import SwiftUI
 }
 
 struct UpdatesView: View {
+    @ObservedObject var model: Model
     @StateObject private var checker = UpdateChecker()
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -52,7 +53,7 @@ struct UpdatesView: View {
             if checker.checking {
                 HStack { ProgressView().controlSize(.small); Text("Checking GitHub Releases…") }
             } else if let error = checker.error {
-                Text(error).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                Text(error).foregroundStyle(AuralStyle.warning).fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(checker.status).font(.headline)
             }
@@ -61,9 +62,9 @@ struct UpdatesView: View {
                 ScrollView {
                     Text(release.changelog)
                         .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(height: 240).padding(12).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+                }.frame(height: 240).padding(12).background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 8))
                 if checker.available && release.downloadURL == nil {
-                    Text("No compatible installer is attached. Visit Releases for download options.").foregroundStyle(.orange)
+                    Text("No compatible installer is attached. Visit Releases for download options.").foregroundStyle(AuralStyle.warning)
                 }
             }
             Text("Downloads open in your browser. Quit Aural, then replace the app with the downloaded version. Your saved settings stay on this Mac.")
@@ -77,7 +78,7 @@ struct UpdatesView: View {
                 }
             }
         }.font(.system(size: 12)).padding(22).frame(width: 530)
-            .background(AuralStyle.background).preferredColorScheme(.dark).tint(AuralStyle.accent)
+            .auralAppearance(model.theme)
             .task { await checker.check() }
     }
 }

@@ -4,8 +4,8 @@ struct AudioFailure: LocalizedError {
     let message: String
     var errorDescription: String? { message }
 }
-struct ImportedFilter: Codable, Equatable {
-    enum Channel: String, Codable, CaseIterable {
+struct ImportedFilter: Codable, Equatable, Sendable {
+    enum Channel: String, Codable, CaseIterable, Sendable {
         case stereo = "ALL", left = "L", right = "R"
         var label: String {
             switch self {
@@ -15,7 +15,7 @@ struct ImportedFilter: Codable, Equatable {
             }
         }
     }
-    enum Kind: String, Codable, CaseIterable {
+    enum Kind: String, Codable, CaseIterable, Sendable {
         case peak = "PK", lowShelf = "LSC", highShelf = "HSC"
         case lowPass = "LPQ", highPass = "HPQ", bandPass = "BP", notch = "NO", allPass = "AP"
         var usesGain: Bool { self == .peak || self == .lowShelf || self == .highShelf }
@@ -53,7 +53,7 @@ struct ImportedFilter: Codable, Equatable {
         }
     }
 }
-struct StereoSettings: Codable, Equatable {
+struct StereoSettings: Codable, Equatable, Sendable {
     var leftTrimDB = 0.0
     var rightTrimDB = 0.0
     var balance = 0.0
@@ -66,6 +66,14 @@ struct StereoSettings: Codable, Equatable {
     var mono = false
 
     var isNeutral: Bool { self == StereoSettings() }
+    func resettingListeningControls() -> Self {
+        var next = self
+        next.balance = 0
+        next.width = 1
+        next.mono = false
+        next.crossfeed = 0
+        return next
+    }
     // A conservative peak bound; crossfeed is normalized and polarity/delay
     // cannot increase a channel's peak. Reserve this in addition to EQ headroom.
     var headroomGainDB: Double {
@@ -84,7 +92,7 @@ struct StereoSettings: Codable, Equatable {
     }
 }
 
-struct Profile: Codable, Equatable {
+struct Profile: Codable, Equatable, Sendable {
     var gains = Array(repeating: 0.0, count: 10)
     var preamp = 0.0
     var filters: [ImportedFilter]?
@@ -125,6 +133,17 @@ enum InterfaceMode: String, Codable, CaseIterable {
     }
 }
 
+enum AuralTheme: String, Codable, CaseIterable {
+    case system, light, dark
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+}
+
 struct Settings: Codable {
     var devices: [String: Profile] = [:]
     var presets: [String: Profile] = [:]
@@ -133,9 +152,10 @@ struct Settings: Codable {
     var favoritePresets: Set<String>?
     var selectedPresets: [String: String]?
     var interfaceMode: InterfaceMode = .easy
+    var theme: AuralTheme = .dark
 
     private enum CodingKeys: String, CodingKey {
-        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode
+        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode, theme
     }
 }
 
@@ -150,6 +170,8 @@ extension Settings {
         selectedPresets = try values.decodeIfPresent([String: String].self, forKey: .selectedPresets)
         // Keep the full controls visible for people upgrading an existing install.
         interfaceMode = try values.decodeIfPresent(InterfaceMode.self, forKey: .interfaceMode) ?? .professional
+        // Preserve Aural's original appearance until a theme is explicitly chosen.
+        theme = try values.decodeIfPresent(AuralTheme.self, forKey: .theme) ?? .dark
     }
 }
 

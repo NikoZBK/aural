@@ -22,6 +22,10 @@ bool eq_update_filters(EQ *eq, const EQFilter *filters, unsigned count, double p
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp);
 // Stereo returns the larger L/R response for conservative automatic headroom.
 double eq_response_filters_channel(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp, unsigned channel);
+// Control/UI thread only: prepare coefficients once for an entire frequency grid.
+// Returns false for an invalid rate, channel, preamp, or excessive filter count.
+bool eq_response_filters_channel_samples(const double *frequencies, unsigned frequencyCount, double rate,
+    const EQFilter *filters, unsigned count, double preamp, unsigned channel, double *decibels);
 extern const double EQFrequencies[EQBands];
 EQ * _Nullable eq_create(double sampleRate, unsigned inputOffset);
 void eq_destroy(EQ *eq);

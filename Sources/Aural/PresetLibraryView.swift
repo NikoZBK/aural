@@ -23,11 +23,12 @@ struct PresetLibraryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             header
-            HStack(alignment: .top, spacing: 18) {
+            HSplitView {
                 library
-                    .frame(minWidth: 280, idealWidth: 310, maxWidth: 340, maxHeight: .infinity)
+                    .frame(minWidth: 280, idealWidth: 310, maxWidth: .infinity, maxHeight: .infinity)
                 detail
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.leading, 12)
+                    .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
             }.frame(minHeight: 290, maxHeight: .infinity)
             footer
             if let error = model.error {
@@ -38,9 +39,7 @@ struct PresetLibraryView: View {
         }
         .padding(24)
         .frame(minWidth: 760, minHeight: 520)
-        .background(AuralStyle.background)
-        .preferredColorScheme(.dark)
-        .tint(AuralStyle.accent)
+        .auralAppearance(model.theme)
         .onChange(of: selected) { _, value in newName = value ?? "" }
         .onChange(of: names) { _, visibleNames in
             if let selected, !visibleNames.contains(selected) {

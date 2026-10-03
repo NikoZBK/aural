@@ -15,7 +15,7 @@ enum Headroom {
         func response(_ frequency: Double) -> Double {
             eq_response_filters(frequency, rate, filters, UInt32(filters.count), 0)
         }
-        let values = frequencies.map(response)
+        let values = sampledResponse(frequencies, rate: rate, filters: filters, preamp: 0, channel: UInt32(EQChannelStereo))
         var maximum = max(0, values.max() ?? 0)
         for index in 1..<(frequencies.count - 1) where
             values[index] >= values[index - 1] && values[index] >= values[index + 1] &&

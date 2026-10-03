@@ -30,6 +30,7 @@ struct ProfileWorkspace {
     private(set) var comparisonSlot: ComparisonSlot = .a
 
     var canUndo: Bool { !undoEntries.isEmpty }
+    var hasActiveGesture: Bool { gestureID != nil }
     var canRedo: Bool { !redoEntries.isEmpty }
     var undoLabel: String { undoEntries.last?.label ?? "EQ change" }
     var redoLabel: String { redoEntries.last?.label ?? "EQ change" }

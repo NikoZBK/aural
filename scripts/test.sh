@@ -8,6 +8,9 @@ xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,unde
 xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Sources/DSP/DSP.c Tests/DSPTests/engine.c -framework CoreAudio -o .build/engine-tests
 .build/engine-tests
 
+xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Sources/DSP/DSP.c Tests/DSPTests/response.c -framework CoreAudio -o .build/response-sampling-tests
+.build/response-sampling-tests
+
 xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/PresetLibrary.swift Sources/Aural/ReleaseInfo.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQ.swift Sources/Aural/Startup.swift Tests/ImportTests/main.swift -o .build/import-tests
 .build/import-tests
 
@@ -36,3 +39,7 @@ xcrun swiftc -parse-as-library Sources/Aural/WindowPresence.swift Tests/WindowTe
 # Exercise processing-driven icon updates without changing the real app icon or audio.
 xcrun swiftc -parse-as-library Sources/Aural/AppIcon.swift Tests/IconTests/main.swift -framework AppKit -o .build/icon-tests
 .build/icon-tests
+
+# Check theme persistence, contrast, and native appearance without using personal settings or audio.
+xcrun swiftc -whole-module-optimization -parse-as-library -D AURAL_TESTING -I Sources/DSP/include Sources/Aural/*.swift Tests/ThemeTests/main.swift Tests/PerformanceTests/*.swift .build/dsp-bridge.o -framework CoreAudio -framework AppKit -o .build/theme-tests
+.build/theme-tests

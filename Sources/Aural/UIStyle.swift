@@ -1,19 +1,82 @@
 import SwiftUI
 
+extension AuralTheme {
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+    var appearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 enum AuralStyle {
-    static let accent = Color(red: 0.36, green: 0.85, blue: 0.78)
-    static let background = Color(red: 0.065, green: 0.075, blue: 0.089)
-    static let surface = Color(red: 0.091, green: 0.105, blue: 0.122)
-    static let elevated = Color(red: 0.135, green: 0.155, blue: 0.177)
-    static let border = Color.white.opacity(0.085)
-    static let secondary = Color(red: 0.66, green: 0.71, blue: 0.77)
-    static let warning = Color(red: 1, green: 0.73, blue: 0.40)
-    static let plotColors: [Color] = [accent, Color(red: 0.48, green: 0.68, blue: 1),
-        Color(red: 0.77, green: 0.59, blue: 1), warning, Color(red: 0.98, green: 0.51, blue: 0.61),
-        Color(red: 0.69, green: 0.82, blue: 0.46)]
+    // Native dynamic colors resolve in each presentation, including Canvas and AppKit panels.
+    private static func adaptive(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        })
+    }
+    static let accent = Color(nsColor: .controlAccentColor)
+    static func accentForeground(in environment: EnvironmentValues) -> Color {
+        let resolved = accent.resolve(in: environment)
+        func linear(_ component: Float) -> Double {
+            let value = Double(component)
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * linear(resolved.red) + 0.7152 * linear(resolved.green) + 0.0722 * linear(resolved.blue)
+        return luminance > 0.179 ? .black : .white
+    }
+    static let background = adaptive(light: NSColor(srgbRed: 0.95, green: 0.96, blue: 0.97, alpha: 1),
+                                     dark: NSColor(srgbRed: 0.065, green: 0.075, blue: 0.089, alpha: 1))
+    static let surface = adaptive(light: .white,
+                                  dark: NSColor(srgbRed: 0.091, green: 0.105, blue: 0.122, alpha: 1))
+    static let elevated = adaptive(light: NSColor(srgbRed: 0.88, green: 0.90, blue: 0.92, alpha: 1),
+                                   dark: NSColor(srgbRed: 0.135, green: 0.155, blue: 0.177, alpha: 1))
+    static let border = adaptive(light: .black.withAlphaComponent(0.14), dark: .white.withAlphaComponent(0.085))
+    static let secondary = adaptive(light: NSColor(srgbRed: 0.36, green: 0.40, blue: 0.46, alpha: 1),
+                                    dark: NSColor(srgbRed: 0.66, green: 0.71, blue: 0.77, alpha: 1))
+    static let warning = adaptive(light: NSColor(srgbRed: 0.60, green: 0.29, blue: 0.025, alpha: 1),
+                                  dark: NSColor(srgbRed: 1, green: 0.73, blue: 0.40, alpha: 1))
+    static let plotBackground = adaptive(light: .white.withAlphaComponent(0.60), dark: .black.withAlphaComponent(0.16))
+    static let grid = adaptive(light: .black, dark: .white)
+    static let plotColors: [Color] = [accent,
+        adaptive(light: NSColor(srgbRed: 0.23, green: 0.43, blue: 0.80, alpha: 1),
+                 dark: NSColor(srgbRed: 0.48, green: 0.68, blue: 1, alpha: 1)),
+        adaptive(light: NSColor(srgbRed: 0.55, green: 0.30, blue: 0.75, alpha: 1),
+                 dark: NSColor(srgbRed: 0.77, green: 0.59, blue: 1, alpha: 1)), warning,
+        adaptive(light: NSColor(srgbRed: 0.73, green: 0.26, blue: 0.38, alpha: 1),
+                 dark: NSColor(srgbRed: 0.98, green: 0.51, blue: 0.61, alpha: 1)),
+        adaptive(light: NSColor(srgbRed: 0.35, green: 0.46, blue: 0.10, alpha: 1),
+                 dark: NSColor(srgbRed: 0.69, green: 0.82, blue: 0.46, alpha: 1))]
+}
+
+private struct AuralMenuStyle: MenuStyle {
+    @Environment(\.colorScheme) private var colorScheme
+    func makeBody(configuration: Configuration) -> some View {
+        // AppKit-backed menu buttons retain resolved label colors across scheme changes.
+        // Recreate only the button, leaving numeric fields and editor state intact.
+        Menu(configuration).menuStyle(.automatic).id(colorScheme)
+    }
+}
+
+private struct AuralAppearance: ViewModifier {
+    let theme: AuralTheme
+    func body(content: Content) -> some View {
+        content.background(AuralStyle.background).menuStyle(AuralMenuStyle())
+            .preferredColorScheme(theme.colorScheme).tint(AuralStyle.accent)
+    }
 }
 
 extension View {
+    func auralAppearance(_ theme: AuralTheme) -> some View { modifier(AuralAppearance(theme: theme)) }
     func auralPanel(padding: CGFloat = 18) -> some View {
         self.padding(padding)
             .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 8))
@@ -50,11 +113,12 @@ struct AuralNotice: View {
 struct AuralButtonStyle: ButtonStyle {
     var prominent = false
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.self) private var environment
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .medium))
             .padding(.horizontal, 10).padding(.vertical, 7)
-            .foregroundStyle(prominent ? AuralStyle.background : Color.primary)
+            .foregroundStyle(prominent ? AuralStyle.accentForeground(in: environment) : Color.primary)
             .background(prominent ? AuralStyle.accent : AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(prominent ? .clear : AuralStyle.border))
             .opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)

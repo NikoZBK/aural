@@ -6,6 +6,7 @@ struct MainView: View {
     @State private var showStartup = false
     @State private var showFilterEditor = false
     @State private var page = StudioPage.equalizer
+    @State private var selectionRevision = 0
     @StateObject private var submissions = PrecisionSubmissionCoordinator()
 
     private var status: String { model.running ? (model.bypass ? "Bypassed" : "Processing") : "Stopped" }
@@ -15,26 +16,31 @@ struct MainView: View {
         VStack(spacing: 0) {
             header
             Divider().overlay(AuralStyle.border)
-            if model.interfaceMode == .easy {
-                EasyModeView(model: model)
-            } else {
-                HStack(spacing: 0) {
-                    StudioSidebar(model: model, submissions: submissions).frame(width: 184)
-                    Divider().overlay(AuralStyle.border)
-                    GeometryReader { geometry in
-                        workspace(graphHeight: min(246, max(160, geometry.size.height * 0.30)))
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                    Divider().overlay(AuralStyle.border)
-                    MonitorPanel(model: model, submissions: submissions).frame(width: 218)
-                }
+            // The window's minimum size is explicit below. Keep its size negotiation
+            // from repeatedly measuring every editor and scroll view during a mode swap.
+            GeometryReader { viewport in
+                InterfacePanelHost(mode: model.interfaceMode, simple: EasyModeView(model: model, submissions: submissions), professional: professionalPanel)
+                    .frame(width: viewport.size.width, height: viewport.size.height)
             }
             Divider().overlay(AuralStyle.border)
             footer
         }
         .frame(minWidth: model.interfaceMode == .easy ? 900 : 1060, minHeight: model.interfaceMode == .easy ? 640 : 700)
-        .background(AuralStyle.background).preferredColorScheme(.dark).tint(AuralStyle.accent)
+        .auralAppearance(model.theme)
         .focusedSceneValue(\.precisionSubmissions, submissions)
         .sheet(isPresented: $showFilterEditor) { FilterEditor(model: model) }
+    }
+
+    private var professionalPanel: some View {
+        HSplitView {
+            StudioSidebar(model: model, submissions: submissions)
+                .frame(minWidth: 184, idealWidth: 184, maxWidth: .infinity, maxHeight: .infinity)
+            GeometryReader { geometry in
+                workspace(graphHeight: min(246, max(160, geometry.size.height * 0.30)))
+            }.frame(minWidth: 580, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
+            MonitorPanel(model: model, submissions: submissions)
+                .frame(minWidth: 218, idealWidth: 218, maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     private var header: some View {
@@ -44,15 +50,14 @@ struct MainView: View {
                 else { Image(systemName: "headphones").resizable().scaledToFit().padding(5) }
             }.frame(width: 35, height: 35).accessibilityHidden(true)
             Text("AURAL").font(.system(size: 18, weight: .bold)).tracking(2)
-            if model.interfaceMode == .professional {
-                Text("EQUALIZER").font(.system(size: 9, weight: .medium)).tracking(1.2)
-                    .foregroundStyle(AuralStyle.secondary)
-            }
+            Text("EQUALIZER").font(.system(size: 9, weight: .medium)).tracking(1.2)
+                .foregroundStyle(AuralStyle.secondary).fixedSize()
             Picker("Interface mode", selection: Binding(get: { model.interfaceMode }, set: changeInterfaceMode)) {
                 ForEach(InterfaceMode.allCases, id: \.self) { mode in Text(mode.label).tag(mode) }
             }.pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                .id(selectionRevision)
                 .accessibilityLabel("Interface mode")
-                .help("Simple shows presets and outputs. Professional shows every control. Your current sound stays active in either mode.")
+                .help("Simple shows everyday listening controls. Professional shows every control. Your current sound stays active in either mode.")
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(statusColor).frame(width: 6, height: 6)
@@ -68,7 +73,7 @@ struct MainView: View {
                     .frame(width: 80)
             }.buttonStyle(AuralButtonStyle(prominent: true)).disabled(model.selected == nil && !model.running)
             Button { showStartup.toggle() } label: { Image(systemName: "gearshape").frame(width: 15) }
-                .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Startup, About, and updates")
+                .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, startup, About, and updates")
                 .popover(isPresented: $showStartup) { StartupSettings(model: model) }
         }.padding(.horizontal, 18).frame(height: 62)
     }
@@ -110,13 +115,13 @@ struct MainView: View {
                 Picker("Controls", selection: Binding(get: { page }, set: changePage)) {
                     Text("Equalizer").tag(StudioPage.equalizer)
                     Text("Stereo & delay").tag(StudioPage.stereo)
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 242)
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 242).id(selectionRevision)
                 Spacer()
                 if page == .equalizer {
-                    Menu("Band layout") {
-                        Button("10-band octave EQ") { if submitPendingInput() { model.useGraphicTemplate(bands: 10) } }
-                        Button("31-band third-octave EQ") { if submitPendingInput() { model.useGraphicTemplate(bands: 31) } }
-                    }.fixedSize().help("Choose how many bands to start with. Undo restores your previous EQ.")
+                    Menu("New EQ") {
+                        Button("New flat 10-band EQ") { if submitPendingInput() { model.useGraphicTemplate(bands: 10) } }
+                        Button("New flat 31-band EQ") { if submitPendingInput() { model.useGraphicTemplate(bands: 31) } }
+                    }.fixedSize().help("Replace the current bands with a new flat EQ. Undo restores your previous EQ.")
                 }
             }
             if page == .equalizer {
@@ -173,12 +178,15 @@ struct MainView: View {
     }
 
     private func changeInterfaceMode(_ mode: InterfaceMode) {
-        guard mode != model.interfaceMode, submitPendingInput() else { return }
+        guard mode != model.interfaceMode else { return }
+        guard submitPendingInput() else { selectionRevision += 1; return }
         model.setInterfaceMode(mode)
+        if model.interfaceMode != mode { selectionRevision += 1 }
     }
 
     private func changePage(_ next: StudioPage) {
-        guard next != page, submitPendingInput() else { return }
+        guard next != page else { return }
+        guard submitPendingInput() else { selectionRevision += 1; return }
         page = next
     }
 }

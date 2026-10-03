@@ -1,6 +1,6 @@
 # Aural: guide for future updates
 
-Use this guide to plan, build, and verify changes without losing saved presets or changing someone's sound unexpectedly. It describes the code at version 1.0.0; check the repository and GitHub Releases before choosing the next version number.
+Use this guide to plan, build, and verify changes without losing saved presets or changing someone's sound unexpectedly. It describes the code at version 1.1.0; check the repository and GitHub Releases before choosing the next version number.
 
 The [README](../README.md) explains current behavior. The [feature comparison](PEACE-FEATURE-ROADMAP.md) tracks gaps against Peace and Equalizer APO. The [release guide](RELEASING.md) covers packaging, signing, and publication.
 
@@ -13,19 +13,23 @@ These are proposed priorities, not promised release dates. Keep each update focu
 | 1 | Refresh screenshots and finish Simple-mode polish | Small | Real captures show **Simple / Professional**, the correct selected mode, and readable controls. Check first-run output selection, long preset names, keyboard access, and the smallest supported window. |
 | 2 | Improve device recovery | Medium | Test headphone unplug/replug, USB and Bluetooth outputs, sleep/wake, sample-rate changes, and permission failures. Any optional automatic recovery must use the intended device and have a clear way to stop it. |
 | 3 | Add recoverable settings and complete settings backup | Medium | A damaged file produces an actionable error. A validated recovery copy can restore preferences and per-output settings, with an explicit choice before replacing current data. Existing preset-only backups continue to work. |
-| 4 | Expand accessibility and appearance options | Medium | Review VoiceOver names, focus order, contrast, and text sizes. Add a light appearance or translations only with checks for clipped labels and locale-specific number entry. |
+| 4 | Expand accessibility and language options | Medium | System, Light, and Dark themes are implemented. Review VoiceOver names, focus order, contrast, and text sizes. Add translations with checks for clipped labels and locale-specific number entry. |
 | 5 | Extend advanced EQ in small steps | Medium to large | Start with a clearly defined filter addition, such as higher-order crossovers, with measured response and phase tests. Convolution, live spectrum, plug-ins, and multichannel routing need separate designs and hardware checks. |
 
 Developer ID signing and notarization are a separate distribution improvement when credentials are available. A headphone catalog also needs clear data licensing and source information. Follow the feature comparison for those larger projects rather than bundling them into a routine bug-fix update.
 
 ## Behavior to preserve
 
-- **Simple and Professional change the controls shown, not the sound.** Detailed adjustments stay active in Simple. New installs start in Simple; existing settings without a mode retain Professional. The saved value for Simple is still `easy`; preserve it or provide an explicit migration.
+- **Simple and Professional change the controls shown, not the sound.** Detailed adjustments stay active in Simple. Simple's preamp and listening controls share the same profile, validation, precision coordinator, and undo paths as Professional. Both panels prepare at startup behind inexpensive loading blocks and retain their native controls. New installs start in Simple; existing settings without a mode retain Professional. The saved value for Simple is still `easy`; preserve it or provide an explicit migration.
 - **Editing is deliberate.** Ordinary EQ edits, undo/redo, and A/B keep the current running and bypass states. Applying a saved preset starts EQ and turns bypass off. A valid import stops processing; invalid import must leave the current sound intact.
 - **Bypass and Stop remain distinct.** Bypass skips EQ, preamp, and stereo effects while routing and sample-peak protection remain active. Stop releases the audio connection. Aural does not change the Mac's default output.
 - **Preset identity follows the sound.** Preserve the selected preset, modified indicator, per-output settings, favorites, and exact imported numbers. A/B and undo history currently reset on output changes and app quit.
 - **Close and Quit remain distinct.** Closing the last window leaves EQ and menu-bar controls running and hides the Dock icon. Quit stops EQ and exits. Minimized windows retain Dock access.
 - **Dog states stay consistent.** Processing with bypass off uses the closed-eyes dog; stopped or bypassed uses the listening dog. Check the main window, About, and Dock together.
+- **Themes change appearance, not sound.** System releases both native and SwiftUI appearance overrides. Light/Dark apply to all presentations, including open drafts and graphs whose EQ has not changed. All themes use the native macOS accent; prominent button labels choose contrasting ink. Persist before publishing a theme; failed saves retain the previous choice and show an error. Missing theme fields retain Dark.
+- **Keep the brand and shared controls consistent.** Both modes retain the AURAL EQUALIZER header and use the same visual gain bars and profile editing path. Bars show the active EQ's actual frequencies and gains, preserve imported filter metadata and disabled state, and do not create flat templates when changing views. Gainless filters are not gain-editable. A drag is one undo step. New flat templates are explicitly labeled under New EQ in Professional. Native pane dividers retain each mode's widths across switches and respect usable minimums; Simple's cards respond to their pane's available width. Simple's Listening reset changes only its visible settings, preserving advanced trims, delays, and polarity.
+- **Reset EQ is one deliberate, undoable edit.** Both modes use the same Model action after submitting pending numeric input. Reset clears band gains and preamp while preserving frequency, Q, filter type, channel, enabled state, source identity, and stereo settings. It retains playback/bypass state and supports one-step Undo and Redo. Creating a new flat template remains a separate explicit action.
+- **Keep metering and analysis separate from document updates.** Only the meter observes peak readings. Equal readings and inactive gestures must not publish changes. Mode panels retain their native controls but detach inactive panels from the window, focus, and accessibility hierarchy. Pass the SwiftUI environment across hosting boundaries. Login-status XPC and numerical EQ analysis run outside the main actor; cancelled or outdated work must not overwrite newer edits. Keep the audio callback unchanged by UI performance work.
 - **Errors must be visible.** Validate before accepting changes. A rejected audio update keeps the accepted EQ. If saving fails after an audio edit was accepted, keep that live edit visible and undoable and report the save failure.
 - **Saved data stays compatible.** Add defaults or migrations for new fields; reject corrupt values explicitly. APO text export must reject settings it cannot represent. Complete stereo settings belong in native preset backups.
 
@@ -44,6 +48,8 @@ Keep public labels plain: “preset,” “output,” “EQ curve,” and “Sim
 | Curves, Auto preamp, stereo controls | [ResponseAnalysis.swift](../Sources/Aural/ResponseAnalysis.swift), [ResponseCurve.swift](../Sources/Aural/ResponseCurve.swift), [Headroom.swift](../Sources/Aural/Headroom.swift), [StereoPanel.swift](../Sources/Aural/StereoPanel.swift) |
 | Window and icon behavior | [WindowPresence.swift](../Sources/Aural/WindowPresence.swift), [AppIcon.swift](../Sources/Aural/AppIcon.swift) |
 | Update checking and release files | [ReleaseInfo.swift](../Sources/Aural/ReleaseInfo.swift), [Updates.swift](../Sources/Aural/Updates.swift), [VERSION](../VERSION), [build.sh](../scripts/build.sh), [package.sh](../scripts/package.sh) |
+
+Theme preferences live in `Settings` and `Model`; shared adaptive colors and presentation styling live in `UIStyle.swift`. `Aural.swift` also applies the theme to AppKit menus and panels.
 
 The internal names `EasyModeView` and `ProfileWorkspace` do not need cosmetic renaming to match public labels.
 
@@ -71,7 +77,7 @@ Preserve unchanged filter history during preamp changes. Test both channels, dis
 
 ## Verification
 
-Run from the repository root on macOS with Xcode or Command Line Tools. The custom test script runs ten suites; `swift test` alone does not run this coverage.
+Run from the repository root on macOS with Xcode or Command Line Tools. The custom test script runs twelve suites; `swift test` alone does not run this coverage.
 
 ```sh
 AURAL_CACHE="$(mktemp -d "${TMPDIR:-/tmp}/aural-cache.XXXXXX")"
@@ -99,6 +105,8 @@ The checks below combine automated suites with native app and failure-recovery c
 Before a release, run the complete suite and verify the exact commit in [GitHub Actions](https://github.com/NikoZBK/aural/actions). A universal executable proves both architectures compile; it does not prove physical Intel hardware was tested. Record hardware, macOS version, output type, sample rate, buffer size, test duration, and any untested areas for audio checks. Measure end-to-end latency separately from DSP throughput; processing speed alone does not establish what a listener experiences.
 
 For native checks, replay the bugs that prompted the last sweep: type a gain then choose a channel without Return; try an invalid number then switch modes; reopen the app to check the saved mode; open a draft after editing; and change the active EQ while that draft is open. Change a channel, toggle individual filter curves, and load a flat preset: every graph should redraw immediately. Also check closing/reopening from the menu bar and starting/stopping on the intended output.
+
+For performance work, run `bash scripts/benchmark-ui.sh` separately from tests and packaging. It builds an optimized, disposable-data harness for 10/31-band mode layout and curve analysis. Record first construction separately from retained-panel switches; compiler load and background apps affect timings. Sampling the live app is also necessary to identify idle publications or synchronous system calls. Native controls and SwiftUI layout must remain on the main thread.
 
 Use a separate test account or disposable data for screenshots and destructive recovery tests. If personal settings must be backed up, quit Aural first, preserve `~/Library/Application Support/Aural/settings.json`, and avoid restoring an older copy over changes made during testing. Inspect the saved image itself: confirm the selected mode, labels, visible controls, and absence of personal data before adding it to the README.
 

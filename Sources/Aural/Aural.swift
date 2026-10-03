@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 private struct PrecisionSubmissionsKey: FocusedValueKey {
     typealias Value = PrecisionSubmissionCoordinator
@@ -11,7 +12,10 @@ extension FocusedValues {
     }
 }
 
-@main struct AuralApp: App {
+#if !AURAL_TESTING
+@main
+#endif
+struct AuralApp: App {
     @NSApplicationDelegateAdaptor(AuralAppDelegate.self) private var delegate
     private var model: Model { delegate.model }
     var body: some Scene {
@@ -22,9 +26,9 @@ extension FocusedValues {
         Window("Preset library", id: "presets") { PresetLibraryView(model: model).background(WindowRegistration()) }
             .defaultSize(width: 800, height: 580)
             .windowResizability(.contentMinSize)
-        Window("About Aural", id: "about") { AboutView(icon: delegate.icon).background(WindowRegistration()) }
+        Window("About Aural", id: "about") { AboutView(model: model, icon: delegate.icon).background(WindowRegistration()) }
             .windowResizability(.contentSize)
-        Window("Software updates", id: "updates") { UpdatesView().background(WindowRegistration()) }
+        Window("Software updates", id: "updates") { UpdatesView(model: model).background(WindowRegistration()) }
             .windowResizability(.contentSize)
         MenuBarExtra("Aural", systemImage: "headphones") { MenuBarControls(model: model) }
     }
@@ -33,6 +37,7 @@ extension FocusedValues {
 @MainActor final class AuralAppDelegate: NSObject, NSApplicationDelegate {
     let model: Model
     let icon: AppIconController
+    private var themeSubscription: AnyCancellable?
 
     override init() {
         let model = Model()
@@ -43,9 +48,15 @@ extension FocusedValues {
         super.init()
     }
 
-    func applicationDidFinishLaunching(_ notification: Notification) { icon.startUpdatingApplicationIcon() }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Keep native menus, alerts, and file panels consistent with the SwiftUI windows.
+        themeSubscription = model.$theme.sink { NSApp.appearance = $0.appearance }
+        icon.startUpdatingApplicationIcon()
+    }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationDidBecomeActive(_ notification: Notification) { model.refreshLoginStatus() }
 
     func applicationWillTerminate(_ notification: Notification) { model.stop() }
 }
@@ -83,6 +94,7 @@ struct AuralCommands: Commands {
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         }
+        CommandGroup(after: .toolbar) { ThemePicker(model: model) }
     }
     private func submitPendingInput() -> Bool {
         switch submissions?.submitActive() ?? .unchanged {
@@ -115,10 +127,20 @@ struct MenuBarControls: View {
             }
         }
         Divider()
+        ThemePicker(model: model)
         Button("Show Aural") { openWindow.showAuralWindow("main") }
         Button("About Aural") { openWindow.showAuralWindow("about") }
         Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         Button("Quit Aural") { NSApp.terminate(nil) }.keyboardShortcut("q")
+    }
+}
+
+struct ThemePicker: View {
+    @ObservedObject var model: Model
+    var body: some View {
+        Picker("Theme", selection: Binding(get: { model.theme }, set: model.setTheme)) {
+            ForEach(AuralTheme.allCases, id: \.self) { theme in Text(theme.label).tag(theme) }
+        }.help("System follows your Mac's appearance. Light or Dark keeps Aural in that theme.")
     }
 }
 
@@ -127,18 +149,25 @@ struct StartupSettings: View {
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Text("Appearance").font(.headline)
+            ThemePicker(model: model).pickerStyle(.segmented)
+            Text("System follows your Mac's appearance.").font(.caption).foregroundStyle(.secondary)
+            Divider()
             Text("Startup").font(.headline)
             Toggle("Launch at login", isOn: Binding(get: { model.launchAtLoginRequested }, set: model.setLaunchAtLogin))
+                .disabled(model.loginStatus == nil)
+            if model.loginStatus == nil { Text("Checking launch-at-login status…").font(.caption).foregroundStyle(.secondary) }
             Toggle("Start EQ automatically", isOn: Binding(get: { model.startEQAutomatically }, set: model.setStartAutomatically))
             Text("Use the saved output and preset on launch. Wait up to 60 seconds if the device is disconnected. Stop pauses EQ for this session.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if model.loginStatus == .requiresApproval {
-                Text("macOS approval is needed to launch at login.").font(.caption).foregroundStyle(.orange)
+                Text("macOS approval is needed to launch at login.").font(.caption).foregroundStyle(AuralStyle.warning)
                 Button("Open Login Items settings") { model.openLoginSettings() }
             }
             Divider()
+            if let error = model.error { AuralNotice(message: error, isError: true) }
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
-        }.padding(18).frame(width: 300).onAppear { model.refreshLoginStatus() }
+        }.padding(18).frame(width: 300).auralAppearance(model.theme).onAppear { model.refreshLoginStatus() }
     }
 }

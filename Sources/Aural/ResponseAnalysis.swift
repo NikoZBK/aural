@@ -17,8 +17,8 @@ enum ResponseChannel: String, CaseIterable {
 
 /// A cached EQ transfer function, using the same filter coefficients as the audio engine.
 /// Stereo effects and peak protection are signal-dependent and are deliberately excluded.
-struct ResponseAnalysis {
-    struct FilterTrace {
+struct ResponseAnalysis: Sendable {
+    struct FilterTrace: Sendable {
         let index: Int
         let channel: ImportedFilter.Channel
         let values: [Double]
@@ -52,7 +52,7 @@ struct ResponseAnalysis {
         hasChannelFilters = (activeFilters + referenceFilters).contains { !$0.disabled && $0.channel != UInt32(EQChannelStereo) }
 
         func sample(_ filters: [EQFilter], preamp: Double, channel: UInt32) -> [Double] {
-            sampledFrequencies.map { eq_response_filters_channel($0, rate, filters, UInt32(filters.count), preamp, channel) }
+            sampledResponse(sampledFrequencies, rate: rate, filters: filters, preamp: preamp, channel: channel)
         }
         let unity = Array(repeating: 0.0, count: sampledFrequencies.count)
         left = bypass ? unity : sample(activeFilters, preamp: profile.preamp, channel: UInt32(EQChannelLeft))
