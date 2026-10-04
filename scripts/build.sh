@@ -20,6 +20,7 @@ xcrun lipo -create "$BUILD_STAGE/Aural-arm64" "$BUILD_STAGE/Aural-x86_64" -outpu
 xcrun strip -S "$APP/Contents/MacOS/Aural"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/AppIconSleeping.icns "$APP/Contents/Resources/AppIconSleeping.icns"
+cp -R Sources/Aural/Resources/Targets "$APP/Contents/Resources/Targets"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -32,7 +33,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>NSHumanReadableCopyright</key><string>© 2026 Nikolay Ostroukhov</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>
-<key>CFBundleVersion</key><string>22</string>
+<key>CFBundleVersion</key><string>23</string>
 <key>LSMinimumSystemVersion</key><string>14.2</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
 <key>NSHighResolutionCapable</key><true/>

@@ -8,9 +8,11 @@ struct PerformancePreview: App {
     var body: some Scene {
         Window("Aural performance preview", id: "main") {
             MainView(model: delegate.model, icon: delegate.icon)
-        }.defaultSize(width: 1240, height: 820).windowResizability(.contentMinSize)
+        }.defaultSize(width: 1040, height: 690).windowResizability(.contentMinSize)
             .commands { AuralCommands(model: delegate.model) }
         Window("Preset library", id: "presets") { PresetLibraryView(model: delegate.model) }
+        Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: delegate.model) }
+            .defaultSize(width: 780, height: 620).windowResizability(.contentMinSize)
         Window("About Aural", id: "about") { AboutView(model: delegate.model, icon: delegate.icon) }
         Window("Software updates", id: "updates") { UpdatesView(model: delegate.model) }
     }

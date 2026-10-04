@@ -77,3 +77,44 @@ let effectsPlot = ResponseAnalysis(profile: effectsProfile, rate: 48000, bypass:
 require(effectsPlot.left == split.left && effectsPlot.right == split.right, "EQ plot must not falsely include signal-dependent stereo effects")
 
 print("PASS response sampling, exact high-Q centers, DSP parity, auto dB bounds, disabled filters, bypass, preamp, comparison, independent L/R curves, channel-aware overlays, and Nyquist handling")
+
+for target in HarmanTarget.allCases {
+    let reference = try HarmanReference.load(target)
+    require(reference.samples.count == 695, "The complete published Harman target must be bundled")
+    require(near(reference.decibels(at: 1000)!, 0), "Each acoustic reference must normalize to exactly zero at 1 kHz")
+    let originalCSV = try String(contentsOf: Bundle.main.url(forResource: target.rawValue, withExtension: "csv", subdirectory: "Targets")!, encoding: .utf8)
+    let original = originalCSV.split(separator: "\n").dropFirst().map { line -> (Double, Double) in
+        let columns = line.split(separator: ",")
+        return (Double(columns[0])!, Double(columns[1])!)
+    }
+    let offset = original[0].1 - reference.samples[0].decibels
+    for (raw, sample) in zip(original, reference.samples) {
+        require(sample.frequency == raw.0 && near(raw.1 - sample.decibels, offset), "Normalization must preserve every frequency and subtract only one fixed level")
+    }
+    let belowNyquist = reference.plottedSamples(maximumFrequency: lowRate.maximumFrequency)
+    require(belowNyquist.last?.frequency == lowRate.maximumFrequency && belowNyquist.allSatisfy { $0.frequency <= lowRate.maximumFrequency },
+            "Reference drawing must stop at the same sample-rate boundary as EQ")
+    require(reference.plottedSamples(maximumFrequency: 20000).last?.frequency == 19955.54 && reference.decibels(at: 20000) == nil,
+            "Reference data must not be invented beyond its published frequency coverage")
+    let referenceScale = flat.scale(showFilters: false, referenceValues: reference.samples.map(\.decibels))
+    require(referenceScale.lower <= reference.samples.map(\.decibels).min()! && referenceScale.upper >= reference.samples.map(\.decibels).max()!,
+            "The graph scale must include the entire acoustic reference")
+    require(flat.peak == 0 && flat.left.allSatisfy { $0 == 0 } && flat.right.allSatisfy { $0 == 0 },
+            "Reference display must never enter EQ gain or headroom calculations")
+    require(bypass.peak == 0 && bypass.combined.allSatisfy { $0 == 0 }, "The acoustic reference must not alter bypass")
+}
+let interpolationFixture = try HarmanReference(csv: "frequency,raw\n20,6\n100,4\n1000,2\n10000,-2\n20000,-4\n", target: .overEar2018)
+require(near(interpolationFixture.decibels(at: sqrt(100 * 1000))!, 1), "Reference interpolation must be linear in log frequency")
+require(interpolationFixture.decibels(at: .nan) == nil && interpolationFixture.decibels(at: 0) == nil, "Invalid inspection frequencies must have no reference value")
+for csv in ["frequency,value\n20,1\n20000,0", "frequency,raw\n20,0\n20,1\n20000,0",
+            "frequency,raw\n20,0\n1000,NaN\n20000,0", "frequency,raw\n20,0\n1000,0",
+            "frequency,raw\n20,0\n1000,0,extra\n20000,0", "frequency,raw\n20,0\n1000,0\n20000,121"] {
+    do { _ = try HarmanReference(csv: csv, target: .overEar2018); fatalError("Accepted invalid Harman target data") }
+    catch is AudioFailure { }
+}
+var inEar = Profile()
+inEar.autoEQSource = AutoEQSource(name: "Test IEM", measurement: "crinacle on 711",
+                                url: URL(string: "https://github.com/jaakkopasanen/AutoEq/tree/master/results/crinacle/711%20in-ear/Test%20IEM")!)
+require(HarmanTarget.suggested(for: inEar) == .inEar2019 && HarmanTarget.suggested(for: Profile()) == .overEar2018,
+        "Automatic reference selection must distinguish known in-ear profiles and the over-ear default")
+print("PASS bundled Harman targets, exact 1 kHz normalization, published-sample preservation, log interpolation, sample-rate bounds, no extrapolation, reference scaling, validation, and unchanged EQ/bypass/headroom")

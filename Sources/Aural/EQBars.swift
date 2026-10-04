@@ -20,6 +20,7 @@ struct EQBarBand: Equatable {
 struct EQBars: View {
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
+    var compact = false
     private var range: ClosedRange<Double> { model.profile.filters == nil ? -12...12 : -30...30 }
 
     var body: some View {
@@ -34,7 +35,7 @@ struct EQBars: View {
                     }
                 }.frame(minWidth: geometry.size.width).padding(.vertical, 8)
             }.scrollIndicators(.visible)
-        }.frame(minHeight: 170).onDisappear { model.endProfileGesture() }
+        }.frame(minHeight: compact ? 130 : 170).onDisappear { model.endProfileGesture() }
     }
 
     @ViewBuilder private func band(_ value: EQBarBand, height: CGFloat) -> some View {
@@ -45,7 +46,7 @@ struct EQBars: View {
         let adjustable = filter?.kind.usesGain ?? true
         VStack(spacing: 7) {
             Text(adjustable ? String(format: "%+.1f", gain) : "—")
-                .font(.system(size: 11, design: .monospaced)).foregroundStyle(AuralStyle.accent)
+                .font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.primary)
             EQGainBar(value: gain, range: range, adjustable: adjustable, label: "Band \(index + 1), \(frequency) hertz gain",
                       change: { model.setBandGain(at: index, to: $0) }, begin: {
                 guard finishNumericEdit() else { return false }
@@ -53,9 +54,10 @@ struct EQBars: View {
                 return true
             }, end: { model.endProfileGesture() })
                 .frame(width: 40, height: height)
-                .help(adjustable ? "Drag up to boost or down to cut. Double-click to set 0 dB." : "\(filter?.kind.label ?? "Filter") has no gain control.")
-            Text(frequency >= 1000 ? String(format: "%gk", frequency / 1000) : String(format: "%g", frequency))
+                .help(adjustable ? "Drag or use Up and Down arrows to adjust gain. Double-click or press zero to reset." : "\(filter?.kind.label ?? "Filter") has no gain control.")
+            Text(frequency >= 1000 ? String(format: "%.3gk", frequency / 1000) : String(format: "%.3g", frequency))
                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(AuralStyle.secondary)
+                .lineLimit(1).help("\(frequency) Hz")
             if let filter {
                 HStack(spacing: 3) {
                     Toggle("Band \(index + 1) enabled", isOn: Binding(get: {
@@ -69,7 +71,7 @@ struct EQBars: View {
                     }
                 }
             }
-        }.opacity(filter?.enabled == false ? 0.55 : 1)
+        }
     }
     private func finishNumericEdit() -> Bool {
         switch submissions.submitActive() {
@@ -120,17 +122,27 @@ private struct EQGainBar: View {
                     change(EQBarScale.gain(at: 1 - position, in: range))
                 }.onEnded { _ in if dragging { dragging = false; end() } })
                 .simultaneousGesture(TapGesture(count: 2).onEnded { adjust(to: 0) })
-        }.accessibilityElement(children: .ignore).accessibilityLabel(label)
-            .accessibilityValue(adjustable ? String(format: "%.2f decibels", value) : "Gain is not adjustable")
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: adjust(to: min(range.upperBound, value + 0.5))
-                case .decrement: adjust(to: max(range.lowerBound, value - 0.5))
-                @unknown default: break
+        }.overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(focused ? Color.primary : .clear, lineWidth: 2))
+            .accessibilityRepresentation {
+                if adjustable {
+                    Slider(value: Binding(get: { value }, set: { adjust(to: $0) }), in: range, step: 0.5) { Text(label) }
+                        .accessibilityValue(AuralAccessibility.decibels(value))
+                        .accessibilityHint("Up and Down arrows adjust gain. Press zero to reset.")
+                        .accessibilityAdjustableAction { direction in
+                            switch direction {
+                            case .increment: adjust(to: min(range.upperBound, value + 0.5))
+                            case .decrement: adjust(to: max(range.lowerBound, value - 0.5))
+                            @unknown default: break
+                            }
+                        }
+                        .accessibilityAction(named: "Reset gain to zero") { adjust(to: 0) }
+                } else {
+                    Text("\(label). Gain is not adjustable")
                 }
             }.focusable(adjustable).focused($focused)
             .onKeyPress(.upArrow) { adjust(to: min(range.upperBound, value + 0.5)); return .handled }
             .onKeyPress(.downArrow) { adjust(to: max(range.lowerBound, value - 0.5)); return .handled }
+            .onKeyPress("0") { adjust(to: 0); return .handled }
             .onDisappear { if dragging { dragging = false; end() } }
     }
     private func adjust(to value: Double) {

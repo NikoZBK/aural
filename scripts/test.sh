@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .build
+mkdir -p .build/Targets
+cp Sources/Aural/Resources/Targets/* .build/Targets/
 xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Sources/DSP/DSP.c Tests/DSPTests/test.c -framework CoreAudio -o .build/dsp-tests
 .build/dsp-tests
 
@@ -26,7 +28,7 @@ xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/ProfileWorkspace.swift Te
 xcrun swiftc -parse-as-library Sources/Aural/PrecisionInput.swift Tests/PrecisionTests/main.swift -o .build/precision-tests
 .build/precision-tests
 
-xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/AutoEQ.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQCatalog.swift Sources/Aural/HarmanReference.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
 .build/response-tests
 
 xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Headroom.swift Tests/HeadroomTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/headroom-tests

@@ -11,4 +11,5 @@ xcrun swiftc -O -whole-module-optimization -parse-as-library -D AURAL_TESTING -I
     Tests/ThemeTests/main.swift Tests/PerformanceTests/*.swift "$BENCH_STAGE/dsp.o" \
     -framework CoreAudio -framework AppKit -o "$BENCH_STAGE/benchmark"
 cp "$BENCH_STAGE/benchmark" .build/ui-benchmark
+cp -R Sources/Aural/Resources/Targets "$BENCH_STAGE/Targets"
 "$BENCH_STAGE/benchmark" --benchmark-ui

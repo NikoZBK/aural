@@ -87,8 +87,8 @@ struct ResponseAnalysis: Sendable {
         filters.filter { channel.includes($0.channel) }
     }
 
-    func scale(showFilters: Bool, channel: ResponseChannel = .both) -> ResponseScale {
-        var visibleValues: [Double] = []
+    func scale(showFilters: Bool, channel: ResponseChannel = .both, referenceValues: [Double] = []) -> ResponseScale {
+        var visibleValues = referenceValues
         if channel != .right { visibleValues += left + (comparisonLeft ?? []) }
         if channel != .left { visibleValues += right + (comparisonRight ?? []) }
         if showFilters { visibleValues += visibleFilters(channel: channel).flatMap(\.values) }

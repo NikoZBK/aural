@@ -26,9 +26,14 @@ Peaking, Q-based low/high shelf, second-order low/high pass, band-pass, notch, a
 ## Added in Aural 1.1
 
 - System, Light, and Dark themes are saved across launches and applied to all windows, graphs, menus, and native file panels. Every theme uses the macOS accent color. The original dark appearance remains the default.
+- Liquid Glass is an optional, separately saved interface style on macOS 26 or later, using Apple's native material for controls and window chrome. Standard remains the default, with solid surfaces for content, older macOS, Reduce Transparency, and Increase Contrast.
 - Simple and Professional share gain bars at the current EQ's actual frequencies. Imported filter metadata stays intact; Reset EQ resets gains and preamp with one-step Undo.
 - Both mode panels prepare at startup. Response analysis and login-status checks use workers, and metering updates are isolated from the main model.
 - Native dividers resize panes in both modes and the preset library. Simple adds everyday EQ, output, and stereo controls; responsive layouts keep them reachable.
+
+## Online AutoEQ search
+
+Online AutoEQ search is now implemented in the working tree: a searchable full catalog, measurement-source filters, HTTP caching, parametric curve previews, source attribution retained in presets/backups, validated import, and undo. No correction data is bundled. Search and preview leave audio unchanged; import follows the existing stopped-processing contract. Publication is a separate release step.
 
 ## What's still missing
 
@@ -38,7 +43,6 @@ Peaking, Q-based low/high shelf, second-order low/high pass, band-pass, notch, a
 | Convolution / APO `GraphicEQ` | Unsupported and explicitly rejected | Realtime partitioned convolution, impulse loading/resampling, latency reporting, offline response and realtime stress tests. A peak-filter approximation would not preserve APO semantics. |
 | Higher-order crossover filters | Second-order LPQ/HPQ only | Cascade/order model, Butterworth/Linkwitz-Riley definitions, response and phase tests, matching import semantics. |
 | VST or Audio Unit hosting | No plug-in host | Audio Unit lifecycle, state recall, latency compensation, crash isolation, and permission behavior. Windows VST binaries cannot run natively. |
-| Online headphone catalog | Import supported AutoEQ text files | Provider adapter with measurement/target provenance, dataset licensing review, cached search, preview and rollback. No imported correction data is bundled. |
 | Device/app automation, layered presets | Saved-device startup and profile restore | Explicit rule precedence, device arrival recovery, per-app routing support, composable processing stages. |
 | Global hotkeys / MIDI | Shortcuts while Aural is active; menu-bar controls | Conflict-aware global registration and editable assignments; CoreMIDI mapping with a serialized control path. |
 | Live spectrum / measurements | EQ curve and output sample peak only | Bounded FFT telemetry outside the realtime callback, calibration, measurement metadata and validation. |

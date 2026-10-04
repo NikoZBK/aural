@@ -92,12 +92,31 @@ struct StereoSettings: Codable, Equatable, Sendable {
     }
 }
 
+struct AutoEQSource: Codable, Equatable, Sendable {
+    let name: String
+    let measurement: String
+    let url: URL
+
+    func validate() throws {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !measurement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              url.scheme == "https", url.host == "github.com", url.user == nil, url.password == nil,
+              url.port == nil, url.query == nil, url.fragment == nil,
+              url.path.hasPrefix("/jaakkopasanen/AutoEq/tree/master/results/"),
+              url.pathComponents.count == 9,
+              !url.pathComponents.contains(".."), !url.pathComponents.contains(".") else {
+            throw AudioFailure(message: "The profile contains invalid AutoEQ source information.")
+        }
+    }
+}
+
 struct Profile: Codable, Equatable, Sendable {
     var gains = Array(repeating: 0.0, count: 10)
     var preamp = 0.0
     var filters: [ImportedFilter]?
     var sourceName: String?
     var stereo: StereoSettings?
+    var autoEQSource: AutoEQSource?
     var stereoSettings: StereoSettings { stereo ?? StereoSettings() }
     var preampRange: ClosedRange<Double> { filters == nil ? -24...0 : -60...24 }
     func hasSameEQ(as other: Profile) -> Bool {
@@ -118,6 +137,7 @@ struct Profile: Codable, Equatable, Sendable {
             for filter in filters { try filter.validate() }
         }
         try stereoSettings.validate()
+        try autoEQSource?.validate()
         return self
     }
 }
@@ -144,6 +164,23 @@ enum AuralTheme: String, Codable, CaseIterable {
     }
 }
 
+enum AuralInterfaceStyle: String, Codable, CaseIterable {
+    case standard, liquidGlass
+    var label: String {
+        switch self {
+        case .standard: return "Standard"
+        case .liquidGlass: return "Liquid Glass"
+        }
+    }
+    static var liquidGlassSupported: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+    func usesLiquidGlass(supported: Bool = liquidGlassSupported, reduceTransparency: Bool, increasedContrast: Bool) -> Bool {
+        self == .liquidGlass && supported && !reduceTransparency && !increasedContrast
+    }
+}
+
 struct Settings: Codable {
     var devices: [String: Profile] = [:]
     var presets: [String: Profile] = [:]
@@ -153,9 +190,10 @@ struct Settings: Codable {
     var selectedPresets: [String: String]?
     var interfaceMode: InterfaceMode = .easy
     var theme: AuralTheme = .dark
+    var interfaceStyle: AuralInterfaceStyle = .standard
 
     private enum CodingKeys: String, CodingKey {
-        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode, theme
+        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode, theme, interfaceStyle
     }
 }
 
@@ -172,6 +210,7 @@ extension Settings {
         interfaceMode = try values.decodeIfPresent(InterfaceMode.self, forKey: .interfaceMode) ?? .professional
         // Preserve Aural's original appearance until a theme is explicitly chosen.
         theme = try values.decodeIfPresent(AuralTheme.self, forKey: .theme) ?? .dark
+        interfaceStyle = try values.decodeIfPresent(AuralInterfaceStyle.self, forKey: .interfaceStyle) ?? .standard
     }
 }
 

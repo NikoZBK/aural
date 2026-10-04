@@ -20,6 +20,7 @@ import ServiceManagement
     @Published private(set) var startEQAutomatically = false
     @Published private(set) var interfaceMode: InterfaceMode = .easy
     @Published private(set) var theme: AuralTheme = .dark
+    @Published private(set) var interfaceStyle: AuralInterfaceStyle = .standard
     @Published private(set) var loginStatus: SMAppService.Status?
     @Published private(set) var startupNotice: String?
     @Published private(set) var editRevision = 0
@@ -70,6 +71,7 @@ import ServiceManagement
             }
             interfaceMode = settings.interfaceMode
             theme = settings.theme
+            interfaceStyle = settings.interfaceStyle
             settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
@@ -138,6 +140,21 @@ import ServiceManagement
             self.theme = theme
             error = nil
         } catch { self.error = "Could not save theme: " + error.localizedDescription }
+    }
+    func setInterfaceStyle(_ style: AuralInterfaceStyle) {
+        guard interfaceStyle != style else { return }
+        guard style != .liquidGlass || AuralInterfaceStyle.liquidGlassSupported else {
+            error = "Liquid Glass requires macOS 26 or later."
+            return
+        }
+        var next = settings
+        next.interfaceStyle = style
+        do {
+            try writeSettings(next)
+            settings = next
+            interfaceStyle = style
+            error = nil
+        } catch { self.error = "Could not save appearance style: " + error.localizedDescription }
     }
     func setStartAutomatically(_ enabled: Bool) {
         if enabled, selected == nil { error = "Select a connected output before enabling automatic EQ."; return }
@@ -214,6 +231,14 @@ import ServiceManagement
     }
     private func importProfile(_ text: String, name base: String) throws {
         let imported = try AutoEQ.parse(text, name: base)
+        try importProfile(imported, name: base)
+    }
+    func importOnlineAutoEQ(_ preview: AutoEQPreview) {
+        do { try importProfile(preview.profile, name: preview.entry.presetName) }
+        catch { self.error = error.localizedDescription }
+    }
+    private func importProfile(_ proposed: Profile, name base: String) throws {
+        let imported = try proposed.validated()
         // Validate everything before changing the profile or stopping audio.
         startGeneration += 1
         pendingStartup = nil; startupNotice = nil

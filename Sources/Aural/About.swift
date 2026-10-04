@@ -16,7 +16,7 @@ struct AboutView: View {
                 Text("Aural").font(.system(size: 27, weight: .semibold))
                 Text("Version \(version) (\(build))").font(.system(size: 11)).foregroundStyle(.secondary)
             }
-            Text("Good company. Better sound.").font(.system(size: 13, weight: .medium)).foregroundStyle(AuralStyle.accent)
+            Text("Good company. Better sound.").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.primary)
             Text("A native equalizer for macOS, with device profiles, AutoEQ import, and audio processing that stays on your Mac.")
                 .font(.system(size: 12)).multilineTextAlignment(.center).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Divider()
@@ -33,6 +33,6 @@ struct AboutView: View {
                 .font(.system(size: 10)).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
             Text("This build is not notarized by Apple.").font(.system(size: 10)).foregroundStyle(.secondary)
-        }.padding(26).frame(width: 380).auralAppearance(model.theme)
+        }.padding(26).frame(width: 380).auralAppearance(model.theme, style: model.interfaceStyle)
     }
 }

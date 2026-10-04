@@ -22,6 +22,7 @@ struct SessionNotices: View {
 
 struct PresetBrowser: View {
     @ObservedObject var model: Model
+    var submissions: PrecisionSubmissionCoordinator? = nil
     @Environment(\.openWindow) private var openWindow
     @State private var search = ""
     var comfortable = false
@@ -57,19 +58,25 @@ struct PresetBrowser: View {
     @ViewBuilder private func group(_ title: String, names: [String]) -> some View {
         let visible = names.filter(matches)
         if !visible.isEmpty {
-            Text(title.uppercased()).font(.system(size: comfortable ? 11 : 9, weight: .semibold)).tracking(0.7)
+            Text(title).font(.system(size: 11, weight: .medium))
                 .foregroundStyle(AuralStyle.secondary).padding(.top, 9).padding(.bottom, 4)
             ForEach(visible, id: \.self) { name in
-                Button { model.apply(name) } label: {
+                Button {
+                    switch submissions?.submitActive() ?? .unchanged {
+                    case .rejected: return
+                    case .submitted where model.error != nil: return
+                    default: model.apply(name)
+                    }
+                } label: {
                     HStack(spacing: 7) {
                         RoundedRectangle(cornerRadius: 1).fill(model.selectedPresetName == name ? AuralStyle.accent : .clear)
                             .frame(width: 2, height: 18)
                         Text(name).font(.system(size: comfortable ? 15 : 12, weight: model.selectedPresetName == name ? .semibold : .regular))
                             .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
                         if model.favoritePresets.contains(name) { Image(systemName: "star.fill").font(.system(size: 8)) }
-                    }.foregroundStyle(model.selectedPresetName == name ? AuralStyle.accent : Color.primary)
+                    }.foregroundStyle(Color.primary)
                         .padding(.horizontal, comfortable ? 11 : 7).frame(height: comfortable ? 42 : 32)
-                        .background(model.selectedPresetName == name ? AuralStyle.accent.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                        .background(model.selectedPresetName == name ? AuralStyle.elevated.opacity(0.7) : .clear, in: RoundedRectangle(cornerRadius: 4))
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).help(name).accessibilityLabel("Apply preset \(name)")
                     .accessibilityValue(model.selectedPresetName == name ? "Selected" : "")
@@ -83,44 +90,72 @@ struct PresetBrowser: View {
     }
 }
 
-struct StudioSidebar: View {
+struct PresetSelection: View {
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
-    @State private var saving = false
+    @Environment(\.openWindow) private var openWindow
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            PresetBrowser(model: model)
-            Button { if submitPendingInput() { saving.toggle() } } label: { Label("Save current…", systemImage: "plus").frame(maxWidth: .infinity) }
-                .buttonStyle(AuralButtonStyle()).popover(isPresented: $saving) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Save preset").font(.headline)
-                        TextField("Preset name", text: $model.presetName).textFieldStyle(.roundedBorder)
-                            .onSubmit { save() }
-                        Button("Save") { save() }.buttonStyle(AuralButtonStyle(prominent: true))
-                            .disabled(model.presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        if let error = model.error { AuralNotice(message: error, isError: true) }
-                    }.padding(18).frame(width: 280)
-                }
-            Divider().overlay(AuralStyle.border)
-            VStack(alignment: .leading, spacing: 10) {
-                AuralSectionLabel(title: "Transfer")
-                HStack(spacing: 6) {
-                    Button { if submitPendingInput() { model.copyEQ() } } label: { Label("Copy", systemImage: "doc.on.doc").frame(maxWidth: .infinity) }
-                        .accessibilityLabel("Copy EQ").help("Copy Equalizer APO text (⇧⌘C)")
-                    Button { model.pasteEQ() } label: { Label("Paste", systemImage: "clipboard").frame(maxWidth: .infinity) }
-                        .accessibilityLabel("Paste EQ").help("Import clipboard EQ (⇧⌘V). Stops processing.")
-                }.buttonStyle(AuralButtonStyle())
-                Menu {
-                    Button("Import AutoEQ text…") { model.importAutoEQ() }
-                    Button("Export EQ text…") { if submitPendingInput() { model.exportEQ() } }
-                    Divider()
-                    Button("Back up presets…") { model.backupPresets() }
-                    Button("Restore presets…") { model.restorePresets() }
-                } label: { Label("Files & backups", systemImage: "folder") }.font(.system(size: 11))
-            }
-        }.padding(14).background(AuralStyle.surface)
+        Menu {
+            group("Favorites", names: model.favoritePresets.sorted())
+            group("My presets", names: model.customPresets.filter { !model.favoritePresets.contains($0) })
+            group("Factory", names: model.factory.keys.sorted().filter { !model.favoritePresets.contains($0) })
+            Divider()
+            Button("Manage presets…") { openWindow.showAuralWindow("presets") }
+        } label: {
+            Text(model.selectedPresetName ?? "Custom EQ")
+                .font(.system(size: 13, weight: .medium)).lineLimit(1)
+        }
+        .menuStyle(.borderlessButton)
+        .tint(.primary)
+        .padding(.horizontal, 10)
+        .frame(minWidth: 200, idealWidth: 300, maxWidth: 360)
+        .frame(height: 34)
+        .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.secondary.opacity(0.4)).allowsHitTesting(false))
+        .accessibilityLabel("Preset")
+        .accessibilityValue(model.currentPresetTitle)
+        .help("Choose a preset, or manage your preset library")
     }
-    private func save() { model.savePreset(); if model.error == nil { saving = false } }
+
+    @ViewBuilder private func group(_ title: String, names: [String]) -> some View {
+        if !names.isEmpty {
+            Section(title) {
+                ForEach(names, id: \.self) { name in
+                    Button {
+                        switch submissions.submitActive() {
+                        case .rejected: return
+                        case .submitted where model.error != nil: return
+                        default: model.apply(name)
+                        }
+                    } label: {
+                        if model.selectedPresetName == name {
+                            Label(name, systemImage: "checkmark")
+                        } else { Text(name) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct EQFileMenu: View {
+    @ObservedObject var model: Model
+    @Environment(\.openWindow) private var openWindow
+    let submissions: PrecisionSubmissionCoordinator
+    var body: some View {
+        Menu {
+            Button("Search AutoEQ profiles…") { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } }
+            Button("Import AutoEQ text…") { if submitPendingInput() { model.importAutoEQ() } }
+            Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }
+            Button("Paste EQ") { if submitPendingInput() { model.pasteEQ() } }
+            Button("Export EQ text…") { if submitPendingInput() { model.exportEQ() } }
+            Divider()
+            Button("Back up presets…") { model.backupPresets() }
+            Button("Restore presets…") { if submitPendingInput() { model.restorePresets() } }
+        } label: { Label("Files", systemImage: "folder") }.font(.system(size: 11))
+            .help("Import, export, and back up your EQ and presets")
+    }
     private func submitPendingInput() -> Bool {
         switch submissions.submitActive() {
         case .rejected: return false
@@ -128,6 +163,32 @@ struct StudioSidebar: View {
         case .unchanged: return true
         }
     }
+}
+
+struct SavePresetButton: View {
+    @ObservedObject var model: Model
+    let submissions: PrecisionSubmissionCoordinator
+    @State private var saving = false
+    var body: some View {
+        Button("Save…") {
+            switch submissions.submitActive() {
+            case .rejected: return
+            case .submitted where model.error != nil: return
+            default: saving = true
+            }
+        }.buttonStyle(AuralButtonStyle()).accessibilityLabel("Save preset")
+            .popover(isPresented: $saving) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Save preset").font(.headline)
+                    TextField("Preset name", text: $model.presetName).textFieldStyle(.roundedBorder)
+                        .onSubmit { save() }
+                    Button("Save") { save() }.buttonStyle(AuralButtonStyle(prominent: true))
+                        .disabled(model.presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if let error = model.error { AuralNotice(message: error, isError: true) }
+                }.padding(18).frame(width: 280)
+            }
+    }
+    private func save() { model.savePreset(); if model.error == nil { saving = false } }
 }
 
 struct MonitorPanel: View {
@@ -156,7 +217,7 @@ struct MonitorPanel: View {
     }
     private func stage(_ number: String, _ title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Text(number).font(.system(size: 9, design: .monospaced)).foregroundStyle(AuralStyle.accent).padding(.top, 2)
+            Text(number).font(.system(size: 9, design: .monospaced)).foregroundStyle(AuralStyle.secondary).padding(.top, 2)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.system(size: 11, weight: .medium))
                 Text(detail).font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
@@ -169,7 +230,22 @@ struct MonitorPanel: View {
 struct PreampControls: View {
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
-    var body: some View {
+    var compact = false
+    @ViewBuilder var body: some View {
+        if compact {
+            HStack(spacing: 7) {
+                Text("Preamp").font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                PrecisionField(value: model.profile.preamp, range: model.profile.preampRange, label: "Exact preamp in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
+                    model.endProfileGesture(); model.setPreamp(value)
+                }.frame(width: 68)
+                Text("dB").font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                Button(model.calculatingHeadroom ? "Calculating…" : "Auto") { if submitPendingInput() { model.headroom() } }
+                    .buttonStyle(AuralButtonStyle()).disabled(model.calculatingHeadroom)
+                    .accessibilityLabel("Auto preamp").help("Estimate a preamp level that leaves room for EQ boosts and stereo adjustments.")
+            }
+        } else { expanded }
+    }
+    private var expanded: some View {
         VStack(alignment: .leading, spacing: 12) {
             AuralSectionLabel(title: "Preamp")
             HStack(alignment: .firstTextBaseline, spacing: 5) {
@@ -205,7 +281,25 @@ struct OutputSelection: View {
     let submissions: PrecisionSubmissionCoordinator
     @State private var selectionRevision = 0
     var comfortable = false
-    var body: some View {
+    var compact = false
+    @ViewBuilder var body: some View {
+        if compact {
+            HStack(spacing: 7) {
+                Image(systemName: "headphones").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
+                devicePicker
+                Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.plain).accessibilityLabel("Refresh outputs")
+            }
+        } else { expanded }
+    }
+    private var devicePicker: some View {
+        Picker("Output device", selection: Binding(get: { model.selectedUID }, set: selectOutput)) {
+            if model.selected == nil { Text("Select an output").tag(model.selectedUID) }
+            ForEach(model.devices) { Text($0.name).tag($0.uid) }
+        }.labelsHidden().frame(maxWidth: compact ? nil : .infinity).controlSize(comfortable ? .large : .regular).id(selectionRevision)
+            .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default.")
+    }
+    private var expanded: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 AuralSectionLabel(title: "Output", systemImage: "hifispeaker")
@@ -213,11 +307,7 @@ struct OutputSelection: View {
                 Button { model.refresh() } label: { Image(systemName: "arrow.clockwise").frame(width: comfortable ? 30 : 16, height: comfortable ? 28 : 16) }
                     .buttonStyle(.plain).foregroundStyle(AuralStyle.secondary).accessibilityLabel("Refresh outputs").help("Refresh audio devices")
             }
-            Picker("Output device", selection: Binding(get: { model.selectedUID }, set: selectOutput)) {
-                if model.selected == nil { Text("Select an output").tag(model.selectedUID) }
-                ForEach(model.devices) { Text($0.name).tag($0.uid) }
-            }.labelsHidden().frame(maxWidth: .infinity).controlSize(comfortable ? .large : .regular).id(selectionRevision)
-                .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default.")
+            devicePicker
             Text(comfortable ? "Choose the output your apps are using. Changing output stops EQ; press Start EQ when you are ready." : (model.running ? String(format: "Stereo · %g kHz", model.responseRate / 1000) : "Select output, then Start EQ"))
                 .font(.system(size: comfortable ? 13 : 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
         }
@@ -237,11 +327,36 @@ struct OutputSelection: View {
 struct StudioMeter: View {
     @ObservedObject var meter: AudioMeter
     let running: Bool
+    var compact = false
     @State private var heldPeak: Float = 0
     private var peak: Float { meter.peak }
     private var db: Double { running && peak > 0 ? 20 * log10(Double(peak)) : -90 }
     private var heldDB: String { heldPeak > 0 ? String(format: "%.1f", 20 * log10(Double(heldPeak))) : "−∞" }
     var body: some View {
+        Group {
+            if compact {
+                HStack(spacing: 8) {
+                    Text("Output").foregroundStyle(AuralStyle.secondary)
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(AuralStyle.elevated)
+                            Capsule().fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
+                                .frame(width: geometry.size.width * min(1, max(0, (db + 60) / 60)))
+                        }
+                    }.frame(width: 70, height: 5)
+                        .accessibilityRepresentation { peakAccessibility }
+                    Text(db > -90 ? String(format: "%.1f dBFS", db) : "−∞ dBFS").monospacedDigit().frame(width: 74, alignment: .trailing)
+                        .accessibilityHidden(true)
+                    Button { heldPeak = running ? peak : 0 } label: { Image(systemName: "arrow.counterclockwise") }
+                        .buttonStyle(.plain).accessibilityLabel("Reset peak hold")
+                        .accessibilityValue(heldPeak > 0 ? AuralAccessibility.samplePeak(20 * log10(Double(heldPeak))) : "Silent")
+                        .help("Peak hold: \(heldDB) dBFS. Click to reset.")
+                }.font(.system(size: 11))
+            } else { expanded }
+        }.onChange(of: peak) { _, value in if running { heldPeak = max(heldPeak, value) } }
+            .onChange(of: running) { _, value in if !value { heldPeak = 0 } }
+    }
+    private var expanded: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 AuralSectionLabel(title: "Output level")
@@ -256,7 +371,7 @@ struct StudioMeter: View {
                         .frame(width: geometry.size.width * min(1, max(0, (db + 60) / 60)))
                     HStack(spacing: 0) { ForEach(0..<24, id: \.self) { _ in Spacer(minLength: 0); Rectangle().fill(AuralStyle.surface).frame(width: 2) } }
                 }
-            }.frame(height: 15).accessibilityLabel("Output sample peak").accessibilityValue(db > -90 ? "\(db) dBFS" : "Silent")
+            }.frame(height: 15).accessibilityRepresentation { peakAccessibility }
             HStack { Text("−60"); Spacer(); Text("−30"); Spacer(); Text("0 dBFS") }
                 .font(.system(size: 9, design: .monospaced)).foregroundStyle(AuralStyle.secondary)
             HStack {
@@ -265,7 +380,11 @@ struct StudioMeter: View {
                 Button { heldPeak = running ? peak : 0 } label: { Image(systemName: "arrow.counterclockwise") }
                     .buttonStyle(.plain).accessibilityLabel("Reset peak hold").help("Reset maximum output peak")
             }
-        }.onChange(of: peak) { _, value in if running { heldPeak = max(heldPeak, value) } }
-            .onChange(of: running) { _, value in if !value { heldPeak = 0 } }
+        }
+    }
+    private var peakAccessibility: some View {
+        ProgressView(value: min(1, max(0, (db + 60) / 60)))
+            .accessibilityLabel("Output sample peak")
+            .accessibilityValue(AuralAccessibility.samplePeak(db))
     }
 }

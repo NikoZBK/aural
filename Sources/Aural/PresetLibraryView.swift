@@ -3,6 +3,7 @@ import SwiftUI
 struct PresetLibraryView: View {
     @ObservedObject var model: Model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
     @State private var search = ""
     @State private var favoritesOnly = false
     @State private var selected: String?
@@ -39,7 +40,8 @@ struct PresetLibraryView: View {
         }
         .padding(24)
         .frame(minWidth: 760, minHeight: 520)
-        .auralAppearance(model.theme)
+        .auralAppearance(model.theme, style: model.interfaceStyle)
+        .auralAnnouncement(model.error ?? model.importNotice)
         .onChange(of: selected) { _, value in newName = value ?? "" }
         .onChange(of: names) { _, visibleNames in
             if let selected, !visibleNames.contains(selected) {
@@ -185,6 +187,13 @@ struct PresetLibraryView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let profile = model.presetProfile(named: name) {
+                if let source = profile.autoEQSource {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("AutoEQ · \(source.name)")
+                        Text("Measured by \(source.measurement)").foregroundStyle(AuralStyle.secondary)
+                        Link("Original AutoEQ result", destination: source.url)
+                    }.font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
+                }
                 ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
                     .equatable().frame(height: 220)
             }
@@ -238,6 +247,9 @@ struct PresetLibraryView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
+            Button { openWindow.showAuralWindow("autoeq") } label: {
+                Label("AutoEQ…", systemImage: "headphones")
+            }.buttonStyle(AuralButtonStyle()).help("Search online headphone correction profiles")
             Button { model.backupPresets() } label: {
                 Label("Back up…", systemImage: "square.and.arrow.up")
             }.buttonStyle(AuralButtonStyle())

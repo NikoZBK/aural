@@ -3,7 +3,9 @@ import SwiftUI
 struct FilterRack: View {
     @ObservedObject var model: Model
     @ObservedObject var submissions: PrecisionSubmissionCoordinator
-    @State private var displayBands = true
+    @Binding var selectedBand: Int
+    @Binding var display: FilterDisplay
+    @State private var selectionRevision = 0
     private var count: Int { model.profile.filters?.count ?? 10 }
 
     var body: some View {
@@ -11,17 +13,22 @@ struct FilterRack: View {
             HStack {
                 AuralSectionLabel(title: "\(count) bands", systemImage: "slider.horizontal.3")
                 Spacer()
-                Group {
-                    Button {
-                        guard finishNumericEdit() else { return }
-                        if model.profile.filters == nil { model.editGraphicAsFilters(); displayBands = false }
-                        else { displayBands.toggle() }
-                    } label: {
-                        Label(displayBands || model.profile.filters == nil ? "Rows" : "Faders", systemImage: displayBands || model.profile.filters == nil ? "list.bullet" : "slider.vertical.3")
-                    }.buttonStyle(AuralButtonStyle())
-                        .help("Switch between numeric editing and gain faders")
-                }
-                Menu("Adjust EQ") {
+                Picker("Filter view", selection: Binding(get: { display }, set: { next in
+                    guard finishNumericEdit() else { selectionRevision += 1; return }
+                    if next == .rows && model.profile.filters == nil { model.editGraphicAsFilters() }
+                    guard model.error == nil else { selectionRevision += 1; return }
+                    display = next
+                })) {
+                    Text("Selected").tag(FilterDisplay.selected)
+                    Text("All rows").tag(FilterDisplay.rows)
+                    Text("Faders").tag(FilterDisplay.faders)
+                }.pickerStyle(.segmented).labelsHidden().frame(width: 218).id(selectionRevision)
+                Menu("EQ actions") {
+                    Menu("New EQ") {
+                        Button("New flat 10-band EQ") { if finishNumericEdit() { model.useGraphicTemplate(bands: 10) } }
+                        Button("New flat 31-band EQ") { if finishNumericEdit() { model.useGraphicTemplate(bands: 31) } }
+                    }
+                    Divider()
                     Button("Gains +1 dB") { if finishNumericEdit() { model.transformGains(scale: 1, offset: 1) } }
                     Button("Gains −1 dB") { if finishNumericEdit() { model.transformGains(scale: 1, offset: -1) } }
                     Button("Scale gains to 50%") { if finishNumericEdit() { model.transformGains(scale: 0.5, offset: 0) } }
@@ -35,13 +42,71 @@ struct FilterRack: View {
                 Button { if finishNumericEdit() { model.addFilter() } } label: { Image(systemName: "plus") }
                     .buttonStyle(AuralButtonStyle()).disabled(count >= 32).help("Add a parametric filter").accessibilityLabel("Add filter")
             }
-            if model.profile.filters == nil || displayBands {
-                EQBars(model: model, submissions: submissions)
+            // Retain the native editors across display changes. Hidden editors are
+            // disabled and excluded from pointer and accessibility navigation.
+            ZStack(alignment: .topLeading) {
+                EQBars(model: model, submissions: submissions, compact: true)
                     .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6))
-            } else if let filters = model.profile.filters {
-                rows(filters)
+                    .auralGlassVisibility(display == .faders)
+                    .opacity(display == .faders ? 1 : 0)
+                    .allowsHitTesting(display == .faders)
+                    .accessibilityElement(children: display == .faders ? .contain : .ignore)
+                    .accessibilityHidden(display != .faders)
+                    .disabled(display != .faders)
+                if let filters = model.profile.filters {
+                    rows(filters)
+                        .auralGlassVisibility(display == .rows)
+                        .opacity(display == .rows ? 1 : 0)
+                        .allowsHitTesting(display == .rows)
+                        .accessibilityElement(children: display == .rows ? .contain : .ignore)
+                        .accessibilityHidden(display != .rows)
+                        .disabled(display != .rows)
+                }
+                selectedInspector
+                    .auralGlassVisibility(display == .selected)
+                    .opacity(display == .selected ? 1 : 0)
+                    .allowsHitTesting(display == .selected)
+                    .accessibilityElement(children: display == .selected ? .contain : .ignore)
+                    .accessibilityHidden(display != .selected)
+                    .disabled(display != .selected)
             }
+            .frame(height: 168, alignment: .top)
+            .frame(height: display == .selected ? 108 : 168, alignment: .top).clipped()
+            .onChange(of: display) { _, _ in model.endProfileGesture() }
+
         }.onDisappear { model.endProfileGesture() }
+    }
+
+    private var selectedInspector: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Selected filter", selection: Binding(get: { selectedBand }, set: { index in
+                selectedBand = index
+                selectionRevision += 1
+            })) {
+                ForEach(EQBarBand.bands(in: model.profile), id: \.index) { band in
+                    Text("\(band.index + 1) · \(band.frequency, specifier: "%g") Hz\(band.filter?.enabled == false ? " · Off" : "")").tag(band.index)
+                }
+            }.frame(width: 230).id(selectionRevision)
+            if let filters = model.profile.filters, filters.indices.contains(selectedBand) {
+                VStack(spacing: 0) {
+                    columnHeader
+                    FilterRow(model: model, submissions: submissions, filter: filters[selectedBand], index: selectedBand)
+                        .id(selectedBand)
+                }
+            } else if model.profile.gains.indices.contains(selectedBand) {
+                HStack(spacing: 12) {
+                    Text("Gain").font(.system(size: 12))
+                    PrecisionField(value: model.profile.gains[selectedBand], range: -12...12, label: "Band \(selectedBand + 1) gain in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, selectedBand] value in
+                        model.endProfileGesture(); model.setBandGain(at: selectedBand, to: value)
+                    }.frame(width: 80).id(selectedBand)
+                    Text("dB").font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                    Spacer()
+                    Button("Edit filter parameters…") { if finishNumericEdit() { model.editGraphicAsFilters() } }
+                        .buttonStyle(AuralButtonStyle()).help("Convert these graphic bands to editable filters, preserving their response.")
+                }
+            }
+            Spacer(minLength: 0)
+        }
     }
 
     private func finishNumericEdit() -> Bool {
@@ -73,14 +138,14 @@ struct FilterRack: View {
     private var columnHeader: some View {
         VStack(spacing: 0) {
             FilterColumns(height: 26) {
-                Text("ON").frame(width: 24)
-                Text("FILTER").frame(maxWidth: .infinity, alignment: .leading)
-                Text("CH").frame(width: 60)
+                Text("On").frame(width: 24)
+                Text("Filter").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Channel").frame(width: 60)
                 Text("Hz").frame(width: 79)
                 Text("dB").frame(width: 66)
                 Text("Q").frame(width: 58)
                 Color.clear.frame(width: 22, height: 1)
-            }.font(.system(size: 9, weight: .semibold)).foregroundStyle(AuralStyle.secondary)
+            }.font(.system(size: 10, weight: .medium)).foregroundStyle(AuralStyle.secondary)
                 .padding(.horizontal, 10).frame(height: 26)
             Divider().overlay(AuralStyle.border)
         }.background(AuralStyle.surface).accessibilityHidden(true)
@@ -124,20 +189,32 @@ private struct FilterRow: View {
                 .labelsHidden().toggleStyle(.checkbox).frame(width: 24)
             HStack(spacing: 6) {
                 Text(String(format: "%02d", number)).font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(AuralStyle.plotColors[index % AuralStyle.plotColors.count]).frame(width: 18)
-                Picker("Filter \(number) type", selection: Binding(get: { currentFilter.kind }, set: { kind in
-                    editFilter { $0.kind = kind; if !kind.usesGain { $0.gain = 0 } }
-                })) {
-                    ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in Text(kind.label.components(separatedBy: " · ")[0]).tag(kind) }
-                }.labelsHidden().font(.system(size: 11))
+                    .foregroundStyle(AuralStyle.secondary).frame(width: 18).accessibilityHidden(true)
+                Menu(currentFilter.kind.label.components(separatedBy: " · ")[0]) {
+                    ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
+                        Button {
+                            editFilter { $0.kind = kind; if !kind.usesGain { $0.gain = 0 } }
+                        } label: {
+                            if currentFilter.kind == kind {
+                                Label(kind.label.components(separatedBy: " · ")[0], systemImage: "checkmark")
+                            } else { Text(kind.label.components(separatedBy: " · ")[0]) }
+                        }
+                    }
+                }.font(.system(size: 11)).fixedSize().accessibilityLabel("Filter \(number) type")
+                    .accessibilityValue(currentFilter.kind.label)
             }.frame(maxWidth: .infinity, alignment: .leading)
-            Picker("Filter \(number) channel", selection: Binding(get: { currentFilter.effectiveChannel }, set: { channel in
-                editFilter { $0.channel = channel == .stereo ? nil : channel }
-            })) {
-                Text("L+R").tag(ImportedFilter.Channel.stereo)
-                Text("L").tag(ImportedFilter.Channel.left)
-                Text("R").tag(ImportedFilter.Channel.right)
-            }.labelsHidden().frame(width: 60).controlSize(.small)
+            Menu(currentFilter.effectiveChannel == .stereo ? "L+R" : currentFilter.effectiveChannel.rawValue) {
+                ForEach([ImportedFilter.Channel.stereo, .left, .right], id: \.self) { channel in
+                    Button {
+                        editFilter { $0.channel = channel == .stereo ? nil : channel }
+                    } label: {
+                        if currentFilter.effectiveChannel == channel {
+                            Label(channel == .stereo ? "L+R" : channel.rawValue, systemImage: "checkmark")
+                        } else { Text(channel == .stereo ? "L+R" : channel.rawValue) }
+                    }
+                }
+            }.frame(width: 60).controlSize(.small).accessibilityLabel("Filter \(number) channel")
+                .accessibilityValue(currentFilter.effectiveChannel.label)
             PrecisionField(value: filter.frequency, range: 10...22000, label: "Filter \(number) frequency in hertz", decimals: 2, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
                 Self.updateFilter(model: model, index: index) { $0.frequency = value }
             }.frame(width: 79)
@@ -147,6 +224,7 @@ private struct FilterRow: View {
                 }.frame(width: 66)
             } else {
                 Text("—").font(.system(size: 11)).foregroundStyle(AuralStyle.secondary).frame(width: 66)
+                    .accessibilityLabel("Filter \(number) has no gain parameter")
             }
             PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
                 Self.updateFilter(model: model, index: index) { $0.q = value }
@@ -158,7 +236,6 @@ private struct FilterRow: View {
                 .accessibilityLabel("Filter \(number) actions")
         }.padding(.horizontal, 10).frame(height: 39)
             .background(index.isMultiple(of: 2) ? Color.clear : AuralStyle.elevated.opacity(0.32))
-            .opacity(filter.enabled ? 1 : 0.55)
             .accessibilityElement(children: .contain).accessibilityLabel("Filter \(number)")
     }
 }
@@ -186,3 +263,5 @@ private struct FilterColumns: Layout {
         }
     }
 }
+
+enum FilterDisplay { case selected, rows, faders }

@@ -24,58 +24,34 @@ import Combine
         (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants(type, in: $0) }
     }
     flush()
-    guard let container = descendants(InterfacePanelContainer.self, in: host).first else { fatalError("Missing mode container") }
-    let deadline = Date().addingTimeInterval(10)
-    while container.isLoading {
-        require(Date() < deadline, "Pane controls did not finish preparing")
-        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-        flush()
-    }
     func show(_ mode: InterfaceMode) {
         model.setInterfaceMode(mode)
-        let deadline = Date().addingTimeInterval(5)
-        // SwiftUI may apply an observed model change on the next run-loop turn.
-        // Inspect the native panes only after their requested mode is attached.
-        while container.displayedMode != mode {
-            require(Date() < deadline, "The requested pane mode was not displayed")
-            RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-            flush()
-        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         flush()
     }
-    func split() -> NSSplitView {
-        let candidates = descendants(NSSplitView.self, in: host)
-        guard let view = candidates.first(where: { $0.isVertical && $0.arrangedSubviews.count == (model.interfaceMode == .easy ? 2 : 3) }) else {
-            fatalError("Missing native pane dividers: \(candidates.map { "\(type(of: $0)) vertical=\($0.isVertical) arranged=\($0.arrangedSubviews.count)" })")
+    let styles: [AuralInterfaceStyle] = AuralInterfaceStyle.liquidGlassSupported ? [.standard, .liquidGlass] : [.standard]
+    for style in styles {
+        model.setInterfaceStyle(style)
+        for size in [NSSize(width: 900, height: 620), NSSize(width: 1500, height: 900)] {
+            window.setContentSize(size)
+            for mode in [InterfaceMode.professional, .easy, .professional] {
+                show(mode)
+                require(descendants(NSSplitView.self, in: host).isEmpty, "Preset selection must not reserve a sidebar or divider")
+                require(host.frame.size == size, "Both appearance styles must fit the supported workspace sizes")
+            }
         }
-        return view
     }
-    func resize(_ view: NSSplitView, widths: [CGFloat]) {
-        require(view.isVertical && view.arrangedSubviews.count == widths.count + 1, "Expected horizontal panes with native dividers: vertical=\(view.isVertical), subviews=\(view.subviews.count), arranged=\(view.arrangedSubviews.count), type=\(type(of: view))")
-        for (index, width) in widths.enumerated() { view.setPosition(width, ofDividerAt: index) }
+    let numericEditors = descendants(NSTextField.self, in: host).filter { $0.isEditable }
+    require(!numericEditors.isEmpty, "The native workspace must expose editable numeric fields")
+    let editorIDs = Set(numericEditors.map(ObjectIdentifier.init))
+    for style in styles.reversed() {
+        model.setInterfaceStyle(style)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         flush()
-        for (index, width) in widths.enumerated() {
-            require(abs(view.arrangedSubviews[index].frame.maxX - width) < 2, "Dragging a divider must change pane width")
-        }
+        let retained = Set(descendants(NSTextField.self, in: host).filter { $0.isEditable }.map(ObjectIdentifier.init))
+        require(editorIDs.isSubset(of: retained), "Switching material must retain numeric editor identity and unsubmitted drafts")
     }
-    let simple = split()
-    resize(simple, widths: [420])
-    show(.professional)
-    let professional = split()
-    resize(professional, widths: [280, 1160])
-    show(.easy)
-    require(split() === simple && abs(simple.arrangedSubviews[0].frame.width - 420) < 2, "Simple must retain its custom pane widths across mode switches")
-    show(.professional)
-    require(split() === professional && abs(professional.arrangedSubviews[0].frame.width - 280) < 2, "Professional must retain its custom pane widths across mode switches")
-    window.setContentSize(NSSize(width: 1060, height: 700)); flush()
-    for (pane, minimum) in zip(professional.arrangedSubviews, [184.0, 580.0, 218.0]) {
-        require(pane.frame.width >= minimum - 2 && professional.bounds.contains(pane.frame), "Shrinking the window must keep all panes usable and inside the viewport")
-    }
-    show(.easy)
-    window.setContentSize(NSSize(width: 900, height: 640)); flush()
-    for (pane, minimum) in zip(simple.arrangedSubviews, [260.0, 400.0]) {
-        require(pane.frame.width >= minimum - 2 && simple.bounds.contains(pane.frame), "Simple must adapt to its minimum window size")
-    }
-    require(model.profile == originalProfile && !model.running, "Resizing and mode changes must preserve the current sound and playback")
-    print("PASS native draggable panes, independent retained widths, responsive minimum sizes, and audio-neutral resizing")
+    require(model.profile == originalProfile && !model.running, "Resizing and disclosure changes must preserve the current sound and playback")
+    window.close()
+    print("PASS Standard/Liquid Glass workspace sizes, retained numeric editors, no preset sidebar, and audio-neutral disclosure")
 }

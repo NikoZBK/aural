@@ -9,6 +9,7 @@ struct FilterEditor: View {
     @State private var restoringHistory = false
     @State private var sourceRevision: Int
     private var sourceChanged: Bool { sourceRevision != model.editRevision }
+    private var sourceChangeNotice: String? { sourceChanged ? "The active EQ changed while this draft was open. Your draft is retained; reload the current EQ before applying edits." : nil }
 
     init(model: Model) {
         self.model = model
@@ -27,9 +28,9 @@ struct FilterEditor: View {
                     guidance
                 }
             }.scrollIndicators(.visible)
-            if sourceChanged {
+            if let sourceChangeNotice {
                 HStack(alignment: .top, spacing: 12) {
-                    AuralNotice(message: "The active EQ changed while this draft was open. Your draft is retained; reload the current EQ before applying edits.", isError: true)
+                    AuralNotice(message: sourceChangeNotice, isError: true)
                     Button("Reload current EQ") { reloadCurrent() }.buttonStyle(AuralButtonStyle())
                         .help("Replace this editor's draft with the current EQ and clear its local undo history")
                 }
@@ -43,7 +44,8 @@ struct FilterEditor: View {
         .textFieldStyle(.roundedBorder)
         .padding(24)
         .frame(minWidth: 900, idealWidth: 930, minHeight: 520, idealHeight: 750)
-        .auralAppearance(model.theme)
+        .auralAppearance(model.theme, style: model.interfaceStyle)
+        .auralAnnouncement(error ?? sourceChangeNotice)
         .onChange(of: draft) { previous, _ in
             if restoringHistory { restoringHistory = false }
             else { history.record(previous) }
@@ -67,7 +69,7 @@ struct FilterEditor: View {
             VStack(alignment: .trailing, spacing: 5) {
                 Text("\(draft.filters.count) / 32")
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundStyle(AuralStyle.accent)
+                    .foregroundStyle(Color.primary)
                 Text("filters").foregroundStyle(AuralStyle.secondary)
             }
             .accessibilityElement(children: .ignore)

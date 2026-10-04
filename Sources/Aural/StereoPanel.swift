@@ -16,21 +16,22 @@ struct StereoPanel: View {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 14) {
                         AuralSectionLabel(title: "Stereo balance")
-                        control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, decimals: 2)
+                        control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, spokenValue: AuralAccessibility.balance(settings.balance), decimals: 2)
                         HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
                             .font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
-                        control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, decimals: 2)
+                        control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, spokenValue: AuralAccessibility.percentage(settings.width), decimals: 2)
                             .disabled(settings.mono)
                         Toggle("Mono", isOn: flag(\.mono)).toggleStyle(.checkbox).font(.system(size: 12))
                             .help("Sum left and right to mono before channel trims, polarity, and delay.")
-                        control("Crossfeed", value: settings.crossfeed, range: 0...1, suffix: "", keyPath: \.crossfeed, decimals: 2)
+                        control("Crossfeed", value: settings.crossfeed, range: 0...1, suffix: "", keyPath: \.crossfeed, spokenValue: AuralAccessibility.percentage(settings.crossfeed), decimals: 2)
                         Text("Crossfeed blends low frequencies from the opposite channel for headphone listening.")
                             .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.frame(maxWidth: .infinity).auralPanel(padding: 14)
+                        .accessibilityElement(children: .contain).accessibilityLabel("Stereo balance, width, and crossfeed")
                     VStack(alignment: .leading, spacing: 14) {
                         AuralSectionLabel(title: "Left & right")
-                        control("Left trim", value: settings.leftTrimDB, range: -24...12, suffix: "dB", keyPath: \.leftTrimDB)
-                        control("Right trim", value: settings.rightTrimDB, range: -24...12, suffix: "dB", keyPath: \.rightTrimDB)
+                        control("Left trim", value: settings.leftTrimDB, range: -24...12, suffix: "dB", keyPath: \.leftTrimDB, spokenValue: AuralAccessibility.decibels(settings.leftTrimDB))
+                        control("Right trim", value: settings.rightTrimDB, range: -24...12, suffix: "dB", keyPath: \.rightTrimDB, spokenValue: AuralAccessibility.decibels(settings.rightTrimDB))
                         Divider().overlay(AuralStyle.border)
                         delay("Left delay", value: settings.leftDelayMS, keyPath: \.leftDelayMS)
                         delay("Right delay", value: settings.rightDelayMS, keyPath: \.rightDelayMS)
@@ -39,6 +40,7 @@ struct StereoPanel: View {
                         Text("Delay adds 0–30 ms to the selected channel. The curve shows EQ and preamp only.")
                             .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.font(.system(size: 12)).frame(maxWidth: .infinity).auralPanel(padding: 14)
+                        .accessibilityElement(children: .contain).accessibilityLabel("Channel trim, delay, and polarity")
                 }
             }.padding(.bottom, 8)
         }.scrollIndicators(.visible).onDisappear { model.endProfileGesture() }
@@ -57,11 +59,11 @@ struct StereoPanel: View {
         })
     }
     private func control(_ title: String, value: Double, range: ClosedRange<Double>, suffix: String,
-                         keyPath: WritableKeyPath<StereoSettings, Double>, decimals: Int = 1) -> some View {
+                         keyPath: WritableKeyPath<StereoSettings, Double>, spokenValue: String, decimals: Int = 1) -> some View {
         VStack(spacing: 6) {
             HStack(spacing: 4) {
                 Text(title).font(.system(size: 11, weight: .medium)).frame(maxWidth: .infinity, alignment: .leading)
-                PrecisionField(value: value, range: range, label: "\(title) \(suffix)", decimals: decimals, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
+                PrecisionField(value: value, range: range, label: suffix == "dB" ? "\(title) in decibels" : suffix == "×" ? "\(title) multiplier" : title, decimals: decimals, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
                     model.endProfileGesture()
                     var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
                 }.frame(width: 58)
@@ -69,7 +71,7 @@ struct StereoPanel: View {
             }
             Slider(value: numeric(keyPath), in: range,
                    onEditingChanged: { active in active ? model.beginProfileGesture(label: title) : model.endProfileGesture() })
-                .accessibilityLabel(title)
+                .accessibilityLabel(title).accessibilityValue(spokenValue)
         }
     }
     private func delay(_ title: String, value: Double, keyPath: WritableKeyPath<StereoSettings, Double>) -> some View {

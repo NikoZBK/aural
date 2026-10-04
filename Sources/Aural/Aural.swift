@@ -20,11 +20,14 @@ struct AuralApp: App {
     private var model: Model { delegate.model }
     var body: some Scene {
         Window("Aural", id: "main") { MainView(model: model, icon: delegate.icon).background(WindowRegistration()) }
-            .defaultSize(width: 1240, height: 820)
+            .defaultSize(width: 1040, height: 690)
             .windowResizability(.contentMinSize)
             .commands { AuralCommands(model: model) }
         Window("Preset library", id: "presets") { PresetLibraryView(model: model).background(WindowRegistration()) }
             .defaultSize(width: 800, height: 580)
+            .windowResizability(.contentMinSize)
+        Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: model).background(WindowRegistration()) }
+            .defaultSize(width: 880, height: 700)
             .windowResizability(.contentMinSize)
         Window("About Aural", id: "about") { AboutView(model: model, icon: delegate.icon).background(WindowRegistration()) }
             .windowResizability(.contentSize)
@@ -68,24 +71,25 @@ struct AuralCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {}
         CommandMenu("Equalizer") {
-            if model.interfaceMode == .professional {
-                Button(model.undoLabel) { model.undoProfile() }.disabled(!model.canUndo)
+            Group {
+                Button(model.undoLabel) { if submitPendingInput() { model.undoProfile() } }.disabled(!model.canUndo)
                     .keyboardShortcut("z", modifiers: [.command, .option])
-                Button(model.redoLabel) { model.redoProfile() }.disabled(!model.canRedo)
+                Button(model.redoLabel) { if submitPendingInput() { model.redoProfile() } }.disabled(!model.canRedo)
                     .keyboardShortcut("z", modifiers: [.command, .option, .shift])
                 Divider()
-                Button("Compare A") { model.selectComparison(.a) }.keyboardShortcut("1", modifiers: [.command, .option])
-                Button("Compare B") { model.selectComparison(.b) }.keyboardShortcut("2", modifiers: [.command, .option])
+                Button("Compare A") { if submitPendingInput() { model.selectComparison(.a) } }.keyboardShortcut("1", modifiers: [.command, .option])
+                Button("Compare B") { if submitPendingInput() { model.selectComparison(.b) } }.keyboardShortcut("2", modifiers: [.command, .option])
                 Divider()
             }
             Button("Bypass EQ") { model.setBypass(!model.bypass) }.keyboardShortcut("b", modifiers: [.command, .option])
             Divider()
-            if model.interfaceMode == .professional {
+            Group {
                 Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.keyboardShortcut("c", modifiers: [.command, .shift])
             }
-            Button("Paste EQ") { model.pasteEQ() }.keyboardShortcut("v", modifiers: [.command, .shift])
-            Button("Import AutoEQ…") { model.importAutoEQ() }
-            if model.interfaceMode == .professional { Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } } }
+            Button("Paste EQ") { if submitPendingInput() { model.pasteEQ() } }.keyboardShortcut("v", modifiers: [.command, .shift])
+            Button("Search AutoEQ profiles…") { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } }
+            Button("Import AutoEQ…") { if submitPendingInput() { model.importAutoEQ() } }
+            Group { Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } } }
             Divider()
             Button("Preset library…") { openWindow.showAuralWindow("presets") }
                 .keyboardShortcut("p", modifiers: [.command, .shift])
@@ -94,7 +98,10 @@ struct AuralCommands: Commands {
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         }
-        CommandGroup(after: .toolbar) { ThemePicker(model: model) }
+        CommandGroup(after: .toolbar) {
+            ThemePicker(model: model)
+            InterfaceStylePicker(model: model)
+        }
     }
     private func submitPendingInput() -> Bool {
         switch submissions?.submitActive() ?? .unchanged {
@@ -113,7 +120,8 @@ struct MenuBarControls: View {
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }
         Button("Preset library…") { openWindow.showAuralWindow("presets") }
-        if model.interfaceMode == .professional {
+        Button("Search AutoEQ profiles…") { openWindow.showAuralWindow("autoeq") }
+        Group {
             Menu("Preamp: \(model.profile.preamp, specifier: "%.2f") dB") {
                 Button("Increase 1 dB") { model.adjustPreamp(1) }
                     .disabled(model.profile.preamp >= model.profile.preampRange.upperBound)
@@ -128,6 +136,7 @@ struct MenuBarControls: View {
         }
         Divider()
         ThemePicker(model: model)
+        InterfaceStylePicker(model: model)
         Button("Show Aural") { openWindow.showAuralWindow("main") }
         Button("About Aural") { openWindow.showAuralWindow("about") }
         Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
@@ -152,6 +161,11 @@ struct StartupSettings: View {
             Text("Appearance").font(.headline)
             ThemePicker(model: model).pickerStyle(.segmented)
             Text("System follows your Mac's appearance.").font(.caption).foregroundStyle(.secondary)
+            InterfaceStylePicker(model: model).pickerStyle(.segmented)
+            Text(AuralInterfaceStyle.liquidGlassSupported
+                 ? "Liquid Glass adds depth to controls. Reduce Transparency or Increase Contrast uses solid surfaces."
+                 : "Liquid Glass requires macOS 26 or later. Saved choices use solid surfaces on this Mac.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Divider()
             Text("Startup").font(.headline)
             Toggle("Launch at login", isOn: Binding(get: { model.launchAtLoginRequested }, set: model.setLaunchAtLogin))
@@ -168,6 +182,18 @@ struct StartupSettings: View {
             if let error = model.error { AuralNotice(message: error, isError: true) }
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
-        }.padding(18).frame(width: 300).auralAppearance(model.theme).onAppear { model.refreshLoginStatus() }
+        }.padding(18).frame(width: 300).auralAppearance(model.theme, style: model.interfaceStyle).onAppear { model.refreshLoginStatus() }
+    }
+}
+
+struct InterfaceStylePicker: View {
+    @ObservedObject var model: Model
+    var body: some View {
+        Picker("Style", selection: Binding(get: { model.interfaceStyle }, set: model.setInterfaceStyle)) {
+            ForEach(AuralInterfaceStyle.allCases, id: \.self) { style in
+                Text(style.label).tag(style)
+                    .disabled(style == .liquidGlass && !AuralInterfaceStyle.liquidGlassSupported)
+            }
+        }.help("Liquid Glass uses Apple's native material on macOS 26 or later. Theme controls light and dark appearance separately.")
     }
 }

@@ -51,7 +51,7 @@ struct UpdatesView: View {
             Text("Software updates").font(.title2.weight(.semibold))
             Text("Installed: Aural \(checker.installed)").foregroundStyle(.secondary)
             if checker.checking {
-                HStack { ProgressView().controlSize(.small); Text("Checking GitHub Releases…") }
+                HStack { ProgressView("Checking for updates").labelsHidden().controlSize(.small); Text("Checking GitHub Releases…") }
             } else if let error = checker.error {
                 Text(error).foregroundStyle(AuralStyle.warning).fixedSize(horizontal: false, vertical: true)
             } else {
@@ -78,7 +78,8 @@ struct UpdatesView: View {
                 }
             }
         }.font(.system(size: 12)).padding(22).frame(width: 530)
-            .auralAppearance(model.theme)
+            .auralAppearance(model.theme, style: model.interfaceStyle)
+            .auralAnnouncement(checker.error ?? checker.status)
             .task { await checker.check() }
     }
 }

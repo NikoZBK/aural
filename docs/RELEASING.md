@@ -6,12 +6,12 @@ For planning changes, preserving existing behavior, and choosing verification ch
 
 1. Update `VERSION` and the numeric `CFBundleVersion` in `scripts/build.sh`.
 2. Run `bash scripts/test.sh`.
-3. Run `bash scripts/package.sh` on macOS with Xcode or Command Line Tools.
+3. Run `bash scripts/package.sh` on macOS with Xcode or Command Line Tools providing the macOS 26 SDK or newer. Liquid Glass remains availability-gated at runtime; the app still supports macOS 14.2.
 4. Check `lipo -archs dist/Aural.app/Contents/MacOS/Aural` for both arm64 and x86_64.
 5. Open the DMG, verify the app and Applications shortcut, then test the app on supported hardware.
 6. Publish the DMG, ZIP, and `SHA256SUMS.txt` as GitHub Release assets. Never upload `.build`, local settings, imported profiles, signing credentials, or private screenshots.
 
-The scripts build in clean staging directories and explicitly copy only the executable, icon, and Info.plist. Packaging adds installation instructions, the license, and an Applications shortcut. Settings and profiles are created in each user's Application Support directory at runtime.
+The scripts build in clean staging directories and explicitly copy only the executable, icons, bundled licensed reference targets, and Info.plist. Packaging adds installation instructions, the license, and an Applications shortcut. Settings and profiles are created in each user's Application Support directory at runtime.
 
 ## Signing status
 
