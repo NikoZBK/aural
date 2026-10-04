@@ -22,17 +22,19 @@ Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings
 
 ## Screenshots
 
-The expandable workspace keeps your current preset, EQ curve, selected filter, and output controls in view.
+The expandable workspace keeps your current preset, EQ curve, selected filter, and output controls in view. Select a numbered point to edit that filter's exact values.
 
-![Aural 1.0 Professional mode with the EQ curve and editable bands](docs/screenshots/workspace.jpg)
+![Aural 1.2 in Dark theme with the EQ curve and selected filter's frequency, gain, and Q controls](docs/screenshots/workspace.png)
 
-Stereo and delay controls let you adjust the left and right channels and how they blend together.
+Switch to **Faders** to adjust gains at the active filters' frequencies without changing their other settings.
 
-![Aural 1.0 stereo and delay controls](docs/screenshots/stereo-timing.jpg)
+![Aural 1.2 in Dark theme with ten gain faders below the EQ curve](docs/screenshots/faders.png)
 
-Screenshots use factory and demo presets.
+Theme and Style are independent. This workspace uses **Light** with the optional **Liquid Glass** style on macOS 26.
 
-These screenshots show Aural 1.0. Aural 1.2 uses the expandable workspace described below.
+![Aural 1.2 in Light theme with native Liquid Glass toolbar, controls, and output strip](docs/screenshots/liquid-glass.png)
+
+Screenshots show Aural 1.2 with a demo preset based on the factory Rock preset and audio processing stopped. The dashed purple curve is the Harman acoustic reference; the solid green curve shows EQ gain.
 
 ## Features
 
