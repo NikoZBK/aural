@@ -181,6 +181,14 @@ enum AuralInterfaceStyle: String, Codable, CaseIterable {
     }
 }
 
+enum AuralInterfaceZoom: Int, Codable, CaseIterable, Sendable {
+    case smallest = 80, small = 90, actualSize = 100, large = 110, larger = 120, extraLarge = 130, largest = 140
+
+    var scale: CGFloat { CGFloat(rawValue) / 100 }
+    var increased: Self { Self(rawValue: rawValue + 10) ?? self }
+    var decreased: Self { Self(rawValue: rawValue - 10) ?? self }
+}
+
 struct Settings: Codable {
     var devices: [String: Profile] = [:]
     var presets: [String: Profile] = [:]
@@ -191,9 +199,10 @@ struct Settings: Codable {
     var interfaceMode: InterfaceMode = .easy
     var theme: AuralTheme = .dark
     var interfaceStyle: AuralInterfaceStyle = .standard
+    var interfaceZoom: AuralInterfaceZoom = .actualSize
 
     private enum CodingKeys: String, CodingKey {
-        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode, theme, interfaceStyle
+        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode, theme, interfaceStyle, interfaceZoom
     }
 }
 
@@ -211,6 +220,7 @@ extension Settings {
         // Preserve Aural's original appearance until a theme is explicitly chosen.
         theme = try values.decodeIfPresent(AuralTheme.self, forKey: .theme) ?? .dark
         interfaceStyle = try values.decodeIfPresent(AuralInterfaceStyle.self, forKey: .interfaceStyle) ?? .standard
+        interfaceZoom = try values.decodeIfPresent(AuralInterfaceZoom.self, forKey: .interfaceZoom) ?? .actualSize
     }
 }
 

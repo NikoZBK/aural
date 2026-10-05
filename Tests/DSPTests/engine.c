@@ -202,10 +202,70 @@ static void preamp_history_tests(void) {
     }
     puts("PASS preamp cuts and boosts preserve slow-filter history and fade magnitude at five sample rates");
 }
+static void channel_history_tests(void) {
+    const double rates[]={32000,44100,48000,96000,192000};
+    for (unsigned r=0;r<5;r++) for (unsigned c=0;c<2;c++) {
+        double rate=rates[r];
+        unsigned channel=c+1,other=2-c;
+        EQ *eq=eq_create(rate,0),*reference=eq_create(rate,0);
+        assert(eq && reference);
+        EQFilter bass={20,18,20,EQFilterPeak,false,channel};
+        EQFilter unrelated={1000,-3,1,EQFilterPeak,false,other};
+        EQFilter filters[3]={unrelated,bass};
+        assert(eq_update_filters(eq,filters,2,0,false));
+        assert(eq_update_filters(reference,filters,2,0,false));
+        float out[2],base[2]; unsigned sample=0;
+        for (;sample<(unsigned)rate;sample++) {
+            float input=.001*sin(2*M_PI*20*sample/rate);
+            frame(eq,input,input,out); frame(reference,input,input,base);
+        }
+        double oldAmplitude=1;
+        for (unsigned edit=0;edit<5;edit++) {
+            unsigned count=2;
+            double preamp=0;
+            if (edit==0) { filters[0].gain=6; filters[0].q=2; }
+            if (edit==1) { filters[0]=bass; count=1; }
+            if (edit==2) {
+                filters[0]=unrelated;
+                filters[1]=(EQFilter){100,12,1,EQFilterPeak,true,channel};
+                filters[2]=bass; count=3;
+            }
+            if (edit==3) { filters[1].disabled=false; filters[1].gain=0; count=3; preamp=-6; }
+            if (edit==4) { filters[0]=bass; filters[0].channel=EQChannelStereo; count=1; preamp=-6; }
+            assert(eq_update_filters(eq,filters,count,preamp,false));
+            double amplitude=pow(10,preamp/20);
+            unsigned fade=(unsigned)ceil(rate*.02);
+            for (unsigned i=0;i<(unsigned)(rate*.12);i++,sample++) {
+                float input=.001*sin(2*M_PI*20*sample/rate);
+                frame(eq,input,input,out); frame(reference,input,input,base);
+                double mix=fmin(1,(double)i/fade);
+                double expected=base[c]*(oldAmplitude*(1-mix)+amplitude*mix);
+                assert(fabs(out[c]-expected)<2e-8);
+            }
+            oldAmplitude=amplitude;
+        }
+        // Changing a contributing upstream filter invalidates the bass state.
+        // After the fade it must match a fresh target chain, not copied history.
+        eq_destroy(reference); reference=eq_create(rate,0); assert(reference);
+        filters[0]=(EQFilter){200,0,.707,EQFilterHighPass,false,channel};
+        filters[1]=bass;
+        assert(eq_update_filters(eq,filters,2,-6,false));
+        assert(eq_update_filters(reference,filters,2,-6,false));
+        for (unsigned i=0;i<(unsigned)(rate*.12);i++,sample++) {
+            float input=.001*sin(2*M_PI*20*sample/rate);
+            frame(eq,input,input,out); frame(reference,input,input,base);
+            if (i>=(unsigned)ceil(rate*.02)) assert(out[c]==base[c]);
+        }
+        assert(eq_faults(eq)==0 && eq_faults(reference)==0);
+        eq_destroy(eq); eq_destroy(reference);
+    }
+    puts("PASS independent channel history across other-channel edits, removal, insertion, identity filters, preamp and routing at five rates");
+}
 int main(void) {
     stereo_tests();
     channel_tests();
     preamp_history_tests();
+    channel_history_tests();
     const double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         double rate=rates[r];

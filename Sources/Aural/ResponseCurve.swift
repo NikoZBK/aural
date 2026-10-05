@@ -21,18 +21,20 @@ struct ResponseCurve: View, Equatable {
     var beginDrag: ((Int) -> EQBarBand?)? = nil
     var changeDrag: ((Int, Double, Double) -> Bool)? = nil
     var endDrag: ((Int) -> Void)? = nil
+    var minimumPlotHeight: CGFloat = 80
 
     // Meter updates stop at this value-only boundary. Local interaction state lives
     // in the child so changing controls cannot be suppressed by this comparison.
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.profile == rhs.profile && lhs.rate == rhs.rate && lhs.bypass == rhs.bypass &&
             lhs.running == rhs.running && lhs.comparisonProfile == rhs.comparisonProfile &&
-            lhs.selectedBand == rhs.selectedBand && (lhs.selectBand == nil) == (rhs.selectBand == nil) && (lhs.beginDrag == nil) == (rhs.beginDrag == nil)
+            lhs.selectedBand == rhs.selectedBand && lhs.minimumPlotHeight == rhs.minimumPlotHeight &&
+            (lhs.selectBand == nil) == (rhs.selectBand == nil) && (lhs.beginDrag == nil) == (rhs.beginDrag == nil)
     }
     var body: some View {
         InteractiveResponseCurve(profile: profile, rate: rate, bypass: bypass, running: running,
                                  comparisonProfile: comparisonProfile, selectedBand: selectedBand, selectBand: selectBand,
-                                 beginDrag: beginDrag, changeDrag: changeDrag, endDrag: endDrag)
+                                 beginDrag: beginDrag, changeDrag: changeDrag, endDrag: endDrag, minimumPlotHeight: minimumPlotHeight)
     }
 }
 
@@ -47,9 +49,11 @@ private struct InteractiveResponseCurve: View {
     let beginDrag: ((Int) -> EQBarBand?)?
     let changeDrag: ((Int, Double, Double) -> Bool)?
     let endDrag: ((Int) -> Void)?
+    let minimumPlotHeight: CGFloat
     @State private var drag: CurveDrag?
     @State private var dragRejected = false
     @Environment(\.self) private var environment
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @State private var hoverFraction: Double?
     @State private var inspection = ResponseInspection()
     @Environment(\.colorSchemeContrast) private var contrast
@@ -126,8 +130,8 @@ private struct InteractiveResponseCurve: View {
                     ForEach(ResponseChannel.allCases, id: \.self) { channel in
                         Text(channel.label).tag(channel)
                     }
-                }.pickerStyle(.segmented).labelsHidden().controlSize(.small)
-                    .frame(width: 116, height: 22)
+                }.pickerStyle(.segmented).labelsHidden().auralControlSize(.small)
+                    .auralFrame(width: 116, height: 22)
                     .help("Inspect left and right independently. Left uses your accent color; right is dotted blue. Peak/headroom always covers both channels.")
             }
             Spacer(minLength: 8)
@@ -156,11 +160,11 @@ private struct InteractiveResponseCurve: View {
                 if compact { Image(systemName: "line.3.horizontal.decrease") }
                 else { Text("Filter curves") }
             }
-            .toggleStyle(.button).controlSize(.small).fixedSize()
+            .toggleStyle(.button).auralControlSize(.small).fixedSize()
             .accessibilityLabel("Filter curves")
             .disabled(bypass)
             .help("Overlay each enabled filter without preamp. Disabled filters are excluded.")
-        }.font(.system(size: 11, weight: .medium))
+        }.auralFont(size: 11, weight: .medium)
     }
 
     var body: some View {
@@ -168,66 +172,74 @@ private struct InteractiveResponseCurve: View {
             ViewThatFits(in: .horizontal) {
                 header(compact: false)
                 header(compact: true)
-            }.frame(height: 24)
-            GeometryReader { geometry in
-                if let analysis {
-                    let referenceSamples = reference?.plottedSamples(maximumFrequency: maximumFrequency) ?? []
-                    let scale = drag?.scale ?? analysis.scale(showFilters: showFilters, channel: channel, referenceValues: referenceSamples.map(\.decibels))
-                    let drawing = ResponsePlotDrawing(analysis: analysis, scale: scale, profile: profile,
-                                                      rate: rate, bypass: bypass, channel: channel,
-                                                      showFilters: showFilters, hoverFraction: hoverFraction ?? inspection.fraction, highContrast: contrast == .increased,
-                                                      referenceSamples: referenceSamples)
-                    ZStack(alignment: .topLeading) {
-                        ResponseCanvas(drawing: drawing)
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active(let location):
-                                hoverFraction = min(1, max(0, (location.x - 44) / max(1, geometry.size.width - 62)))
-                            case .ended: hoverFraction = nil
-                            }
-                        }
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(plotFocused ? Color.primary : .clear, lineWidth: 2))
-                        .focusable().focused($plotFocused)
-                        .onKeyPress(.rightArrow) { inspect(by: 0.025); return .handled }
-                        .onKeyPress(.leftArrow) { inspect(by: -0.025); return .handled }
-                        .onExitCommand { inspection.clear(); plotFocused = false }
-                        .accessibilityRepresentation {
-                            Slider(value: Binding(get: { inspectionPosition }, set: { inspection.setFraction($0); hoverFraction = nil }), in: 0...1, step: 0.025) {
-                                Text("Equalizer response")
-                            }
-                            .accessibilityLabel("Equalizer response, 20 to \(maximumFrequency) hertz, \(scale.lower) to \(scale.upper) decibels")
-                            .accessibilityValue(inspectionValue)
-                            .accessibilityHint("Left and Right arrows inspect frequencies. Escape clears inspection. This does not change your EQ.")
-                            .accessibilityAdjustableAction { direction in
-                                switch direction {
-                                case .increment: inspect(by: 0.025)
-                                case .decrement: inspect(by: -0.025)
-                                @unknown default: break
+            }.auralFrame(minHeight: 24).fixedSize(horizontal: false, vertical: true)
+            // Canvas and curve gestures share one logical coordinate system.
+            // Only this pure SwiftUI drawing scales geometrically; AppKit-backed
+            // controls above and below it use explicit font and frame sizes.
+            InterfaceZoomLayout(scale: interfaceScale) {
+                GeometryReader { geometry in
+                    if let analysis {
+                        let referenceSamples = reference?.plottedSamples(maximumFrequency: maximumFrequency) ?? []
+                        let scale = drag?.scale ?? analysis.scale(showFilters: showFilters, channel: channel, referenceValues: referenceSamples.map(\.decibels))
+                        let drawing = ResponsePlotDrawing(analysis: analysis, scale: scale, profile: profile,
+                                                          rate: rate, bypass: bypass, channel: channel,
+                                                          showFilters: showFilters, hoverFraction: hoverFraction ?? inspection.fraction, highContrast: contrast == .increased,
+                                                          referenceSamples: referenceSamples)
+                        ZStack(alignment: .topLeading) {
+                            ResponseCanvas(drawing: drawing)
+                            .onContinuousHover { phase in
+                                switch phase {
+                                case .active(let location):
+                                    hoverFraction = min(1, max(0, (location.x - 44) / max(1, geometry.size.width - 62)))
+                                case .ended: hoverFraction = nil
                                 }
                             }
-                        }
-                        .accessibilitySortPriority(Double((profile.filters?.count ?? profile.gains.count) + 1))
-                        if let selectBand {
-                            ForEach(EQBarBand.bands(in: profile), id: \.index) { band in
-                                if (20...maximumFrequency).contains(band.frequency), channel.includes(band.filter?.effectiveChannel ?? .stereo) {
-                                    filterPoint(band, selectBand: selectBand, scale: scale, size: geometry.size)
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(plotFocused ? Color.primary : .clear, lineWidth: 2))
+                            .focusable().focused($plotFocused)
+                            .onKeyPress(.rightArrow) { inspect(by: 0.025); return .handled }
+                            .onKeyPress(.leftArrow) { inspect(by: -0.025); return .handled }
+                            .onExitCommand { inspection.clear(); plotFocused = false }
+                            .accessibilityRepresentation {
+                                Slider(value: Binding(get: { inspectionPosition }, set: { inspection.setFraction($0); hoverFraction = nil }), in: 0...1, step: 0.025) {
+                                    Text("Equalizer response")
+                                }
+                                .accessibilityLabel("Equalizer response, 20 to \(maximumFrequency) hertz, \(scale.lower) to \(scale.upper) decibels")
+                                .accessibilityValue(inspectionValue)
+                                .accessibilityHint("Left and Right arrows inspect frequencies. Escape clears inspection. This does not change your EQ.")
+                                .accessibilityAdjustableAction { direction in
+                                    switch direction {
+                                    case .increment: inspect(by: 0.025)
+                                    case .decrement: inspect(by: -0.025)
+                                    @unknown default: break
+                                    }
                                 }
                             }
-                        }
-                    }.coordinateSpace(name: "response-plot").clipped()
-                        .accessibilityElement(children: .contain).accessibilityLabel("EQ curve")
-                } else {
-                    Text("Updating curve…").font(.caption).foregroundStyle(AuralStyle.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .accessibilitySortPriority(Double((profile.filters?.count ?? profile.gains.count) + 1))
+                            if let selectBand {
+                                ForEach(EQBarBand.bands(in: profile), id: \.index) { band in
+                                    if (20...maximumFrequency).contains(band.frequency), channel.includes(band.filter?.effectiveChannel ?? .stereo) {
+                                        filterPoint(band, selectBand: selectBand, scale: scale, size: geometry.size)
+                                    }
+                                }
+                            }
+                        }.coordinateSpace(name: "response-plot").clipped()
+                            .accessibilityElement(children: .contain).accessibilityLabel("EQ curve")
+                    } else {
+                        Text("Updating curve…").font(.caption).foregroundStyle(AuralStyle.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
+                .environment(\.auralInterfaceScale, 1)
+                .scaleEffect(interfaceScale, anchor: .topLeading)
             }
+            .auralFrame(minHeight: minimumPlotHeight)
 
             if let reference {
                 Text("Dashed: \(reference.target.label) acoustic target · 0 dB at 1 kHz. Solid: EQ gain.")
-                    .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else if let harmanError, showHarman {
-                Text(harmanError).font(.system(size: 10)).foregroundStyle(AuralStyle.warning)
+                Text(harmanError).auralFont(size: 10).foregroundStyle(AuralStyle.warning)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -250,7 +262,8 @@ private struct InteractiveResponseCurve: View {
                         .foregroundStyle(analysis.peak > 0.05 ? AuralStyle.warning : AuralStyle.secondary)
                         .help("Estimated maximum EQ gain across both channels and the displayed frequencies, regardless of the channel selected for inspection. Includes preamp; excludes stereo effects and peak protection. This is not a measured audio level or a clipping guarantee.")
                 }
-            }.font(.system(size: 10, weight: .medium, design: .monospaced)).lineLimit(1)
+            }.auralFont(size: 10, weight: .medium, design: .monospaced).lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .onDisappear { finishDrag() }
         .auralAnnouncement(harmanError)
@@ -295,7 +308,7 @@ private struct InteractiveResponseCurve: View {
             .position(x: 44 + log10(band.frequency / 20) / frequencySpan * max(1, size.width - 62),
                       y: 14 + min(1, max(0, scale.fraction(gain))) * max(1, size.height - 41))
             .zIndex(selected ? 1 : 0)
-            .accessibilityLabel("Select filter \(band.index + 1), \(band.frequency) hertz")
+            .accessibilityLabel(String(format: "Select filter %d, %.0f hertz", band.index + 1, band.frequency))
             .accessibilityValue(states.compactMap { $0 }.joined(separator: ", "))
             .accessibilitySortPriority(Double((profile.filters?.count ?? profile.gains.count) - band.index))
             .accessibilityHint("Opens the exact filter controls below the curve")

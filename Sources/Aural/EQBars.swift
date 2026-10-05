@@ -18,6 +18,7 @@ struct EQBarBand: Equatable {
 
 /// Shared gain controls edit the active bands without converting imported filters.
 struct EQBars: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     var compact = false
@@ -27,15 +28,15 @@ struct EQBars: View {
         let snapshot = model.profile
         let bands = EQBarBand.bands(in: snapshot)
         GeometryReader { geometry in
-            let barHeight = max(64, min(260, geometry.size.height - (snapshot.filters == nil ? 56 : 80)))
+            let barHeight = max(64, min(260, geometry.size.height - (snapshot.filters == nil ? 56 : 80) * interfaceScale))
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 0) {
                     ForEach(bands, id: \.index) { value in
-                        band(value, height: barHeight).frame(width: max(48, geometry.size.width / Double(bands.count)))
+                        band(value, height: barHeight).frame(width: max(48 * interfaceScale, geometry.size.width / Double(bands.count)))
                     }
                 }.frame(minWidth: geometry.size.width).padding(.vertical, 8)
             }.scrollIndicators(.visible)
-        }.frame(minHeight: compact ? 130 : 170).onDisappear { model.endProfileGesture() }
+        }.auralFrame(minHeight: compact ? 130 : 170).onDisappear { model.endProfileGesture() }
     }
 
     @ViewBuilder private func band(_ value: EQBarBand, height: CGFloat) -> some View {
@@ -46,18 +47,18 @@ struct EQBars: View {
         let adjustable = filter?.kind.usesGain ?? true
         VStack(spacing: 7) {
             Text(adjustable ? String(format: "%+.1f", gain) : "—")
-                .font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.primary)
-            EQGainBar(value: gain, range: range, adjustable: adjustable, label: "Band \(index + 1), \(frequency) hertz gain",
+                .auralFont(size: 11, design: .monospaced).foregroundStyle(Color.primary)
+            EQGainBar(value: gain, range: range, adjustable: adjustable, label: String(format: "Band %d, %.0f hertz gain", index + 1, frequency),
                       change: { model.setBandGain(at: index, to: $0) }, begin: {
                 guard finishNumericEdit() else { return false }
                 model.beginProfileGesture(label: "Band gain")
                 return true
             }, end: { model.endProfileGesture() })
-                .frame(width: 40, height: height)
+                .frame(width: 40 * interfaceScale, height: height)
                 .help(adjustable ? "Drag or use Up and Down arrows to adjust gain. Double-click or press zero to reset." : "\(filter?.kind.label ?? "Filter") has no gain control.")
-            Text(frequency >= 1000 ? String(format: "%.3gk", frequency / 1000) : String(format: "%.3g", frequency))
-                .font(.system(size: 10, design: .monospaced)).foregroundStyle(AuralStyle.secondary)
-                .lineLimit(1).help("\(frequency) Hz")
+            Text(frequency >= 1000 ? String(format: "%.3gk", frequency / 1000) : String(format: "%.0f", frequency))
+                .auralFont(size: 10, design: .monospaced).foregroundStyle(AuralStyle.secondary)
+                .lineLimit(1).help(String(format: "%.0f Hz", frequency))
             if let filter {
                 HStack(spacing: 3) {
                     Toggle("Band \(index + 1) enabled", isOn: Binding(get: {
@@ -67,7 +68,7 @@ struct EQBars: View {
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
                     })).labelsHidden().toggleStyle(.checkbox)
                     if filter.effectiveChannel != .stereo {
-                        Text(filter.effectiveChannel == .left ? "L" : "R").font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
+                        Text(filter.effectiveChannel == .left ? "L" : "R").auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
                     }
                 }
             }

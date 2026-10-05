@@ -157,6 +157,15 @@ static bool same_filter(EQFilter a, EQFilter b) {
     return a.frequency==b.frequency && a.gain==b.gain && a.q==b.q &&
            a.type==b.type && a.disabled==b.disabled && a.channel==b.channel;
 }
+static bool identity(Coeff a) {
+    return a.b0==1 && a.b1==0 && a.b2==0 && a.a1==0 && a.a2==0;
+}
+static bool applies_to_channel(EQFilter filter, unsigned channelIndex) {
+    return filter.channel==EQChannelStereo || filter.channel==channelIndex+1;
+}
+static bool same_coefficients(Coeff a, Coeff b) {
+    return a.b0==b.b0 && a.b1==b.b1 && a.b2==b.b2 && a.a1==b.a1 && a.a2==b.a2;
+}
 static bool same_settings(const Settings *a, const Settings *b) {
     if (a->count!=b->count || a->preamp!=b->preamp || a->bypass!=b->bypass) return false;
     EQStereo x=a->stereo,y=b->stereo;
@@ -180,16 +189,22 @@ static void begin_transition(EQ *eq) {
     if (same_settings(&old->settings,&eq->target)) return;
     reset_history(next);
     next->settings=eq->target;
-    // An unchanged prefix has the same input history. Its linear filter states
+    // Each channel's unchanged prefix has the same input history. Linear states
     // scale exactly with preamp amplitude; discarding them on a volume change
     // would temporarily remove slow bass correction after the crossfade ends.
-    // Never copy state downstream of an edited filter.
+    // Other-channel and identity filters do not break that prefix, even when
+    // insertion/removal moves its slots. Never copy downstream of an edited
+    // coefficient on the channel whose state is being transferred.
     double scale=next->settings.amplitude/old->settings.amplitude;
-    for (unsigned b=0;b<old->settings.count && b<next->settings.count;b++) {
-        if (!same_filter(old->settings.filters[b],next->settings.filters[b])) break;
-        for (unsigned c=0;c<2;c++) {
-            next->z1[c][b]=old->z1[c][b]*scale;
-            next->z2[c][b]=old->z2[c][b]*scale;
+    for (unsigned c=0;c<2;c++) {
+        unsigned before=0,after=0;
+        while (before<old->settings.count && after<next->settings.count) {
+            if (!applies_to_channel(old->settings.filters[before],c) || identity(old->settings.coefficients[before])) { before++; continue; }
+            if (!applies_to_channel(next->settings.filters[after],c) || identity(next->settings.coefficients[after])) { after++; continue; }
+            if (!same_coefficients(old->settings.coefficients[before],next->settings.coefficients[after])) break;
+            next->z1[c][after]=old->z1[c][before]*scale;
+            next->z2[c][after]=old->z2[c][before]*scale;
+            before++; after++;
         }
     }
     eq->transitionFrame=0;
@@ -199,8 +214,7 @@ static void begin_transition(EQ *eq) {
 static double run_filters(Chain *chain, unsigned channelIndex, double dry) {
     double x=dry*chain->settings.amplitude;
     for (unsigned b=0;b<chain->settings.count;b++) {
-        unsigned target=chain->settings.filters[b].channel;
-        if (target!=EQChannelStereo && target!=channelIndex+1) continue;
+        if (!applies_to_channel(chain->settings.filters[b],channelIndex)) continue;
         Coeff a=chain->settings.coefficients[b];
         double y=a.b0*x+chain->z1[channelIndex][b];
         chain->z1[channelIndex][b]=a.b1*x-a.a1*y+chain->z2[channelIndex][b];
@@ -354,7 +368,7 @@ bool eq_response_filters_channel_samples(const double *frequencies, unsigned fre
             unsigned target=filters[i].channel;
             if (channel!=EQChannelStereo && target!=EQChannelStereo && target!=channel) continue;
             Coeff a=coefficients[i];
-            if (a.b0==1 && a.b1==0 && a.b2==0 && a.a1==0 && a.a2==0) continue;
+            if (identity(a)) continue;
             double gain=response_gain(a,c1,s1,c2,s2);
             if (target!=EQChannelRight) left+=gain;
             if (target!=EQChannelLeft) right+=gain;

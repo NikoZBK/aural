@@ -84,23 +84,23 @@ struct AutoEQBrowserView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
             HSplitView {
-                catalog.frame(minWidth: 310, idealWidth: 350, maxWidth: .infinity, maxHeight: .infinity)
+                catalog.auralFrame(minWidth: 310, idealWidth: 350, maxWidth: .infinity, maxHeight: .infinity)
                 detail.padding(.leading, 12)
-                    .frame(minWidth: 370, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
-            }.frame(minHeight: 340, maxHeight: .infinity)
+                    .auralFrame(minWidth: 370, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
+            }.auralFrame(minHeight: 340, maxHeight: .infinity)
             HStack {
                 Link("AutoEQ project & license", destination: URL(string: "https://github.com/jaakkopasanen/AutoEq")!)
                 Spacer()
                 Text("Search stays on your Mac. Profiles download from GitHub.")
                     .foregroundStyle(AuralStyle.secondary)
-            }.font(.system(size: 11))
+            }.auralFont(size: 11)
             if let error = browser.catalogError {
                 AuralNotice(message: error + (browser.entries.isEmpty ? "" : " The previously loaded catalog is still shown."), isError: true)
             }
             if let error = model.error { AuralNotice(message: error, isError: true) }
             else if let notice = model.importNotice { AuralNotice(message: notice) }
         }
-        .padding(24).frame(minWidth: 780, minHeight: 620)
+        .padding(24).auralFrame(minWidth: 780, minHeight: 620)
         .auralAppearance(model.theme, style: model.interfaceStyle)
         .auralAnnouncement(browser.catalogError ?? browser.previewError ?? model.error ?? model.importNotice)
         .task(id: catalogRevision) { await browser.loadCatalog(refresh: catalogRevision > 0) }
@@ -113,14 +113,14 @@ struct AutoEQBrowserView: View {
     private var header: some View {
         HStack(spacing: 14) {
             Image(systemName: "headphones")
-                .font(.system(size: 23, weight: .medium)).foregroundStyle(AuralStyle.accent)
-                .frame(width: 48, height: 48)
+                .auralFont(size: 23, weight: .medium).foregroundStyle(AuralStyle.accent)
+                .auralFrame(width: 48, height: 48)
                 .background(AuralStyle.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text("AutoEQ profiles").font(.system(size: 23, weight: .semibold))
+                Text("AutoEQ profiles").auralFont(size: 23, weight: .semibold)
                 Text("Find your headphones, preview the correction, and import a preset.")
-                    .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
             Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(AuralButtonStyle())
@@ -150,31 +150,31 @@ struct AutoEQBrowserView: View {
             Picker("Measurement source", selection: $provider) {
                 Text("All sources").tag("")
                 ForEach(Array(Set(browser.entries.map(\.provider))).sorted(), id: \.self) { Text($0).tag($0) }
-            }.font(.system(size: 12))
+            }.auralFont(size: 12)
             if browser.loading {
-                HStack { ProgressView().controlSize(.small); Text("Loading AutoEQ catalog…") }
-                    .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                HStack { ProgressView().auralControlSize(.small); Text("Loading AutoEQ catalog…") }
+                    .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
             Text("\(results.count) / \(browser.entries.count) profiles")
-                .font(.system(size: 11, design: .monospaced)).foregroundStyle(AuralStyle.secondary)
+                .auralFont(size: 11, design: .monospaced).foregroundStyle(AuralStyle.secondary)
             if results.isEmpty {
                 VStack(spacing: 10) {
                     Text(browser.entries.isEmpty ? "Online headphone profiles" : "No headphones found")
-                        .font(.system(size: 15, weight: .semibold))
+                        .auralFont(size: 15, weight: .semibold)
                     Text(browser.entries.isEmpty ? "Connect to the internet to load the AutoEQ catalog." : "Try another model name or measurement source.")
-                        .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary).multilineTextAlignment(.center)
+                        .auralFont(size: 12).foregroundStyle(AuralStyle.secondary).multilineTextAlignment(.center)
                     if !browser.loading {
                         Button(browser.entries.isEmpty ? "Try again" : "Clear filters") {
                             if browser.entries.isEmpty { catalogRevision += 1 }
                             else { search = ""; provider = "" }
                         }.buttonStyle(AuralButtonStyle())
                     }
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.auralFrame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(results, selection: $selectedID) { entry in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.name).font(.system(size: 13, weight: .medium)).lineLimit(2)
-                        Text(entry.measurement).font(.system(size: 11))
+                        Text(entry.name).auralFont(size: 13, weight: .medium).lineLimit(2)
+                        Text(entry.measurement).auralFont(size: 11)
                             .foregroundStyle(selectedID == entry.id ? Color.primary : AuralStyle.secondary).lineLimit(2)
                     }.padding(.vertical, 4).tag(entry.id)
                         .help("\(entry.name) · \(entry.measurement) · \(entry.collection)")
@@ -183,7 +183,7 @@ struct AutoEQBrowserView: View {
             }
             if let date = browser.loadedAt {
                 Text("Catalog loaded \(date.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
             }
         }.auralPanel(padding: 16)
     }
@@ -198,22 +198,22 @@ struct AutoEQBrowserView: View {
                     if let preview = browser.preview, preview.entry.id == entry.id {
                         Divider()
                         Text("Import saves a preset, replaces your EQ, and stops processing. Click Start EQ when ready. Undo restores the previous EQ.")
-                            .font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                            .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Button { model.importOnlineAutoEQ(preview) } label: {
-                            Label("Import profile", systemImage: "square.and.arrow.down").frame(maxWidth: .infinity)
+                            Label("Import profile", systemImage: "square.and.arrow.down").auralFrame(maxWidth: .infinity)
                         }.buttonStyle(AuralButtonStyle(prominent: true))
                     }
                 }
             } else {
                 VStack(spacing: 14) {
-                    Image(systemName: "headphones").font(.system(size: 33, weight: .light))
+                    Image(systemName: "headphones").auralFont(size: 33, weight: .light)
                         .foregroundStyle(AuralStyle.accent).accessibilityHidden(true)
-                    Text("Choose your headphones").font(.system(size: 20, weight: .semibold))
+                    Text("Choose your headphones").auralFont(size: 20, weight: .semibold)
                     Text("Search by brand or model. Different measurements appear separately so you can compare their corrections.")
-                        .font(.system(size: 13)).foregroundStyle(AuralStyle.secondary).multilineTextAlignment(.center)
+                        .auralFont(size: 13).foregroundStyle(AuralStyle.secondary).multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                }.padding(20).frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.padding(20).auralFrame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }.auralPanel()
     }
@@ -221,29 +221,29 @@ struct AutoEQBrowserView: View {
     private func profileDetails(_ entry: AutoEQCatalogEntry) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             AuralSectionLabel(title: "AUTOEQ CORRECTION")
-            Text(entry.name).font(.system(size: 22, weight: .semibold)).textSelection(.enabled)
+            Text(entry.name).auralFont(size: 22, weight: .semibold).textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
                 Text("Measured by \(entry.measurement)")
                 Text(entry.collection).foregroundStyle(AuralStyle.secondary)
                 Link("View original result", destination: entry.resultURL)
-            }.font(.system(size: 12)).textSelection(.enabled)
+            }.auralFont(size: 12).textSelection(.enabled)
             if let preview = browser.preview, preview.entry.id == entry.id {
                 ResponseCurve(profile: preview.profile, rate: model.responseRate, bypass: false, running: false)
-                    .equatable().frame(height: 220)
+                    .equatable().auralFrame(height: 220)
                 Text("\(preview.profile.filters?.count ?? 0) parametric filters · Preamp \(preview.profile.preamp, specifier: "%.1f") dB")
-                    .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             } else if browser.previewEntryID == entry.id, let error = browser.previewError {
                 AuralNotice(message: error, isError: true)
                 Button("Retry download") { previewRevision += 1 }.buttonStyle(AuralButtonStyle())
             } else {
-                HStack { ProgressView().controlSize(.small); Text("Downloading profile…") }.font(.system(size: 12))
+                HStack { ProgressView().auralControlSize(.small); Text("Downloading profile…") }.auralFont(size: 12)
             }
             Divider()
             Text("This is AutoEQ’s computed correction using the published target for this result. Match the model, pads, and listening mode shown in its name.")
-                .font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-        }.frame(maxWidth: .infinity, alignment: .leading)
+        }.auralFrame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func clearHiddenSelection() {

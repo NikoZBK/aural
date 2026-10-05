@@ -21,6 +21,7 @@ import ServiceManagement
     @Published private(set) var interfaceMode: InterfaceMode = .easy
     @Published private(set) var theme: AuralTheme = .dark
     @Published private(set) var interfaceStyle: AuralInterfaceStyle = .standard
+    @Published private(set) var interfaceZoom: AuralInterfaceZoom = .actualSize
     @Published private(set) var loginStatus: SMAppService.Status?
     @Published private(set) var startupNotice: String?
     @Published private(set) var editRevision = 0
@@ -66,12 +67,14 @@ import ServiceManagement
         file = settingsFile ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
         do {
             if FileManager.default.fileExists(atPath: file.path) {
-                settings = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
-                for p in Array(settings.devices.values) + Array(settings.presets.values) { _ = try p.validated() }
+                let loaded = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
+                for p in Array(loaded.devices.values) + Array(loaded.presets.values) { _ = try p.validated() }
+                settings = loaded
             }
             interfaceMode = settings.interfaceMode
             theme = settings.theme
             interfaceStyle = settings.interfaceStyle
+            interfaceZoom = settings.interfaceZoom
             settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
@@ -156,6 +159,20 @@ import ServiceManagement
             error = nil
         } catch { self.error = "Could not save appearance style: " + error.localizedDescription }
     }
+    func setInterfaceZoom(_ zoom: AuralInterfaceZoom) {
+        guard interfaceZoom != zoom else { return }
+        var next = settings
+        next.interfaceZoom = zoom
+        do {
+            try writeSettings(next)
+            settings = next
+            interfaceZoom = zoom
+        } catch { self.error = "Could not save interface zoom: " + error.localizedDescription }
+    }
+    func zoomIn() { setInterfaceZoom(interfaceZoom.increased) }
+    func zoomOut() { setInterfaceZoom(interfaceZoom.decreased) }
+    func resetZoom() { setInterfaceZoom(.actualSize) }
+
     func setStartAutomatically(_ enabled: Bool) {
         if enabled, selected == nil { error = "Select a connected output before enabling automatic EQ."; return }
         let previous = startEQAutomatically
@@ -553,6 +570,12 @@ import ServiceManagement
             }
             self.editProfile("Calculate headroom") { var next = $0; next.preamp = preamp; return next }
         }
+    }
+    func toggleProcessing(submitPendingInput: () -> Bool = { true }) {
+        // Stopping releases the connection even when a numeric draft is invalid.
+        // Only starting needs to accept pending edits before changing the sound.
+        if running { stop() }
+        else if submitPendingInput() { start() }
     }
     func start() {
         pendingStartup = nil; startupNotice = nil

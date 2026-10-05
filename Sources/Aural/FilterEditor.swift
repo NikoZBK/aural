@@ -40,11 +40,14 @@ struct FilterEditor: View {
             }
             footer
         }
-        .font(.system(size: 13))
+        .auralFont(size: 13)
         .textFieldStyle(.roundedBorder)
         .padding(24)
-        .frame(minWidth: 900, idealWidth: 930, minHeight: 520, idealHeight: 750)
+        .auralFrame(minWidth: 900, idealWidth: 930, minHeight: 520, idealHeight: 750)
+        .auralZoom(model)
         .auralAppearance(model.theme, style: model.interfaceStyle)
+        .background(HistoryKeyboardShortcuts(canUndo: history.canUndo, canRedo: history.canRedo,
+                                            undo: undoDraft, redo: redoDraft))
         .auralAnnouncement(error ?? sourceChangeNotice)
         .onChange(of: draft) { previous, _ in
             if restoringHistory { restoringHistory = false }
@@ -55,20 +58,20 @@ struct FilterEditor: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 22, weight: .medium))
+                .auralFont(size: 22, weight: .medium)
                 .foregroundStyle(AuralStyle.accent)
-                .frame(width: 46, height: 46)
+                .auralFrame(width: 46, height: 46)
                 .background(AuralStyle.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
-                Text("Filter editor").font(.system(size: 24, weight: .semibold))
+                Text("Filter editor").auralFont(size: 24, weight: .semibold)
                 Text("Check your changes before applying them.")
                     .foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 5) {
                 Text("\(draft.filters.count) / 32")
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
+                    .auralFont(size: 16, weight: .medium, design: .monospaced)
                     .foregroundStyle(Color.primary)
                 Text("filters").foregroundStyle(AuralStyle.secondary)
             }
@@ -82,13 +85,13 @@ struct FilterEditor: View {
             switch Result(catching: { try draft.profile() }) {
             case .success(let profile):
                 ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
-                    .equatable().frame(height: 205).auralPanel(padding: 14)
+                    .equatable().frame(height: 240).auralPanel(padding: 14)
             case .failure(let failure):
                 AuralNotice(message: "Preview unavailable: " + failure.localizedDescription, isError: true)
             }
         }
         // Partial numeric input must not make the form jump while a field is focused.
-        .frame(height: 233, alignment: .top)
+        .frame(height: 268, alignment: .top)
     }
 
     private var preamp: some View {
@@ -96,19 +99,19 @@ struct FilterEditor: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Preamp").fontWeight(.semibold)
                 Text("Overall level before the filters")
-                    .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
             TextField("Preamp", text: $draft.preamp)
-                .font(.system(size: 14, design: .monospaced))
+                .auralFont(size: 14, design: .monospaced)
                 .multilineTextAlignment(.trailing)
-                .frame(width: 84)
+                .auralFrame(width: 84)
                 .accessibilityLabel("Parametric preamp in decibels")
                 .accessibilityHint("Enter a number from minus 60 to plus 24")
             Text("dB").foregroundStyle(AuralStyle.secondary)
-            Divider().frame(height: 30)
+            Divider().auralFrame(height: 30)
             Text("−60 to +24 dB")
-                .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
         }
         .auralPanel(padding: 16)
     }
@@ -126,13 +129,13 @@ struct FilterEditor: View {
             if draft.filters.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "waveform.path")
-                        .font(.system(size: 28)).foregroundStyle(AuralStyle.accent)
+                        .auralFont(size: 28).foregroundStyle(AuralStyle.accent)
                         .accessibilityHidden(true)
                     Text("No filters added yet").fontWeight(.medium)
                     Text("Add at least one filter before applying your EQ.")
-                        .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                        .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
                 }
-                .frame(maxWidth: .infinity, minHeight: 140)
+                .auralFrame(maxWidth: .infinity, minHeight: 140)
             } else {
                 columnHeadings
                 VStack(spacing: 4) {
@@ -149,16 +152,16 @@ struct FilterEditor: View {
 
     private var columnHeadings: some View {
         HStack(spacing: 8) {
-            Text("#").frame(width: 24)
-            Text("On").frame(width: 28)
-            Text("Type").frame(width: 166, alignment: .leading)
-            Text("Channel").frame(width: 66, alignment: .leading)
-            Text("Frequency · Hz").frame(width: 122, alignment: .leading)
-            Text("Gain · dB").frame(width: 100, alignment: .leading)
-            Text("Q").frame(width: 80, alignment: .leading)
+            Text("#").auralFrame(width: 24)
+            Text("On").auralFrame(width: 28)
+            Text("Type").auralFrame(width: 166, alignment: .leading)
+            Text("Channel").auralFrame(width: 66, alignment: .leading)
+            Text("Frequency · Hz").auralFrame(width: 122, alignment: .leading)
+            Text("Gain · dB").auralFrame(width: 100, alignment: .leading)
+            Text("Q").auralFrame(width: 80, alignment: .leading)
             Spacer(minLength: 0)
         }
-        .font(.system(size: 11, weight: .medium))
+        .auralFont(size: 11, weight: .medium)
         .foregroundStyle(AuralStyle.secondary)
         .accessibilityHidden(true)
     }
@@ -167,40 +170,40 @@ struct FilterEditor: View {
         let id = filter.wrappedValue.id
         return HStack(spacing: 8) {
             Text(String(format: "%02d", number))
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .auralFont(size: 11, weight: .medium, design: .monospaced)
                 .foregroundStyle(AuralStyle.secondary)
-                .frame(width: 24)
+                .auralFrame(width: 24)
                 .accessibilityHidden(true)
             Toggle("Filter \(number) enabled", isOn: filter.enabled)
-                .labelsHidden().toggleStyle(.checkbox).frame(width: 28)
+                .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 28)
                 .help("Enable or bypass filter \(number)")
             Picker("Filter \(number) type", selection: filter.kind) {
                 ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
                     Text(kind.label).tag(kind)
                 }
             }
-            .labelsHidden().frame(width: 166)
+            .labelsHidden().auralFrame(width: 166)
             Picker("Filter \(number) channel", selection: filter.channel) {
                 Text("L+R").tag(ImportedFilter.Channel.stereo)
                 Text("Left").tag(ImportedFilter.Channel.left)
                 Text("Right").tag(ImportedFilter.Channel.right)
-            }.labelsHidden().frame(width: 66)
+            }.labelsHidden().auralFrame(width: 66)
             TextField("Frequency", text: filter.frequency)
-                .frame(width: 122)
+                .auralFrame(width: 122)
                 .accessibilityLabel("Filter \(number) frequency in hertz")
                 .accessibilityHint("Enter a number from 10 to 22000")
             if filter.wrappedValue.kind.usesGain {
                 TextField("Gain", text: filter.gain)
-                    .frame(width: 100)
+                    .auralFrame(width: 100)
                     .accessibilityLabel("Filter \(number) gain in decibels")
                     .accessibilityHint("Enter a number from minus 30 to plus 30")
             } else {
-                Text("—").foregroundStyle(AuralStyle.secondary).frame(width: 100)
+                Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 100)
                     .accessibilityLabel("Filter \(number) has no gain parameter")
                     .help("This filter uses frequency and Q. Adjust preamp to change the overall level.")
             }
             TextField("Q", text: filter.q)
-                .frame(width: 80)
+                .auralFrame(width: 80)
                 .accessibilityLabel("Filter \(number) Q")
                 .accessibilityHint("Enter a number from 0.05 to 50")
             Menu {
@@ -217,24 +220,24 @@ struct FilterEditor: View {
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.filters.last?.id == id)
             } label: {
-                Image(systemName: "ellipsis.circle").font(.system(size: 15))
+                Image(systemName: "ellipsis.circle").auralFont(size: 15)
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 24)
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).auralFrame(width: 24)
             .help("Duplicate or reorder filter \(number)")
             .accessibilityLabel("Filter \(number) actions")
             Button {
                 draft.filters.removeAll { $0.id == id }
             } label: {
-                Image(systemName: "minus.circle").font(.system(size: 15)).frame(width: 24, height: 28)
+                Image(systemName: "minus.circle").auralFont(size: 15).auralFrame(width: 24, height: 28)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(AuralStyle.secondary)
             .help("Remove filter \(number)")
             .accessibilityLabel("Remove filter \(number)")
         }
-        .font(.system(size: 12))
+        .auralFont(size: 12)
         .monospacedDigit()
-        .frame(minHeight: 44)
+        .auralFrame(minHeight: 44)
         .background(number.isMultiple(of: 2) ? AuralStyle.elevated.opacity(0.6) : .clear,
                     in: RoundedRectangle(cornerRadius: 7))
         .accessibilityElement(children: .contain)
@@ -247,7 +250,7 @@ struct FilterEditor: View {
             Text("Pass and notch filters use frequency and Q. All-pass changes phase, so its magnitude graph is flat.")
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.system(size: 12))
+        .auralFont(size: 12)
         .foregroundStyle(AuralStyle.secondary)
     }
 
@@ -268,18 +271,12 @@ struct FilterEditor: View {
         VStack(spacing: 14) {
             Divider().overlay(AuralStyle.border)
             HStack(spacing: 8) {
-                Button("Undo", systemImage: "arrow.uturn.backward") {
-                    do { let previous = try history.undo(draft); restoreDraft(previous); error = nil }
-                    catch { self.error = error.localizedDescription }
-                }
+                Button("Undo", systemImage: "arrow.uturn.backward", action: undoDraft)
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canUndo)
-                .keyboardShortcut("z", modifiers: [.command, .option])
-                Button("Redo", systemImage: "arrow.uturn.forward") {
-                    do { let next = try history.redo(draft); restoreDraft(next); error = nil }
-                    catch { self.error = error.localizedDescription }
-                }
+                .keyboardShortcut("z", modifiers: [.command])
+                Button("Redo", systemImage: "arrow.uturn.forward", action: redoDraft)
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canRedo)
-                .keyboardShortcut("z", modifiers: [.command, .option, .shift])
+                .keyboardShortcut("z", modifiers: [.command, .shift])
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction).buttonStyle(AuralButtonStyle())
@@ -308,8 +305,17 @@ struct FilterEditor: View {
                 .keyboardShortcut(.defaultAction).buttonStyle(AuralButtonStyle(prominent: true)).disabled(sourceChanged)
             }
             Text("Changes stay in this editor until you apply.")
-                .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
+                .auralFrame(maxWidth: .infinity, alignment: .trailing)
         }
+    }
+
+    private func undoDraft() {
+        do { let previous = try history.undo(draft); restoreDraft(previous); error = nil }
+        catch { self.error = error.localizedDescription }
+    }
+    private func redoDraft() {
+        do { let next = try history.redo(draft); restoreDraft(next); error = nil }
+        catch { self.error = error.localizedDescription }
     }
 }

@@ -32,9 +32,11 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
 
 @main struct ThemeTests {
     @MainActor static func main() async throws {
-        if Bundle.main.bundleIdentifier == "local.aural.performance-preview" { PerformancePreview.main(); return }
+        if ["local.aural.performance-preview", "local.aural.performance-preview.zoom-minimum", "local.aural.performance-preview.accent"].contains(Bundle.main.bundleIdentifier) { PerformancePreview.main(); return }
         if CommandLine.arguments.contains("--benchmark-rack") { try runRackBenchmark(); return }
         if CommandLine.arguments.contains("--benchmark-ui") { try runUIBenchmark(); return }
+        if CommandLine.arguments.contains("--check-history-shortcuts") { _ = NSApplication.shared; try checkHistoryShortcuts(); return }
+        if CommandLine.arguments.contains("--check-interface-zoom") { _ = NSApplication.shared; try checkInterfaceZoom(); return }
         if CommandLine.arguments.contains("--check-accessibility") { _ = NSApplication.shared; checkAccessibility(); return }
         if CommandLine.arguments.contains("--check-autoeq-live") { try await checkAutoEQLive(); return }
         try checkThemes()
@@ -209,6 +211,9 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         try checkEQBars()
         try checkCurveEditing()
         checkAccessibility()
+        try checkAudioFormatsAndSettings()
+        try checkHistoryShortcuts()
+        try checkInterfaceZoom()
         try checkPerformanceIsolation()
         try checkAnalysisWorker()
         print("PASS theme migration, persistence, save failure, audio neutrality, system accent, palette contrast, graph ink, and native appearance switching")

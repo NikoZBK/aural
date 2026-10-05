@@ -18,15 +18,15 @@ struct StereoPanel: View {
                         AuralSectionLabel(title: "Stereo balance")
                         control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, spokenValue: AuralAccessibility.balance(settings.balance), decimals: 2)
                         HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
-                            .font(.system(size: 9)).foregroundStyle(AuralStyle.secondary)
+                            .auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
                         control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, spokenValue: AuralAccessibility.percentage(settings.width), decimals: 2)
                             .disabled(settings.mono)
-                        Toggle("Mono", isOn: flag(\.mono)).toggleStyle(.checkbox).font(.system(size: 12))
+                        Toggle("Mono", isOn: flag(\.mono)).toggleStyle(.checkbox).auralFont(size: 12)
                             .help("Sum left and right to mono before channel trims, polarity, and delay.")
                         control("Crossfeed", value: settings.crossfeed, range: 0...1, suffix: "", keyPath: \.crossfeed, spokenValue: AuralAccessibility.percentage(settings.crossfeed), decimals: 2)
                         Text("Crossfeed blends low frequencies from the opposite channel for headphone listening.")
-                            .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
-                    }.frame(maxWidth: .infinity).auralPanel(padding: 14)
+                            .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
+                    }.auralFrame(maxWidth: .infinity).auralPanel(padding: 14)
                         .accessibilityElement(children: .contain).accessibilityLabel("Stereo balance, width, and crossfeed")
                     VStack(alignment: .leading, spacing: 14) {
                         AuralSectionLabel(title: "Left & right")
@@ -38,8 +38,8 @@ struct StereoPanel: View {
                         Toggle("Invert left polarity", isOn: flag(\.invertLeft)).toggleStyle(.checkbox)
                         Toggle("Invert right polarity", isOn: flag(\.invertRight)).toggleStyle(.checkbox)
                         Text("Delay adds 0–30 ms to the selected channel. The curve shows EQ and preamp only.")
-                            .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
-                    }.font(.system(size: 12)).frame(maxWidth: .infinity).auralPanel(padding: 14)
+                            .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
+                    }.auralFont(size: 12).auralFrame(maxWidth: .infinity).auralPanel(padding: 14)
                         .accessibilityElement(children: .contain).accessibilityLabel("Channel trim, delay, and polarity")
                 }
             }.padding(.bottom, 8)
@@ -62,12 +62,12 @@ struct StereoPanel: View {
                          keyPath: WritableKeyPath<StereoSettings, Double>, spokenValue: String, decimals: Int = 1) -> some View {
         VStack(spacing: 6) {
             HStack(spacing: 4) {
-                Text(title).font(.system(size: 11, weight: .medium)).frame(maxWidth: .infinity, alignment: .leading)
+                Text(title).auralFont(size: 11, weight: .medium).auralFrame(maxWidth: .infinity, alignment: .leading)
                 PrecisionField(value: value, range: range, label: suffix == "dB" ? "\(title) in decibels" : suffix == "×" ? "\(title) multiplier" : title, decimals: decimals, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
                     model.endProfileGesture()
                     var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
-                }.frame(width: 58)
-                if !suffix.isEmpty { Text(suffix).font(.system(size: 9)).foregroundStyle(AuralStyle.secondary) }
+                }.auralFrame(width: 58)
+                if !suffix.isEmpty { Text(suffix).auralFont(size: 9).foregroundStyle(AuralStyle.secondary) }
             }
             Slider(value: numeric(keyPath), in: range,
                    onEditingChanged: { active in active ? model.beginProfileGesture(label: title) : model.endProfileGesture() })
@@ -76,12 +76,12 @@ struct StereoPanel: View {
     }
     private func delay(_ title: String, value: Double, keyPath: WritableKeyPath<StereoSettings, Double>) -> some View {
         HStack {
-            Text(title).font(.system(size: 11)).frame(maxWidth: .infinity, alignment: .leading)
+            Text(title).auralFont(size: 11).auralFrame(maxWidth: .infinity, alignment: .leading)
             PrecisionField(value: value, range: 0...30, label: "\(title) in milliseconds", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
                 model.endProfileGesture()
                 var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
-            }.frame(width: 68)
-            Text("ms").font(.system(size: 10)).foregroundStyle(AuralStyle.secondary)
+            }.auralFrame(width: 68)
+            Text("ms").auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
         }
     }
     private func submitPendingInput() -> Bool {

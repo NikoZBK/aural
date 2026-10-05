@@ -33,7 +33,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>NSHumanReadableCopyright</key><string>© 2026 Nikolay Ostroukhov</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>
-<key>CFBundleVersion</key><string>23</string>
+<key>CFBundleVersion</key><string>24</string>
 <key>LSMinimumSystemVersion</key><string>14.2</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
 <key>NSHighResolutionCapable</key><true/>
@@ -46,7 +46,14 @@ else
     codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP"
 fi
 codesign --verify --strict "$APP"
-xcrun lipo "$APP/Contents/MacOS/Aural" -verify_arch arm64 x86_64
+for architecture in arm64 x86_64; do
+    xcrun lipo "$APP/Contents/MacOS/Aural" -verify_arch "$architecture"
+done
+# A fresh destination avoids retaining old bundle files or Finder metadata.
+if [[ -d dist/Aural.app ]]; then
+    mv dist/Aural.app "$BUILD_STAGE/Previous-Aural.app"
+fi
 ditto --norsrc "$APP" dist/Aural.app
+# Archive the verified temporary bundle; sync services can add Finder metadata to dist.
 ditto -c -k --norsrc --keepParent "$APP" "dist/Aural-$VERSION-universal.zip"
 printf 'Built universal Aural %s\n' "$VERSION"

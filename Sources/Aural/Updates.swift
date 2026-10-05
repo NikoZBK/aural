@@ -51,24 +51,24 @@ struct UpdatesView: View {
             Text("Software updates").font(.title2.weight(.semibold))
             Text("Installed: Aural \(checker.installed)").foregroundStyle(.secondary)
             if checker.checking {
-                HStack { ProgressView("Checking for updates").labelsHidden().controlSize(.small); Text("Checking GitHub Releases…") }
+                HStack { ProgressView("Checking for updates").labelsHidden().auralControlSize(.small); Text("Checking GitHub Releases…") }
             } else if let error = checker.error {
                 Text(error).foregroundStyle(AuralStyle.warning).fixedSize(horizontal: false, vertical: true)
             } else {
-                Text(checker.status).font(.headline)
+                Text(checker.status).auralFont(size: 13, weight: .semibold)
             }
             if let release = checker.release {
                 Text("Latest release · \(release.tagName)").font(.subheadline.weight(.medium))
                 ScrollView {
                     Text(release.changelog)
-                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(height: 240).padding(12).background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 8))
+                        .textSelection(.enabled).auralFrame(maxWidth: .infinity, alignment: .leading)
+                }.auralFrame(height: 240).padding(12).background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 8))
                 if checker.available && release.downloadURL == nil {
                     Text("No compatible installer is attached. Visit Releases for download options.").foregroundStyle(AuralStyle.warning)
                 }
             }
             Text("Downloads open in your browser. Quit Aural, then replace the app with the downloaded version. Your saved settings stay on this Mac.")
-                .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .auralFont(size: 11).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Link("Releases page", destination: UpdateChecker.releasesURL)
                 Spacer()
@@ -77,7 +77,7 @@ struct UpdatesView: View {
                     Button("Download Update") { checker.download() }.buttonStyle(.borderedProminent)
                 }
             }
-        }.font(.system(size: 12)).padding(22).frame(width: 530)
+        }.auralFont(size: 12).padding(22).auralFrame(width: 530)
             .auralAppearance(model.theme, style: model.interfaceStyle)
             .auralAnnouncement(checker.error ?? checker.status)
             .task { await checker.check() }

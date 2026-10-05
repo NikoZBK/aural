@@ -50,6 +50,9 @@ struct OutputDevice: Identifiable, Equatable {
     private var aggregate: AudioObjectID = 0
     private var proc: AudioDeviceIOProcID?
     private var dsp: OpaquePointer?
+    private var inputStreams: [AudioObjectID] = []
+    private var outputStreams: [AudioObjectID] = []
+    private var inputOffset: UInt32 = 0
     private(set) var device: OutputDevice?
     private(set) var sampleRate = 48000.0
     var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil }
@@ -79,6 +82,19 @@ struct OutputDevice: Identifiable, Equatable {
     static func defaultOutput() throws -> AudioObjectID {
         try scalar(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, AudioObjectID(0))
     }
+    static func validateStereoFormat(_ format: AudioStreamBasicDescription, rate: Double? = nil) throws {
+        let planar = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
+        let bytesPerFrame = UInt32(MemoryLayout<Float>.size) * (planar ? 1 : 2)
+        guard format.mFormatID == kAudioFormatLinearPCM, format.mBitsPerChannel == 32,
+              format.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+              format.mFormatFlags & kAudioFormatFlagIsBigEndian == kAudioFormatFlagsNativeEndian,
+              format.mChannelsPerFrame == 2, format.mFramesPerPacket == 1,
+              format.mBytesPerFrame == bytesPerFrame, format.mBytesPerPacket == bytesPerFrame,
+              format.mSampleRate.isFinite, (32000...192000).contains(format.mSampleRate),
+              rate == nil || format.mSampleRate == rate else {
+            throw AudioFailure(message: "The audio route requires native 32-bit float stereo at 32–192 kHz. The output format changed or is unsupported; select an output and start again.")
+        }
+    }
     func start(_ output: OutputDevice, profile: Profile, bypass: Bool) throws {
         try stop()
         guard #available(macOS 14.2, *) else { throw AudioFailure(message: "Aural requires macOS 14.2 or newer.") }
@@ -94,10 +110,7 @@ struct OutputDevice: Identifiable, Equatable {
             description.muteBehavior = .mutedWhenTapped
             try check(AudioHardwareCreateProcessTap(description, &tap), "Create audio tap")
             let format = try scalar(tap, kAudioTapPropertyFormat, AudioStreamBasicDescription())
-            guard format.mFormatID == kAudioFormatLinearPCM, format.mBitsPerChannel == 32,
-                  format.mFormatFlags & kAudioFormatFlagIsFloat != 0, format.mChannelsPerFrame == 2 else {
-                throw AudioFailure(message: "This output's tap does not provide 32-bit stereo audio. Select another output.")
-            }
+            try Self.validateStereoFormat(format)
             sampleRate = format.mSampleRate
             let config: [String: Any] = [
                 kAudioAggregateDeviceNameKey: "Aural Private Audio",
@@ -120,9 +133,7 @@ struct OutputDevice: Identifiable, Equatable {
             }
             for stream in [tapStream] + outputStreams {
                 let f = try scalar(stream, kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription())
-                guard f.mFormatID == kAudioFormatLinearPCM, f.mBitsPerChannel == 32,
-                      f.mFormatFlags & kAudioFormatFlagIsFloat != 0, f.mSampleRate == sampleRate,
-                      f.mChannelsPerFrame == 2 else { throw AudioFailure(message: "The audio route changed format. Use a stereo output at 32–192 kHz.") }
+                try Self.validateStereoFormat(f, rate: sampleRate)
             }
             guard let engine = eq_create(sampleRate, inputOffset) else { throw AudioFailure(message: "Cannot allocate the equalizer for this sample rate.") }
             dsp = engine
@@ -135,6 +146,9 @@ struct OutputDevice: Identifiable, Equatable {
                 try check(eq_enable_tap_input(aggregate, proc, UInt32(inputStreams.count)), "Enable only system audio input")
             }
             try check(AudioDeviceStart(aggregate, proc), "Start equalization")
+            self.inputStreams = inputStreams
+            self.outputStreams = outputStreams
+            self.inputOffset = inputOffset
             device = output
         } catch {
             let original = error.localizedDescription
@@ -165,6 +179,7 @@ struct OutputDevice: Identifiable, Equatable {
             if #available(macOS 14.2, *) { try check(AudioHardwareDestroyProcessTap(tap), "Release audio tap") }
             tap = 0
         }
+        inputStreams = []; outputStreams = []; inputOffset = 0
         device = nil
     }
     func verify() throws {
@@ -173,6 +188,23 @@ struct OutputDevice: Identifiable, Equatable {
         let rate = try scalar(device.id, kAudioDevicePropertyNominalSampleRate, Double(0))
         guard alive == 1, abs(rate - sampleRate) < 1, faults == 0 else {
             throw AudioFailure(message: "The output disconnected or its audio format changed. Processing stopped; select an output and start again.")
+        }
+        let inputs = try ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeInput)
+        let outputs = try ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
+        guard inputs == inputStreams, outputs == outputStreams, let tapStream = inputs.last else {
+            throw AudioFailure(message: "The audio route's streams changed. Processing stopped; select an output and start again.")
+        }
+        var offset: UInt32 = 0
+        for stream in inputs.dropLast() {
+            let format = try scalar(stream, kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription())
+            offset += format.mChannelsPerFrame
+        }
+        guard offset == inputOffset else {
+            throw AudioFailure(message: "The audio route's channel layout changed. Processing stopped; select an output and start again.")
+        }
+        try Self.validateStereoFormat(try scalar(tap, kAudioTapPropertyFormat, AudioStreamBasicDescription()), rate: sampleRate)
+        for stream in [tapStream] + outputs {
+            try Self.validateStereoFormat(try scalar(stream, kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription()), rate: sampleRate)
         }
     }
 }

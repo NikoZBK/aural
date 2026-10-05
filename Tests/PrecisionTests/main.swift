@@ -25,6 +25,12 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) {
         }
         draft.restore(value: -3.14159265359, decimals: 2, revision: 2)
         require(draft.text == "-3.14" && draft.submission(in: -30...30, revision: 2) == .unchanged, "Cancel or external changes must clear edit intent")
+        draft.restore(value: 1234.56789, decimals: 0, revision: 3)
+        require(draft.text == "1235" && draft.submission(in: 10...22000, revision: 3) == .unchanged,
+                "Whole-Hz display must retain the exact imported frequency until explicitly edited")
+        draft.edit("1234.56789")
+        require(draft.submission(in: 10...22000, revision: 3) == .value(1234.56789),
+                "Whole-Hz display must still accept intentional fractional frequency input")
         print("PASS untouched imported precision, explicit rounded edits, duplicate commit suppression, stale drafts, and invalid numeric input")
 
         let coordinator = PrecisionSubmissionCoordinator()

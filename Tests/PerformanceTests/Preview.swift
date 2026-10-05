@@ -5,16 +5,25 @@ import Combine
 // Only the separately signed preview bundle selects this entry point.
 struct PerformancePreview: App {
     @NSApplicationDelegateAdaptor(PreviewDelegate.self) private var delegate
+    private var minimumFixture: Bool { Bundle.main.bundleIdentifier == "local.aural.performance-preview.zoom-minimum" }
     var body: some Scene {
         Window("Aural performance preview", id: "main") {
-            MainView(model: delegate.model, icon: delegate.icon)
-        }.defaultSize(width: 1040, height: 690).windowResizability(.contentMinSize)
+            if Bundle.main.bundleIdentifier == "local.aural.performance-preview.accent" {
+                NativeAccentPreview()
+            } else {
+                MainView(model: delegate.model, icon: delegate.icon)
+                    .frame(width: minimumFixture ? 900 : nil, height: minimumFixture ? 620 : nil)
+            }
+        }.defaultSize(width: minimumFixture ? 900 : 1040, height: minimumFixture ? 620 : 690).windowResizability(.contentMinSize)
             .commands { AuralCommands(model: delegate.model) }
-        Window("Preset library", id: "presets") { PresetLibraryView(model: delegate.model) }
-        Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: delegate.model) }
+        Window("Preset library", id: "presets") { PresetLibraryView(model: delegate.model).auralZoom(delegate.model) }
+        Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: delegate.model).auralZoom(delegate.model) }
             .defaultSize(width: 780, height: 620).windowResizability(.contentMinSize)
-        Window("About Aural", id: "about") { AboutView(model: delegate.model, icon: delegate.icon) }
-        Window("Software updates", id: "updates") { UpdatesView(model: delegate.model) }
+        Window("About Aural", id: "about") { AboutView(model: delegate.model, icon: delegate.icon).auralZoom(delegate.model) }
+        Window("Software updates", id: "updates") { UpdatesView(model: delegate.model).auralZoom(delegate.model) }
+        Window("Keyboard shortcuts", id: "shortcuts") {
+            KeyboardShortcutsView(model: delegate.model).auralZoom(delegate.model)
+        }.defaultSize(width: 540, height: 600).windowResizability(.contentMinSize)
     }
 }
 @MainActor final class PreviewDelegate: NSObject, NSApplicationDelegate {

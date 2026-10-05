@@ -149,7 +149,10 @@ private struct AuralAppearance: ViewModifier {
             .environment(\.colorScheme, theme.colorScheme ?? colorScheme)
             .environment(\.auralUsesLiquidGlass, style.usesLiquidGlass(reduceTransparency: reduceTransparency, increasedContrast: contrast == .increased))
             .background(AuralStyle.background).menuStyle(AuralMenuStyle())
-            .preferredColorScheme(theme.colorScheme).tint(AuralStyle.accent)
+            // Native popup indicators can resolve a bridged dynamic NSColor as
+            // red in the older SDK compatibility path. Keep their tint semantic;
+            // the AppKit accent remains available for custom drawing above.
+            .preferredColorScheme(theme.colorScheme).tint(.accentColor)
     }
 }
 
@@ -194,7 +197,7 @@ struct AuralSectionLabel: View {
         HStack(spacing: 7) {
             if let systemImage { Image(systemName: systemImage).accessibilityHidden(true) }
             Text(title)
-        }.font(.system(size: 11, weight: .medium)).foregroundStyle(AuralStyle.secondary)
+        }.auralFont(size: 11, weight: .medium).foregroundStyle(AuralStyle.secondary)
     }
 }
 
@@ -207,9 +210,9 @@ struct AuralNotice: View {
                 .foregroundStyle(isError ? AuralStyle.warning : AuralStyle.accent)
                 .accessibilityHidden(true)
             Text(message).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .auralFrame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityLabel(isError ? "Error: \(message)" : message)
-        }.font(.system(size: 12)).padding(12)
+        }.auralFont(size: 12).padding(12)
             .background((isError ? AuralStyle.warning : AuralStyle.accent).opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
     }
 }
@@ -222,11 +225,12 @@ struct AuralButtonStyle: ButtonStyle {
     @Environment(\.auralUsesLiquidGlass) private var usesGlass
     @Environment(\.auralGlassChrome) private var insideChrome
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.auralInterfaceScale) private var scale
     private var glassEnabled: Bool { usesGlass && !insideChrome && !prominent }
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .padding(.horizontal, 10).padding(.vertical, 7)
+            .auralFont(size: 12, weight: .medium)
+            .padding(.horizontal, 10 * scale).padding(.vertical, 7 * scale)
             .foregroundStyle(prominent ? AuralStyle.accentForeground(in: environment) : Color.primary)
             .background(prominent ? AuralStyle.accent : (glassEnabled ? .clear : AuralStyle.elevated), in: RoundedRectangle(cornerRadius: 5))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(isFocused ? Color.primary : (prominent ? .clear : AuralStyle.controlBorder), lineWidth: isFocused ? 2 : 1))
@@ -253,8 +257,8 @@ struct PrecisionField: View {
     var body: some View {
         TextField(label, text: Binding(get: { draft.text }, set: { draft.edit($0); invalid = false }))
             .textFieldStyle(.plain).multilineTextAlignment(.trailing)
-            .font(.system(size: 12, design: .monospaced)).monospacedDigit()
-            .padding(.horizontal, 7).frame(height: 27)
+            .auralFont(size: 12, design: .monospaced).monospacedDigit()
+            .padding(.horizontal, 7).auralFrame(height: 27)
             .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
             .focused($focused).onSubmit { _ = submit() }

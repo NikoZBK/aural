@@ -23,16 +23,20 @@ struct AuralApp: App {
             .defaultSize(width: 1040, height: 690)
             .windowResizability(.contentMinSize)
             .commands { AuralCommands(model: model) }
-        Window("Preset library", id: "presets") { PresetLibraryView(model: model).background(WindowRegistration()) }
+        Window("Preset library", id: "presets") { PresetLibraryView(model: model).auralZoom(model).background(WindowRegistration()) }
             .defaultSize(width: 800, height: 580)
             .windowResizability(.contentMinSize)
-        Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: model).background(WindowRegistration()) }
+        Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: model).auralZoom(model).background(WindowRegistration()) }
             .defaultSize(width: 880, height: 700)
             .windowResizability(.contentMinSize)
-        Window("About Aural", id: "about") { AboutView(model: model, icon: delegate.icon).background(WindowRegistration()) }
+        Window("About Aural", id: "about") { AboutView(model: model, icon: delegate.icon).auralZoom(model).background(WindowRegistration()) }
             .windowResizability(.contentSize)
-        Window("Software updates", id: "updates") { UpdatesView(model: model).background(WindowRegistration()) }
+        Window("Software updates", id: "updates") { UpdatesView(model: model).auralZoom(model).background(WindowRegistration()) }
             .windowResizability(.contentSize)
+        Window("Keyboard shortcuts", id: "shortcuts") {
+            KeyboardShortcutsView(model: model).auralZoom(model)
+                .background(WindowRegistration())
+        }.defaultSize(width: 540, height: 600).windowResizability(.contentMinSize)
         MenuBarExtra("Aural", systemImage: "headphones") { MenuBarControls(model: model) }
     }
 }
@@ -73,9 +77,9 @@ struct AuralCommands: Commands {
         CommandMenu("Equalizer") {
             Group {
                 Button(model.undoLabel) { if submitPendingInput() { model.undoProfile() } }.disabled(!model.canUndo)
-                    .keyboardShortcut("z", modifiers: [.command, .option])
+                    .keyboardShortcut("z", modifiers: [.command])
                 Button(model.redoLabel) { if submitPendingInput() { model.redoProfile() } }.disabled(!model.canRedo)
-                    .keyboardShortcut("z", modifiers: [.command, .option, .shift])
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
                 Divider()
                 Button("Compare A") { if submitPendingInput() { model.selectComparison(.a) } }.keyboardShortcut("1", modifiers: [.command, .option])
                 Button("Compare B") { if submitPendingInput() { model.selectComparison(.b) } }.keyboardShortcut("2", modifiers: [.command, .option])
@@ -98,7 +102,17 @@ struct AuralCommands: Commands {
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         }
+        CommandGroup(replacing: .help) {
+            Button("Keyboard shortcuts…") { openWindow.showAuralWindow("shortcuts") }
+        }
         CommandGroup(after: .toolbar) {
+            Button("Zoom In") { model.zoomIn() }.keyboardShortcut("+", modifiers: .command)
+                .disabled(model.interfaceZoom == .largest)
+            Button("Zoom Out") { model.zoomOut() }.keyboardShortcut("-", modifiers: .command)
+                .disabled(model.interfaceZoom == .smallest)
+            Button("Actual Size") { model.resetZoom() }.keyboardShortcut("0", modifiers: .command)
+                .disabled(model.interfaceZoom == .actualSize)
+            Divider()
             ThemePicker(model: model)
             InterfaceStylePicker(model: model)
         }
@@ -116,7 +130,7 @@ struct MenuBarControls: View {
     @ObservedObject var model: Model
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        Button(model.running ? "Stop equalization" : "Start equalization") { model.running ? model.stop() : model.start() }
+        Button(model.running ? "Stop equalization" : "Start equalization") { model.toggleProcessing() }
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }
         Button("Preset library…") { openWindow.showAuralWindow("presets") }
@@ -138,6 +152,7 @@ struct MenuBarControls: View {
         ThemePicker(model: model)
         InterfaceStylePicker(model: model)
         Button("Show Aural") { openWindow.showAuralWindow("main") }
+        Button("Keyboard shortcuts…") { openWindow.showAuralWindow("shortcuts") }
         Button("About Aural") { openWindow.showAuralWindow("about") }
         Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
         Button("Quit Aural") { NSApp.terminate(nil) }.keyboardShortcut("q")

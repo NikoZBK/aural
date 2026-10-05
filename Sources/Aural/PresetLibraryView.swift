@@ -26,11 +26,11 @@ struct PresetLibraryView: View {
             header
             HSplitView {
                 library
-                    .frame(minWidth: 280, idealWidth: 310, maxWidth: .infinity, maxHeight: .infinity)
+                    .auralFrame(minWidth: 280, idealWidth: 310, maxWidth: .infinity, maxHeight: .infinity)
                 detail
                     .padding(.leading, 12)
-                    .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
-            }.frame(minHeight: 290, maxHeight: .infinity)
+                    .auralFrame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
+            }.auralFrame(minHeight: 290, maxHeight: .infinity)
             footer
             if let error = model.error {
                 AuralNotice(message: error, isError: true)
@@ -39,7 +39,7 @@ struct PresetLibraryView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 760, minHeight: 520)
+        .auralFrame(minWidth: 760, minHeight: 520)
         .auralAppearance(model.theme, style: model.interfaceStyle)
         .auralAnnouncement(model.error ?? model.importNotice)
         .onChange(of: selected) { _, value in newName = value ?? "" }
@@ -54,15 +54,15 @@ struct PresetLibraryView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 14) {
             Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 23, weight: .medium))
+                .auralFont(size: 23, weight: .medium)
                 .foregroundStyle(AuralStyle.accent)
-                .frame(width: 48, height: 48)
+                .auralFrame(width: 48, height: 48)
                 .background(AuralStyle.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Preset library").font(.system(size: 23, weight: .semibold))
+                Text("Preset library").auralFont(size: 23, weight: .semibold)
                 Text("Search, compare, and organize your saved configurations.")
-                    .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
             Button("Done") { dismiss() }
@@ -77,7 +77,7 @@ struct PresetLibraryView: View {
                 AuralSectionLabel(title: "YOUR PRESETS", systemImage: "tray.full")
                 Spacer()
                 Text("\(names.count) / \(totalCount)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .auralFont(size: 11, weight: .medium, design: .monospaced)
                     .foregroundStyle(AuralStyle.secondary)
                     .accessibilityLabel("\(names.count) of \(totalCount) presets shown")
             }
@@ -101,35 +101,35 @@ struct PresetLibraryView: View {
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(AuralStyle.border))
             Toggle(isOn: $favoritesOnly) {
                 Label("Favorites only", systemImage: "star.fill")
-            }.toggleStyle(.checkbox).font(.system(size: 12))
+            }.toggleStyle(.checkbox).auralFont(size: 12)
 
             if names.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: favoritesOnly ? "star.slash" : "magnifyingglass")
-                        .font(.system(size: 25)).foregroundStyle(AuralStyle.secondary)
+                        .auralFont(size: 25).foregroundStyle(AuralStyle.secondary)
                         .accessibilityHidden(true)
-                    Text("No presets found").font(.system(size: 14, weight: .semibold))
+                    Text("No presets found").auralFont(size: 14, weight: .semibold)
                     Text(favoritesOnly ? "Try another search or turn off Favorites only." : "Try a different name.")
-                        .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                        .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Clear filters") { search = ""; favoritesOnly = false }
                         .buttonStyle(AuralButtonStyle())
-                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                }.auralFrame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.vertical, 20)
             } else {
                 List(names, id: \.self, selection: $selected) { name in
                     HStack(spacing: 10) {
                         Image(systemName: model.favoritePresets.contains(name) ? "star.fill" : "waveform")
-                            .font(.system(size: 13))
+                            .auralFont(size: 13)
                             .foregroundStyle(model.favoritePresets.contains(name) ? AuralStyle.accent : AuralStyle.secondary)
-                            .frame(width: 18)
+                            .auralFrame(width: 18)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(name).font(.system(size: 13, weight: .medium))
+                            Text(name).auralFont(size: 13, weight: .medium)
                                 .lineLimit(1).help(name)
                             Text(model.factory[name] == nil ? "Custom preset" : "Built-in preset")
-                                .font(.system(size: 10)).foregroundStyle(AuralStyle.secondary)
+                                .auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
                         }
                         Spacer(minLength: 0)
                     }
@@ -140,7 +140,7 @@ struct PresetLibraryView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .frame(maxHeight: .infinity)
+                .auralFrame(maxHeight: .infinity)
             }
         }
         .auralPanel(padding: 16)
@@ -151,22 +151,22 @@ struct PresetLibraryView: View {
             if let name = selectedName {
                 ScrollView {
                     presetDetails(name)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .auralFrame(maxWidth: .infinity, alignment: .leading)
                 }
             } else {
                 VStack(alignment: .center, spacing: 14) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 33, weight: .light))
+                        .auralFont(size: 33, weight: .light)
                         .foregroundStyle(AuralStyle.accent)
                         .accessibilityHidden(true)
-                    Text("Find your sound").font(.system(size: 20, weight: .semibold))
+                    Text("Find your sound").auralFont(size: 20, weight: .semibold)
                     Text("Choose a preset to apply it, make a copy, or add it to your favorites.")
-                        .font(.system(size: 13)).foregroundStyle(AuralStyle.secondary)
+                        .auralFont(size: 13).foregroundStyle(AuralStyle.secondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(20)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .auralFrame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .auralPanel()
@@ -179,11 +179,11 @@ struct PresetLibraryView: View {
         return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 AuralSectionLabel(title: isCustom ? "CUSTOM PRESET" : "BUILT-IN PRESET")
-                Text(name).font(.system(size: 22, weight: .semibold))
+                Text(name).auralFont(size: 22, weight: .semibold)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(isCustom ? "A saved EQ from your personal collection." : "A listening curve included with Aural.")
-                    .font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let profile = model.presetProfile(named: name) {
@@ -192,18 +192,18 @@ struct PresetLibraryView: View {
                         Text("AutoEQ · \(source.name)")
                         Text("Measured by \(source.measurement)").foregroundStyle(AuralStyle.secondary)
                         Link("Original AutoEQ result", destination: source.url)
-                    }.font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
+                    }.auralFont(size: 11).fixedSize(horizontal: false, vertical: true)
                 }
                 ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
-                    .equatable().frame(height: 220)
+                    .equatable().auralFrame(height: 220)
             }
             VStack(alignment: .leading, spacing: 9) {
                 Button { model.apply(name) } label: {
                     Label("Apply preset", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
+                        .auralFrame(maxWidth: .infinity)
                 }.buttonStyle(AuralButtonStyle(prominent: true))
                 Text("Applying starts EQ if it is stopped.")
-                    .font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                    .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
             }
             HStack(spacing: 8) {
                 Button { model.duplicatePreset(name) } label: {
@@ -231,7 +231,7 @@ struct PresetLibraryView: View {
                     .buttonStyle(.borderless)
                     .foregroundStyle(AuralStyle.warning)
                     Text("Deleting leaves your current EQ unchanged. You can undo the latest deletion until Aural quits.")
-                        .font(.system(size: 11)).foregroundStyle(AuralStyle.secondary)
+                        .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
@@ -240,7 +240,7 @@ struct PresetLibraryView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: "info.circle")
-                }.font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
+                }.auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
         }
     }
