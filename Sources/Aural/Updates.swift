@@ -1,85 +1,77 @@
 import SwiftUI
+import Sparkle
 
+/// One updater for the entire app, including its menu-bar-only lifetime.
 @MainActor final class UpdateChecker: ObservableObject {
-    @Published private(set) var release: ReleaseInfo?
-    @Published private(set) var checking = false
-    @Published private(set) var status = ""
-    @Published private(set) var available = false
-    @Published private(set) var error: String?
-    let installed = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
+    static let shared = UpdateChecker()
     static let releasesURL = URL(string: "https://github.com/NikoZBK/aural/releases")!
+    @Published private(set) var canCheckForUpdates = false
+    @Published private(set) var automaticallyChecks = false
+    @Published private(set) var automaticallyDownloads = false
+    @Published private(set) var error: String?
+    private let controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+    private var started = false
+    let installed = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
 
-    func check() async {
-        guard !checking else { return }
-        checking = true; release = nil; available = false; error = nil
-        defer { checking = false }
-        do {
-            var request = URLRequest(url: URL(string: "https://api.github.com/repos/NikoZBK/aural/releases/latest")!)
-            request.timeoutInterval = 20
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-            request.setValue("Aural/\(installed)", forHTTPHeaderField: "User-Agent")
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else { throw AudioFailure(message: "GitHub returned an invalid response.") }
-            guard http.statusCode == 200 else {
-                if http.statusCode == 403 || http.statusCode == 429 { throw AudioFailure(message: "GitHub is limiting update checks. Try again later or visit Releases.") }
-                if http.statusCode == 404 { throw AudioFailure(message: "No published release was found. Visit Releases to check manually.") }
-                throw AudioFailure(message: "GitHub could not check for updates (HTTP \(http.statusCode)). Try again later.")
-            }
-            guard data.count <= 1_048_576 else { throw AudioFailure(message: "The release response is too large. Visit Releases to check manually.") }
-            let latest = try JSONDecoder().decode(ReleaseInfo.self, from: data)
-            let remoteVersion = try latest.version(), localVersion = try AppVersion(installed)
-            available = remoteVersion > localVersion
-            status = available ? "Aural \(latest.tagName) is available" : (remoteVersion == localVersion ? "You’re up to date" : "You’re running a newer version")
-            release = latest
-        } catch is CancellationError { status = "Update check cancelled." }
-        catch { self.error = error.localizedDescription }
+    private init() {
+        controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheckForUpdates)
+        controller.updater.publisher(for: \.automaticallyChecksForUpdates).assign(to: &$automaticallyChecks)
+        controller.updater.publisher(for: \.automaticallyDownloadsUpdates).assign(to: &$automaticallyDownloads)
     }
 
-    func download() {
-        guard let url = release?.downloadURL else { error = "No compatible installer was found. Visit Releases to download manually."; return }
-        if !NSWorkspace.shared.open(url) { error = "Could not open your browser. Visit Releases to download manually." }
+    func start() {
+        guard !started else { return }
+        do {
+            try controller.updater.start()
+            started = true
+            error = nil
+        } catch {
+            self.error = "Could not start software updates: \(error.localizedDescription)"
+        }
+    }
+
+    func check() {
+        start()
+        guard started else { return } // start() surfaces the configuration error.
+        controller.checkForUpdates(nil)
+    }
+
+    func setAutomaticallyChecks(_ enabled: Bool) {
+        controller.updater.automaticallyChecksForUpdates = enabled
+    }
+
+    func setAutomaticallyDownloads(_ enabled: Bool) {
+        controller.updater.automaticallyDownloadsUpdates = enabled
     }
 }
 
 struct UpdatesView: View {
     @ObservedObject var model: Model
-    @StateObject private var checker = UpdateChecker()
+    @ObservedObject private var checker = UpdateChecker.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Software updates").font(.title2.weight(.semibold))
             Text("Installed: Aural \(checker.installed)").foregroundStyle(.secondary)
-            if checker.checking {
-                HStack { ProgressView("Checking for updates").labelsHidden().auralControlSize(.small); Text("Checking GitHub Releases…") }
-            } else if let error = checker.error {
-                Text(error).foregroundStyle(AuralStyle.warning).fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text(checker.status).auralFont(size: 13, weight: .semibold)
-            }
-            if let release = checker.release {
-                Text("Latest release · \(release.tagName)").font(.subheadline.weight(.medium))
-                ScrollView {
-                    Text(release.changelog)
-                        .textSelection(.enabled).auralFrame(maxWidth: .infinity, alignment: .leading)
-                }.auralFrame(height: 240).padding(12).background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 8))
-                if checker.available && release.downloadURL == nil {
-                    Text("No compatible installer is attached. Visit Releases for download options.").foregroundStyle(AuralStyle.warning)
-                }
-            }
-            Text("Downloads open in your browser. Quit Aural, then replace the app with the downloaded version. Your saved settings stay on this Mac.")
+            Text("Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets are preserved.")
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle("Automatically check for updates", isOn: Binding(get: { checker.automaticallyChecks }, set: checker.setAutomaticallyChecks))
+            Toggle("Automatically download updates", isOn: Binding(get: { checker.automaticallyDownloads }, set: checker.setAutomaticallyDownloads))
+                .disabled(!checker.automaticallyChecks)
+            Text("Installing an update briefly stops EQ while Aural restarts. Start EQ automatically follows your startup setting.")
                 .auralFont(size: 11).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let error = checker.error {
+                Text(error).foregroundStyle(AuralStyle.warning).fixedSize(horizontal: false, vertical: true)
+            }
             HStack {
                 Link("Releases page", destination: UpdateChecker.releasesURL)
                 Spacer()
-                Button("Check again") { Task { await checker.check() } }.disabled(checker.checking)
-                if checker.available, checker.release?.downloadURL != nil {
-                    Button("Download Update") { checker.download() }.buttonStyle(.borderedProminent)
-                }
+                Button("Check for Updates…") { checker.check() }
+                    .disabled(!checker.canCheckForUpdates && checker.error == nil)
+                    .buttonStyle(.borderedProminent)
             }
         }.auralFont(size: 12).padding(22).auralFrame(width: 530)
             .auralAppearance(model.theme, style: model.interfaceStyle)
-            .auralAnnouncement(checker.error ?? checker.status)
-            .task { await checker.check() }
+            .auralAnnouncement(checker.error ?? "")
+            .task { checker.check() }
     }
 }

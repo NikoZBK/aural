@@ -45,6 +45,6 @@ The EQ curve shows the effect of filters and preamp, not a live analysis of the 
 
 Download **Aural-1.0.0-universal.dmg**, open it, and drag Aural to Applications. A ZIP and SHA-256 checksums are also provided. Requires macOS 14.2 or newer.
 
-Quit Aural before replacing the installed app, then reopen it. Existing settings and presets stay on your Mac. This release is **ad-hoc signed and not notarized**. If macOS blocks the first launch and you trust the download, follow [Apple's instructions](https://support.apple.com/102445) for Open Anyway.
+Quit Aural before replacing the installed app, then reopen it. Existing settings and presets stay on your Mac. This release is **ad-hoc signed**. If macOS blocks the first launch and you trust the download, follow [Apple's instructions](https://support.apple.com/102445) for Open Anyway.
 
 [Screenshots](https://github.com/NikoZBK/aural#screenshots) · [Changes since 0.9.2](https://github.com/NikoZBK/aural/compare/v0.9.2...v1.0.0)

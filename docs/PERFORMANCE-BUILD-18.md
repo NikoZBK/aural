@@ -36,4 +36,4 @@ The performance checks hold a fake system-status query blocked while modes, mete
 
 Native preview checks confirmed aligned headings with a scrollbar, appearance changes, corrected selector state after invalid input, commit-before-swap, retained edits/curve results, and preset-library opening through the hosting boundary. The Simple-pane cleanup is verified in the final installed build.
 
-The universal build compiles arm64 and x86_64. Intel runtime testing and notarization are not part of this local update.
+The universal build compiles arm64 and x86_64. Intel runtime testing is not part of this local update.

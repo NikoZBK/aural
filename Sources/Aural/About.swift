@@ -32,7 +32,7 @@ struct AboutView: View {
             Text("macOS 14.2+ · Apple silicon & Intel\nBuilt with SwiftUI and Core Audio. Independent of Apple and AutoEQ.")
                 .auralFont(size: 10).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
-            Text("This build is not notarized by Apple.").auralFont(size: 10).foregroundStyle(.secondary)
+            Text("Updates are verified before installation.").auralFont(size: 10).foregroundStyle(.secondary)
         }.padding(26).auralFrame(width: 380).auralAppearance(model.theme, style: model.interfaceStyle)
     }
 }

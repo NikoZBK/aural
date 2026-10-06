@@ -14,11 +14,11 @@ Aural adjusts the sound playing through your chosen stereo output. Use the main 
 2. Eject the DMG and launch the installed app.
 3. Choose your output, click **Start EQ**, and allow system audio capture when prompted.
 
-**Signing:** this release is ad-hoc signed, not Developer ID signed or notarized. macOS may require **System Settings → Privacy & Security → Open Anyway** after the first blocked launch. Follow [Apple's instructions](https://support.apple.com/102445) if you trust the download. Managed Macs may prohibit this. Developer ID signing and notarization are needed for a release that avoids this approval step.
-
 ## Updates
 
-Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings, or About. Aural shows the latest stable version and release notes. **Download Update** opens the installer download in your browser. Quit Aural, open the download, and replace the installed app; your saved settings stay on your Mac. The **Releases page** link is always available if the check fails. Updates are not automatically installed.
+Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings, or About. Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets stay on your Mac. Automatic checks and downloads are optional. Installing an update briefly stops EQ; after relaunch, Aural follows your existing **Start EQ automatically** setting. The **Releases page** link is available if a check fails.
+
+Users upgrading from 1.2.1 or earlier install version 1.3 manually once to enable future in-app updates.
 
 ## Screenshots
 
@@ -127,7 +127,7 @@ bash scripts/package.sh
 - `package.sh`: builds the app, creates a drag-to-Applications DMG, verifies the image, and writes SHA-256 checksums.
 - `make-icon.sh`: regenerates the complete macOS ICNS size set from the included PNG.
 
-No third-party runtime dependencies or package downloads are required. Build outputs are ignored by Git. [Release and signing instructions](docs/RELEASING.md) describe optional Developer ID signing and notarization.
+Swift Package Manager downloads the pinned Sparkle update framework. Build outputs are ignored by Git. [Release instructions](docs/RELEASING.md) cover signed packaging and the update feed.
 
 The [future updates guide](docs/FUTURE-UPDATES.md) covers proposed priorities, code locations, compatibility rules, testing, and release handoffs.
 

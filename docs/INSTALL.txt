@@ -5,11 +5,8 @@ Requires macOS 14.2 or newer. Includes Apple silicon and Intel executables.
 1. Drag Aural.app to Applications. If you cannot modify Applications, copy it
    into the Applications folder inside your home folder instead.
 2. Eject the disk image and open the installed Aural app.
-3. This release is ad-hoc signed and is NOT notarized by Apple. On first launch,
-   macOS may block it as an unidentified developer. If you trust this release,
-   open System Settings > Privacy & Security and choose Open Anyway after the
-   blocked launch, then confirm. Do not disable Gatekeeper globally.
-   Apple instructions: https://support.apple.com/102445
+3. Aural uses verified in-app updates. macOS may
+   ask you to confirm opening an app downloaded from the internet.
 4. Select the stereo output your audio uses and click Start EQ. Allow system
    audio capture when macOS asks. Audio is processed locally, not saved or sent
    to a server. Aural does not change your default sound output.
@@ -24,9 +21,11 @@ the window. Quit Aural or Command-Q exits completely. Imported AutoEQ files
 belong to you and are not bundled.
 
 UPDATING
-Quit Aural, replace the installed app, then reopen it. Your settings live in
-~/Library/Application Support/Aural/settings.json and are preserved. Rebuilt
-ad-hoc signed versions may require audio-capture permission again.
+Choose Check for Updates from Aural's menu. Aural verifies, installs, and
+relaunches updates. Automatic checks and downloads are optional. EQ briefly
+stops during installation; Start EQ automatically follows your startup setting.
+Your settings remain in ~/Library/Application Support/Aural/settings.json.
+Users of versions before 1.3 must install the new app manually once.
 
 UNINSTALLING
 Disable Launch at login in Aural's gear menu, quit Aural, and move the app to

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/sparkle.sh
 mkdir -p .build
 mkdir -p .build/Targets
 cp Sources/Aural/Resources/Targets/* .build/Targets/
@@ -43,5 +44,5 @@ xcrun swiftc -parse-as-library Sources/Aural/AppIcon.swift Tests/IconTests/main.
 .build/icon-tests
 
 # Check theme persistence, contrast, and native appearance without using personal settings or audio.
-xcrun swiftc -whole-module-optimization -parse-as-library -D AURAL_TESTING -I Sources/DSP/include Sources/Aural/*.swift Tests/ThemeTests/main.swift Tests/PerformanceTests/*.swift .build/dsp-bridge.o -framework CoreAudio -framework AppKit -o .build/theme-tests
+xcrun swiftc -whole-module-optimization -parse-as-library -D AURAL_TESTING "${SPARKLE_FLAGS[@]}" -I Sources/DSP/include Sources/Aural/*.swift Tests/ThemeTests/main.swift Tests/PerformanceTests/*.swift .build/dsp-bridge.o -framework CoreAudio -framework AppKit -o .build/theme-tests
 .build/theme-tests

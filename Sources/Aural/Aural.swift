@@ -59,6 +59,9 @@ struct AuralApp: App {
         // Keep native menus, alerts, and file panels consistent with the SwiftUI windows.
         themeSubscription = model.$theme.sink { NSApp.appearance = $0.appearance }
         icon.startUpdatingApplicationIcon()
+        #if !AURAL_TESTING
+        UpdateChecker.shared.start()
+        #endif
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }

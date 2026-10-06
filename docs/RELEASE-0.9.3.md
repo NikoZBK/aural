@@ -12,4 +12,4 @@ Quit Aural and Command-Q still stop processing and exit completely. Audio shutdo
 - Native checks on Apple silicon confirmed repeated close/reopen with the same process and active output meter, Command-W with Library still open, Library's Done dismissal, minimized-window recovery, and full Quit from Library after closing the main window. Read-only process inspection confirmed regular versus accessory activation policy at each transition.
 - Saved settings remained byte-identical to the pre-install backup. Native automation did not directly exercise the status-item menu; its window commands use the shared presentation helper.
 
-The intermittent Core Audio startup stall documented in earlier versions remains unresolved. It did not recur during these checks. Intel is cross-compiled, not runtime-tested. This local build is ad-hoc signed, not notarized; no GitHub release was published for this change.
+The intermittent Core Audio startup stall documented in earlier versions remains unresolved. It did not recur during these checks. Intel is cross-compiled, not runtime-tested. This local build is ad-hoc signed; no GitHub release was published for this change.

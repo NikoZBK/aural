@@ -16,7 +16,7 @@ These are proposed priorities, not promised release dates. Keep each update focu
 | 4 | Expand accessibility and language options | Medium | System, Light, and Dark themes are implemented. Review VoiceOver names, focus order, contrast, and text sizes. Add translations with checks for clipped labels and locale-specific number entry. |
 | 5 | Extend advanced EQ in small steps | Medium to large | Start with a clearly defined filter addition, such as higher-order crossovers, with measured response and phase tests. Convolution, live spectrum, plug-ins, and multichannel routing need separate designs and hardware checks. |
 
-Developer ID signing and notarization are a separate distribution improvement when credentials are available. AutoEQ search uses the public results index and parametric exports; keep its source attribution, original result links, and license information visible. Follow the feature comparison for larger projects rather than bundling them into a routine bug-fix update.
+Signed packaging and Sparkle update feeds follow the production workflow in RELEASING.md. AutoEQ search uses the public results index and parametric exports; keep its source attribution, original result links, and license information visible. Follow the feature comparison for larger projects rather than bundling them into a routine bug-fix update.
 
 ## Behavior to preserve
 
@@ -134,8 +134,8 @@ Use a separate test account or disposable data for screenshots and destructive r
 1. Choose the next version based on the actual changes. Use a patch update for fixes, a minor update for compatible features, and document any breaking migration explicitly.
 2. Update `VERSION`, increment the numeric `CFBundleVersion` in `scripts/build.sh`, and write `docs/RELEASE-<version>.md`. Update the README and screenshots where needed.
 3. Test and package the final source. Commit only the intended files and push. Confirm GitHub checks for that exact commit before publication.
-4. Tag the verified commit and publish the matching DMG, ZIP, and `SHA256SUMS.txt` using the [release guide](RELEASING.md). For example, version `1.0.1` must use tag `v1.0.1` and assets `Aural-1.0.1-universal.dmg` and `Aural-1.0.1-universal.zip`. The updater derives exact filenames from the tag; shortened tags can break its download link.
-5. Verify the public release's version, notes, asset names, download links, and checksums. Check **Check for Updates** from an older installed version. Record what was actually tested and the signing/notarization status.
+4. Tag the verified commit and publish the matching DMG, ZIP, and `SHA256SUMS.txt` using the [release guide](RELEASING.md). For example, version `1.0.1` must use tag `v1.0.1` and assets `Aural-1.0.1-universal.dmg` and `Aural-1.0.1-universal.zip`. Older versions derive exact filenames from the tag; shortened tags can break their download link. Version 1.3 and newer also require the signed appcast.xml release asset.
+5. Verify the public release's version, notes, asset names, download links, and checksums. Check **Check for Updates** from an older installed version. Record what was actually tested and the release verification results.
 
 A push and a published release are separate steps. GitHub Actions tests and packages; it does not publish releases. Keep credentials, user settings, and imported profiles out of commits and installers.
 

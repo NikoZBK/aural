@@ -1,28 +1,58 @@
 # Releasing Aural
 
-For planning changes, preserving existing behavior, and choosing verification checks, start with the [future updates guide](FUTURE-UPDATES.md).
+For behavior contracts and regression checks, start with [future updates](FUTURE-UPDATES.md).
 
-## Local release
+## Build and test
 
-1. Update `VERSION` and the numeric `CFBundleVersion` in `scripts/build.sh`.
-2. Run `bash scripts/test.sh`.
-3. Run `bash scripts/package.sh` on macOS with Xcode or Command Line Tools providing the macOS 26 SDK or newer. Liquid Glass remains availability-gated at runtime; the app still supports macOS 14.2.
-4. Check `lipo -archs dist/Aural.app/Contents/MacOS/Aural` for both arm64 and x86_64.
-5. Open the DMG, verify the app and Applications shortcut, then test the app on supported hardware.
-6. Publish the DMG, ZIP, and `SHA256SUMS.txt` as GitHub Release assets. Never upload `.build`, local settings, imported profiles, signing credentials, or private screenshots.
+1. Update `VERSION` and increment the numeric `CFBundleVersion` in `scripts/build.sh`. Sparkle compares the build number, so it must increase for every published update.
+2. Write `docs/RELEASE-<version>.md` and run `bash scripts/test.sh`.
+3. Build on macOS with the macOS 26 SDK or newer. Runtime support remains macOS 14.2 and newer, with arm64 and x86_64 executables.
 
-The scripts build in clean staging directories and explicitly copy only the executable, icons, bundled licensed reference targets, and Info.plist. Packaging adds installation instructions, the license, and an Applications shortcut. Settings and profiles are created in each user's Application Support directory at runtime.
+SwiftPM resolves Sparkle 2.10.0 using `Package.resolved` and verifies its binary checksum. The build embeds the framework and signs its helpers, XPC services, framework, and app from the inside out. Test and benchmark scripts link the same pinned framework.
 
-## Signing status
+## Production package
 
-The current release uses an ad-hoc code signature. This is not a Developer ID signature and does not pass Gatekeeper's notarization policy. The download and installation instructions must state this. Do not advertise the release as notarized or recommend globally disabling Gatekeeper.
+Install a Developer ID Application certificate with its private key in the build Mac's keychain. Store distribution credentials interactively with `xcrun notarytool store-credentials aural-notary`. Keep secrets out of source and shell history.
 
-For a future notarized release, install a Developer ID Application certificate and its private key into the build Mac's keychain, then set `SIGNING_IDENTITY` to that identity before building. The build script will enable the hardened runtime and timestamp the signature. Signing credentials must never be committed.
+```sh
+export SIGNING_IDENTITY='Developer ID Application: Nikolay Ostroukhov (V6BJ44TRY9)'
+export NOTARY_PROFILE=aural-notary
+bash scripts/package.sh
+bash scripts/appcast.sh
+bash scripts/verify-update.sh
+```
 
-Before notarizing a future release, remove the not-notarized message from About and update release documentation. Rebuild once, then submit the ZIP using `xcrun notarytool submit` with an explicitly configured keychain profile and `--wait`. Staple the accepted app using `xcrun stapler staple`, repackage the stapled app into the DMG and ZIP, and regenerate checksums. Do not rebuild or edit the app after notarization. Verify the final app using `codesign --verify --strict`, `xcrun stapler validate`, and `spctl --assess --type execute`.
+`package.sh` builds once, submits the ZIP to Apple, requires Accepted status, staples and assesses the app, recreates the ZIP, creates and signs the DMG, then submits and staples the DMG. It finally writes checksums. Apple submission responses remain in `dist/notary-app.json` and `dist/notary-dmg.json`. If submission fails, inspect the submission ID using `xcrun notarytool log <id> --keychain-profile aural-notary`; never publish partial artifacts. Do not rebuild or modify an accepted app before distribution.
 
-Apple's official guidance: https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution
+Without `NOTARY_PROFILE`, packaging produces a development artifact and labels its installation instructions accordingly. Public releases must pass the production packaging checks.
 
-## Automation
+## Update signing and feed
 
-GitHub Actions tests the source and compiles/packages a universal app on pull requests, pushes to main, and manual runs. Artifacts are retained for seven days. Creating a public GitHub Release remains a deliberate maintainer action; CI does not publish releases or access signing credentials.
+Sparkle's Ed25519 private key lives in the login Keychain under account `aural`; only its public key is in `scripts/build.sh`. Preserve this key when moving build machines. `generate_keys --account aural -p` displays the public key without exporting the private key. An existing installation must trust the signing key used for its next update.
+
+`scripts/appcast.sh` requires a stapled, signed DMG and uses Sparkle's official `generate_appcast` to sign the archive and feed and embed release notes. The app requires a signed feed and verifies archives before extraction. The feed is hosted as the `appcast.xml` asset of the latest public GitHub Release:
+
+`https://github.com/NikoZBK/aural/releases/latest/download/appcast.xml`
+
+Upload this asset with **every** future release, along with the versioned DMG, ZIP, and `SHA256SUMS.txt`. Do not publish a newer release lacking a feed, or the stable feed URL will break. Archive URLs in the feed use the immutable version tag. Do not replace archives after generating the feed. Feed generation currently uses full DMG updates, without deltas.
+
+Automatic checking uses Sparkle's permission prompt; automatic downloads are off until enabled. A single updater lives for the app's lifetime, including menu-bar-only operation. Installation uses normal application termination, which stops the audio engine. On relaunch the existing startup settings determine whether EQ starts. The bundle identifier remains `local.aural.equalizer`, preserving settings and update identity.
+
+## Verify and publish
+
+- Run the full suite and confirm the exact release commit passes GitHub Actions.
+- Verify `codesign --verify --deep --strict dist/Aural.app`, both executable architectures, `xcrun stapler validate` for app and DMG, and `spctl --assess --type execute dist/Aural.app`.
+- Run `scripts/verify-update.sh` to verify the bundled public key, feed and archive signatures, version/URL/length metadata, and rejection of a tampered archive.
+- Mount the final DMG, verify the bundled app matches the ZIP and inspect installation instructions. Check `SHA256SUMS.txt`.
+- Exercise the Sparkle update flow from an older updater-enabled build to the candidate: check, download, signature verification, install, relaunch, and settings preservation. Test cancellation and unavailable-feed behavior. Cross-compilation is not physical Intel runtime coverage.
+- Tag the verified commit. Prepare a draft GitHub Release with DMG, ZIP, checksums, and `appcast.xml`; verify remote asset digests before publishing.
+- Download public assets anonymously and verify hashes. Confirm the stable feed URL and every enclosure URL work. Versions before 1.3 still use the GitHub release parser and require one manual installation.
+
+Development artifacts must pass production checks before publication. Report local packaging, CI, publication, and end-to-end updater evidence separately.
+
+Apple: https://developer.apple.com/developer-id/
+Sparkle: https://sparkle-project.org/documentation/
+
+## CI
+
+GitHub Actions tests and packages credential-free development builds on pull requests, pushes to main, and manual runs. It does not hold signing credentials or publish releases. Public release assets must come from the verified production workflow above.
