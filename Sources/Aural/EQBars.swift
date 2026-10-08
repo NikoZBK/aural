@@ -68,7 +68,7 @@ struct EQBars: View {
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
                     })).labelsHidden().toggleStyle(.checkbox)
                     if filter.effectiveChannel != .stereo {
-                        Text(filter.effectiveChannel == .left ? "L" : "R").auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
+                        Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
                     }
                 }
             }

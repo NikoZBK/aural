@@ -1,5 +1,6 @@
 #include "DSP.h"
 #include <assert.h>
+#include <complex.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -214,10 +215,168 @@ static void channel_tests(void) {
         assert(fabs(eq_response_filters(1000,48000,filters,2,-3)-fmax(expected[0],expected[1]))<1e-8);
         assert(no_faults(eq));
     }
-    filters[0].channel=3; assert(!eq_update_filters(eq,filters,2,0,false));
-    assert(isnan(eq_response_filters_channel(1000,48000,filters,2,0,3)));
+    filters[0].channel=EQChannelSide+1; assert(!eq_update_filters(eq,filters,2,0,false));
+    assert(isnan(eq_response_filters_channel(1000,48000,filters,2,0,EQChannelLeft)));
+    filters[0].channel=EQChannelLeft; assert(isnan(eq_response_filters_channel(1000,48000,filters,2,0,EQChannelSide+1)));
     eq_destroy(eq);
     puts("PASS independent L/R filter magnitude, live channel rerouting, graph response and conservative stereo peak");
+}
+// Complex gain from each input to each output, t[output][input], fitted as in measure().
+static void measure_matrix(EQ *eq, double rate, double frequency, double complex t[2][2]) {
+    float in[256],out[256];
+    AudioBufferList input={1,{{2,sizeof(in),in}}}, output={1,{{2,sizeof(out),out}}};
+    for (unsigned source=0;source<2;source++) {
+        double ss=0,cc=0,sc=0,ys[2]={0},yc[2]={0};
+        for (unsigned block=0;block<600;block++) {
+            for (unsigned i=0;i<128;i++) {
+                in[2*i+source]=.02*sin(2*M_PI*frequency*(block*128+i)/rate);
+                in[2*i+1-source]=0;
+            }
+            eq_process(eq,&input,&output);
+            if (block<400) continue;
+            for (unsigned i=0;i<128;i++) {
+                double phase=2*M_PI*frequency*((double)block*128+i-eq_latency(eq))/rate;
+                double sine=.02*sin(phase), cosine=.02*cos(phase);
+                ss+=sine*sine; cc+=cosine*cosine; sc+=sine*cosine;
+                for (unsigned c=0;c<2;c++) { ys[c]+=out[2*i+c]*sine; yc[c]+=out[2*i+c]*cosine; }
+            }
+        }
+        // A sine delayed by the filter's phase θ is cos θ·sin + sin θ·cos.
+        double determinant=ss*cc-sc*sc;
+        for (unsigned c=0;c<2;c++) t[c][source]=CMPLX((ys[c]*cc-yc[c]*sc)/determinant,(yc[c]*ss-ys[c]*sc)/determinant);
+    }
+    assert(no_faults(eq));
+}
+static double db(double amplitude) { return 20*log10(amplitude); }
+static void mid_side_tests(void) {
+    // Mid filters leave a side-only signal untouched, and Side filters a mono one.
+    float out[2];
+    EQ *eq=eq_create(48000,0); assert(eq);
+    EQFilter mid={1000,6,1,EQFilterPeak,false,EQChannelMid}, side=mid; side.channel=EQChannelSide;
+    assert(eq_update_filters(eq,&mid,1,0,false)); settle(eq,.125,-.125,out);
+    assert(out[0]==.125f && out[1]==-.125f);
+    assert(eq_update_filters(eq,&side,1,0,false)); settle(eq,.125,.125,out);
+    assert(out[0]==.125f && out[1]==.125f);
+    eq_destroy(eq);
+    // Measured input-to-output gains match every response measure, for a chain that
+    // moves between L/R and M/S several times, with identity filters in between.
+    const EQFilter chain[]={
+        {200,4,M_SQRT1_2,EQFilterLowShelf,false,EQChannelLeft}, {1000,6,1,EQFilterPeak,false,EQChannelMid},
+        {700,0,1,EQFilterPeak,false,EQChannelRight}, {5000,-3,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},
+        {3000,-8,2,EQFilterPeak,false,EQChannelSide}, {500,3,1,EQFilterPeak,false,EQChannelRight},
+        {400,9,.7,EQFilterPeak,true,EQChannelLeft}, {150,-6,M_SQRT1_2,EQFilterLowShelf1,false,EQChannelSide},
+        {8000,0,M_SQRT1_2,EQFilterLowPass,false,EQChannelMid}, {60,0,M_SQRT1_2,EQFilterHighPass,false,EQChannelLeft}};
+    const unsigned count=sizeof chain/sizeof *chain;
+    const double rates[]={44100,96000};
+    for (unsigned r=0;r<2;r++) {
+        eq=eq_create(rates[r],0); assert(eq);
+        assert(eq_update_filters(eq,chain,count,-4,false));
+        const double frequencies[]={40,150,500,1000,3000,9000};
+        for (unsigned f=0;f<6;f++) {
+            double complex t[2][2];
+            measure_matrix(eq,rates[r],frequencies[f],t);
+            double left=10*log10(cabs(t[0][0])*cabs(t[0][0])+cabs(t[0][1])*cabs(t[0][1]));
+            double right=10*log10(cabs(t[1][0])*cabs(t[1][0])+cabs(t[1][1])*cabs(t[1][1]));
+            double measured[]={db(fmax(cabs(t[0][0])+cabs(t[0][1]),cabs(t[1][0])+cabs(t[1][1]))),left,right,
+                db(cabs(t[0][0]+t[0][1]+t[1][0]+t[1][1])/2),db(cabs(t[0][0]-t[0][1]-t[1][0]+t[1][1])/2)};
+            for (unsigned c=EQChannelStereo;c<=EQChannelSide;c++) {
+                double expected=eq_response_filters_channel(frequencies[f],rates[r],chain,count,-4,c);
+                if (fabs(measured[c]-expected)>=.02) fprintf(stderr,"rate %.0f %.0f Hz channel %u: measured %.4f, response %.4f\n",rates[r],frequencies[f],c,measured[c],expected);
+                assert(fabs(measured[c]-expected)<.02);
+            }
+        }
+        eq_destroy(eq);
+    }
+    // Without Mid/Side filters, Mid and Side still describe the L/R filters' effect.
+    // A left-only +6 dB peak, nearly zero phase at its center, adds half its gain to each.
+    EQFilter left={1000,6,1,EQFilterPeak,false,EQChannelLeft};
+    double half=db((pow(10,6.0/20)+1)/2), midGain=eq_response_filters_channel(1000,48000,&left,1,0,EQChannelMid);
+    assert(fabs(midGain-half)<.01 && midGain==eq_response_filters_channel(1000,48000,&left,1,0,EQChannelSide));
+    assert(fabs(eq_response_filters_channel(1000,48000,&left,1,0,EQChannelLeft)-6)<1e-9);
+    puts("PASS mid/side filters: untouched opposite component, measured gains match every response measure at two rates");
+
+    for (unsigned r=0;r<2;r++) {
+        double rate=rates[r];
+        unsigned fade=(unsigned)ceil(rate*.02);
+        // Slow filters in both domains and between them carry their history through
+        // edits that keep the sound, as independent channels do.
+        EQFilter filters[6]={{20,18,20,EQFilterPeak,false,EQChannelMid},{25,6,5,EQFilterPeak,false,EQChannelStereo},
+            {30,-4,4,EQFilterPeak,false,EQChannelLeft},{22,12,10,EQFilterPeak,false,EQChannelSide}};
+        unsigned count=4;
+        EQ *reference=eq_create(rate,0); eq=eq_create(rate,0); assert(eq && reference);
+        assert(eq_update_filters(eq,filters,count,0,false) && eq_update_filters(reference,filters,count,0,false));
+        unsigned sample=0; float base[2];
+        #define LEFT(n) (float)(.001*sin(2*M_PI*20*(n)/rate))
+        #define RIGHT(n) (float)(.0005*sin(2*M_PI*20*(n)/rate+1))
+        for (;sample<(unsigned)rate;sample++) { frame(eq,LEFT(sample),RIGHT(sample),out); frame(reference,LEFT(sample),RIGHT(sample),base); }
+        double oldAmplitude=1;
+        for (unsigned edit=0;edit<4;edit++) {
+            double preamp=(double[]){-6,-18,-18,0}[edit];
+            if (edit==2) {
+                // Identity filters, even Mid/Side ones, switch nothing.
+                EQFilter disabled={300,9,1,EQFilterPeak,true,EQChannelSide}, flat={300,0,1,EQFilterPeak,false,EQChannelRight};
+                memmove(filters+2,filters+1,3*sizeof *filters); filters[1]=disabled;
+                memmove(filters+5,filters+4,sizeof *filters); filters[4]=flat; count=6;
+            }
+            assert(eq_update_filters(eq,filters,count,preamp,false));
+            double amplitude=pow(10,preamp/20);
+            for (unsigned i=0;i<(unsigned)(rate*.12);i++,sample++) {
+                frame(eq,LEFT(sample),RIGHT(sample),out); frame(reference,LEFT(sample),RIGHT(sample),base);
+                double mix=fmin(1,fmax(0,(double)i-eq_latency(eq))/fade);
+                for (unsigned c=0;c<2;c++) assert(fabs(out[c]-base[c]*(oldAmplitude*(1-mix)+amplitude*mix))<2e-8);
+            }
+            oldAmplitude=amplitude;
+        }
+        // A small edit that makes an identity Mid filter active moves the slow Stereo
+        // filter after it into M/S lanes. Its converted history keeps the bass level.
+        // The references start with it; a 0.5 dB treble peak hardly changes the bass.
+        EQFilter pair[2]={{3000,0,1,EQFilterPeak,false,EQChannelMid},{20,18,20,EQFilterPeak,false,EQChannelStereo}};
+        EQ *references[2]={eq_create(rate,0),eq_create(rate,0)};
+        assert(references[0] && references[1] && eq_update_filters(eq,pair,2,0,false) && eq_update_filters(references[1],pair,2,0,false));
+        pair[0].gain=.5; assert(eq_update_filters(references[0],pair,2,0,false));
+        for (unsigned i=0;i<(unsigned)rate;i++,sample++) {
+            frame(eq,LEFT(sample),RIGHT(sample),out);
+            for (unsigned k=0;k<2;k++) frame(references[k],LEFT(sample),RIGHT(sample),base);
+        }
+        for (unsigned step=0;step<2;step++) {
+            pair[0].gain=step ? 0 : .5;
+            assert(eq_update_filters(eq,pair,2,0,false));
+            double worst=0;
+            for (unsigned i=0;i<(unsigned)(rate*.2);i++,sample++) {
+                frame(eq,LEFT(sample),RIGHT(sample),out);
+                for (unsigned k=0;k<2;k++) {
+                    frame(references[k],LEFT(sample),RIGHT(sample),base);
+                    if (k==step && i>=fade+eq_latency(eq)) for (unsigned c=0;c<2;c++) worst=fmax(worst,fabs(out[c]-base[c]));
+                }
+            }
+            assert(worst<2e-6); // unconverted, its history is off by 9e-4 to 4e-3
+        }
+        eq_destroy(references[0]); eq_destroy(references[1]);
+        // A swap toggle reverses the side signal, so the chain restarts: after the
+        // fade it matches a fresh chain fed the swapped input.
+        EQStereo swapped=eq_stereo_default(); swapped.swapChannels=true;
+        eq_destroy(reference); reference=eq_create(rate,0); assert(reference);
+        assert(eq_update_filters_stereo(eq,filters,count,0,false,&swapped));
+        assert(eq_update_filters_stereo(reference,filters,count,0,false,&swapped));
+        for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
+            frame(eq,LEFT(sample),RIGHT(sample),out); frame(reference,LEFT(sample),RIGHT(sample),base);
+            if (i>=fade+eq_latency(eq)) assert(out[0]==base[0] && out[1]==base[1]);
+        }
+        // Changing an upstream filter restarts everything after it.
+        filters[0].gain=6;
+        eq_destroy(reference); reference=eq_create(rate,0); assert(reference);
+        assert(eq_update_filters_stereo(eq,filters,count,0,false,&swapped));
+        assert(eq_update_filters_stereo(reference,filters,count,0,false,&swapped));
+        for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
+            frame(eq,LEFT(sample),RIGHT(sample),out); frame(reference,LEFT(sample),RIGHT(sample),base);
+            if (i>=fade+eq_latency(eq)) assert(out[0]==base[0] && out[1]==base[1]);
+        }
+        #undef LEFT
+        #undef RIGHT
+        assert(no_faults(eq) && no_faults(reference));
+        eq_destroy(eq); eq_destroy(reference);
+    }
+    puts("PASS mid/side history across preamp, identity filters and domain changes; swap toggles and upstream edits restart");
 }
 static void preamp_history_tests(void) {
     const double rates[]={32000,44100,48000,96000,192000};
@@ -441,6 +600,7 @@ int main(void) {
     stereo_tests();
     swap_tests();
     channel_tests();
+    mid_side_tests();
     preamp_history_tests();
     channel_history_tests();
     edit_history_tests();

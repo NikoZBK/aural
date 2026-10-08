@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
+#include <complex.h>
 
 const double EQFrequencies[EQBands] = {31.5,63,125,250,500,1000,2000,4000,8000,16000};
 typedef struct { double b0,b1,b2,a1,a2; } Coeff;
@@ -13,6 +14,9 @@ typedef struct {
     EQFilter filters[EQMaxFilters];
     Coeff coefficients[EQMaxFilters];
     unsigned count;
+    // Slots of the filters that are not identity, in order: only these run.
+    unsigned active[EQMaxFilters], activeCount;
+    bool hasMidSide; // an active Mid or Side filter
     double preamp, amplitude, bypassGainDB, bypassAmplitude;
     bool bypass;
     EQStereo stereo;
@@ -145,6 +149,9 @@ static Coeff coeff(EQFilter filter, double db, double rate) {
     default: return (Coeff){NAN,NAN,NAN,NAN,NAN}; // invalid callers must not look like unity
     }
 }
+static bool identity(Coeff a) {
+    return a.b0==1 && a.b1==0 && a.b2==0 && a.a1==0 && a.a2==0;
+}
 // Peak protection looks ahead instead of jumping: the output is the input `latency`
 // frames late, and its gain falls along a 1 ms ramp to arrive at each peak in time.
 // Peaks are true peaks, read between samples at 8x by windowed-sinc interpolation, so
@@ -262,7 +269,7 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
     for (unsigned i=0;i<count;i++) {
         EQFilter f=filters[i];
         if (!isfinite(f.frequency) || f.frequency<10 || f.frequency>22000 || !isfinite(f.gain) || fabs(f.gain)>30 ||
-            !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterHighShelf1 || f.channel>EQChannelRight || (!has_gain(f.type) && f.gain!=0)) return false;
+            !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterHighShelf1 || f.channel>EQChannelSide || (!has_gain(f.type) && f.gain!=0)) return false;
     }
     Settings *next=&eq->slots[eq->back];
     memcpy(next->filters,filters,sizeof(EQFilter)*count);
@@ -288,7 +295,13 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
     // when a new delay is longer than the normal 20 ms settings crossfade.
     next->warmupFrames=(unsigned)ceil(fmax(delays[0],delays[1]));
     if (stereo->crossfeed>0) next->warmupFrames+=(unsigned)ceil(eq->rate*.005);
-    for (unsigned i=0;i<count;i++) next->coefficients[i]=coeff(filters[i],filters[i].gain,eq->rate);
+    next->activeCount=0; next->hasMidSide=false;
+    for (unsigned i=0;i<count;i++) {
+        next->coefficients[i]=coeff(filters[i],filters[i].gain,eq->rate);
+        if (identity(next->coefficients[i])) continue;
+        next->active[next->activeCount++]=i;
+        if (filters[i].channel>=EQChannelMid) next->hasMidSide=true;
+    }
     // Publish; an update the callback has not taken yet is replaced.
     eq->back=atomic_exchange_explicit(&eq->mailbox,eq->back|Fresh,memory_order_acq_rel)&3;
     return true;
@@ -326,9 +339,6 @@ static bool same_filter(EQFilter a, EQFilter b) {
     return a.frequency==b.frequency && a.gain==b.gain && a.q==b.q &&
            a.type==b.type && a.disabled==b.disabled && a.channel==b.channel;
 }
-static bool identity(Coeff a) {
-    return a.b0==1 && a.b1==0 && a.b2==0 && a.a1==0 && a.a2==0;
-}
 static bool applies_to_channel(EQFilter filter, unsigned channelIndex) {
     return filter.channel==EQChannelStereo || filter.channel==channelIndex+1;
 }
@@ -362,6 +372,43 @@ static bool small_edit(EQFilter a, EQFilter b) {
     return a.type==b.type && a.channel==b.channel && a.disabled==b.disabled &&
            within(a.frequency,b.frequency,1.2599210498948732) && within(a.q,b.q,4) && fabs(a.gain-b.gain)<=3;
 }
+// The lanes a filter runs on: Left or Mid is lane 0, Right or Side lane 1, Stereo both.
+static unsigned first_lane(unsigned channel) { return channel==EQChannelRight || channel==EQChannelSide; }
+static unsigned last_lane(unsigned channel) { return channel!=EQChannelLeft && channel!=EQChannelMid; }
+// Mid/Side filters mix the channels, so the lanes' history carries over together,
+// along the prefix of filters that match in channel and coefficients (identity
+// filters aside), and through a small in-place edit as in the per-channel walk.
+// Each chain switches between L/R and M/S lanes at its own filters; a Stereo filter
+// can meet them in different domains, and its state, linear in its input, converts
+// exactly by L = M + S and R = M - S.
+static void carry_mid_side(const Chain *old, Chain *next, double scale) {
+    const Settings *a=&old->settings, *b=&next->settings;
+    bool sameSlots=a->count==b->count, oldMidSide=false, newMidSide=false;
+    unsigned before=0, after=0;
+    while (before<a->count && after<b->count) {
+        EQFilter x=a->filters[before], y=b->filters[after];
+        bool oldActive=!identity(a->coefficients[before]), newActive=!identity(b->coefficients[after]);
+        if (!(sameSlots && before==after && small_edit(x,y))) {
+            if (!oldActive) { before++; continue; }
+            if (!newActive) { after++; continue; }
+            if (x.channel!=y.channel || !same_coefficients(a->coefficients[before],b->coefficients[after])) break;
+        }
+        if (oldActive && x.channel!=EQChannelStereo) oldMidSide=x.channel>=EQChannelMid;
+        if (newActive && y.channel!=EQChannelStereo) newMidSide=y.channel>=EQChannelMid;
+        if (oldActive && newActive) {
+            double z1[2]={old->z1[0][before],old->z1[1][before]}, z2[2]={old->z2[0][before],old->z2[1][before]};
+            if (oldMidSide!=newMidSide) {
+                double k=newMidSide ? .5 : 1, p1=z1[0], q1=z1[1], p2=z2[0], q2=z2[1];
+                z1[0]=(p1+q1)*k; z1[1]=(p1-q1)*k; z2[0]=(p2+q2)*k; z2[1]=(p2-q2)*k;
+            }
+            for (unsigned c=first_lane(y.channel);c<=last_lane(y.channel);c++) {
+                next->z1[c][after]=z1[c]*scale;
+                next->z2[c][after]=z2[c]*scale;
+            }
+        }
+        before++; after++;
+    }
+}
 static void begin_transition(EQ *eq) {
     Chain *old=&eq->chains[eq->active], *next=&eq->chains[1-eq->active];
     eq->pending=false;
@@ -380,7 +427,10 @@ static void begin_transition(EQ *eq) {
     // Toggling the swap moves each input to the other channel's filters, so
     // history comes from the channel that was filtering the same input.
     bool crossed=old->settings.stereo.swapChannels!=next->settings.stereo.swapChannels;
-    for (unsigned c=0;c<2;c++) {
+    // With Mid/Side filters a swap toggle also reverses the side signal: restart.
+    if (old->settings.hasMidSide || next->settings.hasMidSide) {
+        if (!crossed) carry_mid_side(old,next,scale);
+    } else for (unsigned c=0;c<2;c++) {
         unsigned from=crossed ? 1-c : c, before=0,after=0;
         while (before<old->settings.count && after<next->settings.count) {
             if (!crossed && sameSlots && before==after && small_edit(old->settings.filters[before],next->settings.filters[after])) {
@@ -402,23 +452,39 @@ static void begin_transition(EQ *eq) {
     eq->warmupRemaining=next->settings.warmupFrames;
     eq->transitioning=true;
 }
-static double run_filters(Chain *chain, unsigned channelIndex, double dry) {
-    double x=dry*chain->settings.amplitude;
-    for (unsigned b=0;b<chain->settings.count;b++) {
-        if (!applies_to_channel(chain->settings.filters[b],channelIndex)) continue;
-        Coeff a=chain->settings.coefficients[b];
-        double y=a.b0*x+chain->z1[channelIndex][b];
-        chain->z1[channelIndex][b]=a.b1*x-a.a1*y+chain->z2[channelIndex][b];
-        chain->z2[channelIndex][b]=a.b2*x-a.a2*y;
-        x=y;
+// The lanes hold L and R until a Mid or Side filter needs M and S, and switch back
+// at the next Left or Right filter. Identity filters never run, so they cannot
+// switch either, and a chain without Mid/Side filters runs each channel exactly
+// as an independent chain would.
+static void run_filters(Chain *chain, const double dry[2], double wet[2]) {
+    const Settings *settings=&chain->settings;
+    double x[2]={dry[0]*settings->amplitude,dry[1]*settings->amplitude};
+    bool midSide=false;
+    for (unsigned i=0;i<settings->activeCount;i++) {
+        unsigned b=settings->active[i], channel=settings->filters[b].channel;
+        if (channel!=EQChannelStereo && (channel>=EQChannelMid)!=midSide) {
+            double l=x[0], r=x[1];
+            midSide=!midSide;
+            if (midSide) { x[0]=(l+r)*.5; x[1]=(l-r)*.5; }
+            else { x[0]=l+r; x[1]=l-r; }
+        }
+        Coeff a=settings->coefficients[b];
+        for (unsigned c=first_lane(channel);c<=last_lane(channel);c++) {
+            double y=a.b0*x[c]+chain->z1[c][b];
+            chain->z1[c][b]=a.b1*x[c]-a.a1*y+chain->z2[c][b];
+            chain->z2[c][b]=a.b2*x[c]-a.a2*y;
+            x[c]=y;
+        }
     }
-    return x;
+    if (midSide) { wet[0]=x[0]+x[1]; wet[1]=x[0]-x[1]; }
+    else { wet[0]=x[0]; wet[1]=x[1]; }
 }
 static void run_chain(Chain *chain, const double dry[2], double result[2]) {
     const Settings *settings=&chain->settings;
     const EQStereo *stereo=&settings->stereo;
     unsigned swap=stereo->swapChannels;
-    double wet[2]={run_filters(chain,0,dry[swap]),run_filters(chain,1,dry[1-swap])};
+    double input[2]={dry[swap],dry[1-swap]}, wet[2];
+    run_filters(chain,input,wet);
     if (!settings->hasStereoEffects) {
         for (unsigned c=0;c<2;c++) result[c]=settings->bypass ? dry[c]*settings->bypassAmplitude : wet[c];
         return;
@@ -573,29 +639,15 @@ static double response_gain(Coeff a, double c1, double s1, double c2, double s2)
     // Exact notch zeros have -infinite gain. Floor only the plotted magnitude.
     return 10*log10(fmax(1e-30,(nr*nr+ni*ni)/(dr*dr+di*di)));
 }
-double eq_response_filters_channel(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp, unsigned channel) {
-    if (channel==EQChannelStereo) {
-        return fmax(eq_response_filters_channel(frequency,rate,filters,count,preamp,EQChannelLeft),
-                    eq_response_filters_channel(frequency,rate,filters,count,preamp,EQChannelRight));
-    }
-    if (channel>EQChannelRight) return NAN;
-    double result=preamp, w=2*M_PI*frequency/rate;
+static double norm(double complex z) { return creal(z)*creal(z)+cimag(z)*cimag(z); }
+static double power_db(double power) { return 10*log10(fmax(1e-30,power)); }
+// One frequency (w in radians per sample) of prepared filters. Independent channels
+// add their filters' dB responses. Once Mid/Side filters mix the channels, the
+// complex 2x2 matrix from the L/R inputs to the L/R outputs gives each measure.
+static double response_at(double w, const EQFilter *filters, const Coeff *coefficients, unsigned count,
+    double preamp, unsigned channel, bool mixed) {
     double c1=cos(w), s1=sin(w), c2=cos(2*w), s2=sin(2*w);
-    for (unsigned i=0;i<count;i++) {
-        if (filters[i].channel!=EQChannelStereo && filters[i].channel!=channel) continue;
-        Coeff a=coeff(filters[i],filters[i].gain,rate);
-        result+=response_gain(a,c1,s1,c2,s2);
-    }
-    return result;
-}
-bool eq_response_filters_channel_samples(const double *frequencies, unsigned frequencyCount, double rate,
-    const EQFilter *filters, unsigned count, double preamp, unsigned channel, double *decibels) {
-    if (count>EQMaxFilters || channel>EQChannelRight || !isfinite(rate) || rate<=0 || !isfinite(preamp)) return false;
-    Coeff coefficients[EQMaxFilters];
-    for (unsigned i=0;i<count;i++) coefficients[i]=coeff(filters[i],filters[i].gain,rate);
-    for (unsigned f=0;f<frequencyCount;f++) {
-        double w=2*M_PI*frequencies[f]/rate;
-        double c1=cos(w), s1=sin(w), c2=cos(2*w), s2=sin(2*w);
+    if (!mixed) {
         double left=preamp, right=preamp;
         for (unsigned i=0;i<count;i++) {
             unsigned target=filters[i].channel;
@@ -606,8 +658,55 @@ bool eq_response_filters_channel_samples(const double *frequencies, unsigned fre
             if (target!=EQChannelRight) left+=gain;
             if (target!=EQChannelLeft) right+=gain;
         }
-        decibels[f]=channel==EQChannelLeft ? left : channel==EQChannelRight ? right : fmax(left,right);
+        return channel==EQChannelLeft ? left : channel==EQChannelRight ? right : fmax(left,right);
     }
+    double complex e1=CMPLX(c1,-s1), e2=CMPLX(c2,-s2), t[2][2]={{1,0},{0,1}};
+    for (unsigned i=0;i<count;i++) {
+        Coeff a=coefficients[i];
+        if (identity(a)) continue;
+        double complex h=(a.b0+a.b1*e1+a.b2*e2)/(1+a.a1*e1+a.a2*e2);
+        unsigned target=filters[i].channel;
+        if (target<=EQChannelRight) {
+            for (unsigned r=first_lane(target);r<=last_lane(target);r++) { t[r][0]*=h; t[r][1]*=h; }
+            continue;
+        }
+        // Mid passes (h + 1)/2 of each input to its own output and (h - 1)/2 to the
+        // other; Side passes (1 + h)/2 and (1 - h)/2.
+        double complex same=(h+1)/2, across=target==EQChannelMid ? (h-1)/2 : (1-h)/2;
+        for (unsigned c=0;c<2;c++) {
+            double complex l=t[0][c], r=t[1][c];
+            t[0][c]=same*l+across*r; t[1][c]=across*l+same*r;
+        }
+    }
+    switch (channel) {
+    case EQChannelLeft: case EQChannelRight: {
+        unsigned r=channel-EQChannelLeft;
+        return preamp+power_db(norm(t[r][0])+norm(t[r][1]));
+    }
+    case EQChannelMid: return preamp+power_db(norm((t[0][0]+t[0][1]+t[1][0]+t[1][1])/2));
+    case EQChannelSide: return preamp+power_db(norm((t[0][0]-t[0][1]-t[1][0]+t[1][1])/2));
+    default: {
+        double l=cabs(t[0][0])+cabs(t[0][1]), r=cabs(t[1][0])+cabs(t[1][1]);
+        return preamp+power_db(fmax(l*l,r*r));
+    }
+    }
+}
+double eq_response_filters_channel(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp, unsigned channel) {
+    double result;
+    return eq_response_filters_channel_samples(&frequency,1,rate,filters,count,preamp,channel,&result) ? result : NAN;
+}
+bool eq_response_filters_channel_samples(const double *frequencies, unsigned frequencyCount, double rate,
+    const EQFilter *filters, unsigned count, double preamp, unsigned channel, double *decibels) {
+    if (count>EQMaxFilters || channel>EQChannelSide || !isfinite(rate) || rate<=0 || !isfinite(preamp)) return false;
+    Coeff coefficients[EQMaxFilters];
+    bool mixed=channel>=EQChannelMid;
+    for (unsigned i=0;i<count;i++) {
+        if (filters[i].channel>EQChannelSide) return false;
+        coefficients[i]=coeff(filters[i],filters[i].gain,rate);
+        if (filters[i].channel>=EQChannelMid && !identity(coefficients[i])) mixed=true;
+    }
+    for (unsigned f=0;f<frequencyCount;f++)
+        decibels[f]=response_at(2*M_PI*frequencies[f]/rate,filters,coefficients,count,preamp,channel,mixed);
     return true;
 }
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp) {

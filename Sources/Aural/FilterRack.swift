@@ -224,7 +224,7 @@ private struct FilterRow: View {
                     .accessibilityValue(currentFilter.kind.label)
             }.auralFrame(maxWidth: .infinity, alignment: .leading)
             Menu(currentFilter.effectiveChannel == .stereo ? "L+R" : currentFilter.effectiveChannel.rawValue) {
-                ForEach([ImportedFilter.Channel.stereo, .left, .right], id: \.self) { channel in
+                ForEach(ImportedFilter.Channel.allCases, id: \.self) { channel in
                     Button {
                         editFilter { $0.channel = channel == .stereo ? nil : channel }
                     } label: {

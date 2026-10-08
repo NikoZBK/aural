@@ -120,6 +120,9 @@ private struct InteractiveResponseCurve: View {
             $0.enabled && $0.effectiveChannel != .stereo
         }
     }
+    private var hasMidSide: Bool {
+        ((profile.filters ?? []) + (comparisonProfile?.filters ?? [])).contains { $0.enabled && $0.effectiveChannel.isMidSide }
+    }
 
     private var maximumFrequency: Double { min(20000, rate * 0.49) }
     private var frequencySpan: Double { log10(maximumFrequency / 20) }
@@ -159,11 +162,13 @@ private struct InteractiveResponseCurve: View {
                 if hasChannelFilters {
                     Picker("Response channel", selection: $channel) {
                         ForEach(ResponseChannel.allCases, id: \.self) { channel in
-                            Text(channel.label).tag(channel)
+                            Text(channel.label(midSide: hasMidSide)).tag(channel)
                         }
                     }.pickerStyle(.segmented).labelsHidden().auralControlSize(.small)
                         .auralFrame(width: 116, height: 22)
-                        .help("Inspect left and right independently. Left is the solid accent trace; right is dotted rose. Peak/headroom always covers both channels.")
+                        .help(hasMidSide
+                              ? "Inspect mid and side independently. Mid is the solid accent trace; side is dotted rose. Peak/headroom always covers both output channels."
+                              : "Inspect left and right independently. Left is the solid accent trace; right is dotted rose. Peak/headroom always covers both channels.")
                 }
             }
             HStack(spacing: 8 * interfaceScale) {
@@ -350,7 +355,11 @@ private struct InteractiveResponseCurve: View {
     }
 
     private func filterPoint(_ band: EQBarBand, selectBand: @escaping (Int) -> Void, scale: ResponseScale, size: CGSize) -> some View {
-        let responseChannel: ImportedFilter.Channel = band.filter?.effectiveChannel == .right || channel == .right ? .right : .left
+        // Each point sits on a drawn trace: its own channel's lane, or the inspected one.
+        let lanes = analysis?.lanes ?? (.left, .right)
+        let filterChannel = band.filter?.effectiveChannel ?? .stereo
+        let responseChannel = filterChannel == .right || filterChannel == .side || (filterChannel == .stereo && channel == .right)
+            ? lanes.second : lanes.first
         let gain = plottedResponse(at: band.frequency, channel: responseChannel)
         let selected = selectedBand == band.index
         let states: [String?] = [selected ? "Selected" : nil, band.filter?.enabled == false ? "Bypassed" : nil]
@@ -494,20 +503,22 @@ private struct ResponsePlotDrawing {
     private var displayedChannels: [ImportedFilter.Channel] {
         analysis.displayedChannels(channel: channel)
     }
+    private func isSecondLane(_ channel: ImportedFilter.Channel) -> Bool { channel == .right || channel == .side }
     private func color(for channel: ImportedFilter.Channel) -> Color {
-        channel == .right && !bypass ? AuralStyle.plotColors[1] : color
+        isSecondLane(channel) && !bypass ? AuralStyle.plotColors[1] : color
     }
 
-    /// Left, right, and comparison traces at the fixed grid as plot fractions, then
+    /// Left, right (or mid, side), and comparison traces at the fixed grid as plot fractions, then
     /// the scale bounds. Fractions keep the trace in the same space as the filter
     /// points, which SwiftUI moves with the same timing. A missing comparison
     /// matches its channel, so a new one separates from the EQ curve.
     var morphTarget: PlotVector {
         let indices = analysis.gridIndices
         func fractions(_ values: [Double]) -> [Double] { indices.map { scale.fraction(values[$0]) } }
-        let left = fractions(analysis.left), right = fractions(analysis.right)
-        return PlotVector(values: left + right + (analysis.comparisonLeft.map(fractions) ?? left)
-                          + (analysis.comparisonRight.map(fractions) ?? right) + [scale.lower, scale.upper])
+        let lanes = analysis.lanes
+        let first = fractions(analysis.values(for: lanes.first)), second = fractions(analysis.values(for: lanes.second))
+        return PlotVector(values: first + second + (analysis.comparisonValues(for: lanes.first).map(fractions) ?? first)
+                          + (analysis.comparisonValues(for: lanes.second).map(fractions) ?? second) + [scale.lower, scale.upper])
     }
 
     func draw(context: GraphicsContext, size: CGSize, morph: PlotVector? = nil) {
@@ -571,7 +582,7 @@ private struct ResponsePlotDrawing {
             let traceColor = color(for: channel)
             let combined: Path, referencePath: Path?
             if let morph {
-                let start = channel == .right ? count : 0
+                let start = isSecondLane(channel) ? count : 0
                 let values = morph[start..<start + count]
                 let reference = morph[start + 2 * count..<start + 3 * count]
                 // A comparison that is going away merges into the EQ curve before it disappears.
@@ -579,8 +590,8 @@ private struct ResponsePlotDrawing {
                 combined = trace(values)
                 referencePath = separate ? trace(reference) : nil
             } else {
-                combined = curve(channel == .right ? analysis.right : analysis.left)
-                referencePath = (channel == .right ? analysis.comparisonRight : analysis.comparisonLeft).map { curve($0) }
+                combined = curve(analysis.values(for: channel))
+                referencePath = analysis.comparisonValues(for: channel).map { curve($0) }
             }
             if let referencePath {
                 context.stroke(referencePath, with: .color(traceColor),
@@ -592,7 +603,7 @@ private struct ResponsePlotDrawing {
             fill.closeSubpath()
             context.fill(fill, with: .color(traceColor.opacity(0.045)))
             context.stroke(combined, with: .color(traceColor),
-                           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: channel == .right ? [2, 3] : []))
+                           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: isSecondLane(channel) ? [2, 3] : []))
         }
 
         if let hoverFraction {

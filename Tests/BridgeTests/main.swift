@@ -87,7 +87,20 @@ let oldFilter = try JSONDecoder().decode(ImportedFilter.self, from: Data("{\"kin
 require(oldFilter.effectiveChannel == .stereo, "Legacy filter did not decode as stereo")
 let channelData = try JSONEncoder().encode(channelProfile)
 require(try JSONDecoder().decode(Profile.self, from: channelData) == channelProfile, "Channel targets lost in profile persistence")
-print("PASS channel-target bridge, per-channel graph, conservative headroom, legacy targets and channel persistence")
+let midSideProfile = Profile(preamp: -3, filters: [ImportedFilter(kind: .peak, frequency: 1000, gain: 6, q: 1, enabled: true, channel: .mid),
+                                                   ImportedFilter(kind: .peak, frequency: 12000, gain: -9, q: 2, enabled: true, channel: .side)])
+let midSideFilters = midSideProfile.dspFilters(rate: 48000)
+require(midSideFilters[0].channel == UInt32(EQChannelMid) && midSideFilters[1].channel == UInt32(EQChannelSide), "Mid/Side targets lost in bridge")
+require(abs(midSideProfile.response(1000, rate: 48000, channel: .mid) - 3) < 0.01 && abs(midSideProfile.response(12000, rate: 48000, channel: .side) + 12) < 0.01,
+        "Mid and Side responses must follow their own filters")
+// Full-scale left and right can add the boosted mid in one output.
+require(abs(midSideProfile.response(1000, rate: 48000) - 3) < 0.01 && midSideProfile.response(1000, rate: 48000, channel: .left) < 1,
+        "Default response must cover the mid/side bound of either output")
+let midSideData = try JSONEncoder().encode(midSideProfile)
+let decodedMidSide = try JSONDecoder().decode(Profile.self, from: midSideData)
+require(String(decoding: midSideData, as: UTF8.self).contains("\"channel\":\"M\"") && decodedMidSide == midSideProfile,
+        "Mid/Side targets lost in profile persistence")
+print("PASS channel-target bridge, per-channel graph, conservative headroom, legacy targets, Mid/Side targets and channel persistence")
 
 for rate in [32000.0, 44100, 48000, 88200, 96000, 176400, 192000] {
     for sliders in [[6.0, 6, 6, 6, 6, 6, 6, 6, 6, 6], [12, -12, 12, -12, 12, -12, 12, -12, 12, -12],

@@ -197,6 +197,8 @@ struct FilterEditor: View {
                 Text("L+R").tag(ImportedFilter.Channel.stereo)
                 Text("Left").tag(ImportedFilter.Channel.left)
                 Text("Right").tag(ImportedFilter.Channel.right)
+                Text("Mid").tag(ImportedFilter.Channel.mid)
+                Text("Side").tag(ImportedFilter.Channel.side)
             }.labelsHidden().auralFrame(width: 66)
             TextField("Frequency", text: filter.frequency)
                 .auralFrame(width: 122)

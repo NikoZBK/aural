@@ -7,7 +7,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 | Feature | What Aural provides |
 | --- | --- |
 | Configurable graphic/parametric EQ | Ten octave bands whose sliders set the exact level at each band frequency, a 31-band third-octave template, and up to 64 editable parametric filters. The 31-band layout is a peaking-filter bank, not APO `GraphicEQ` interpolation. |
-| Channel-specific EQ | Every filter targets stereo, left, or right; curves and processing follow those targets. 64 filters total across the stereo chain, so separate left and right corrections can each use up to 32 (or any split). |
+| Channel-specific EQ | Every filter targets stereo, left, right, mid, or side; curves and processing follow those targets. Mid/Side filters run in list order between automatic left/right ↔ mid/side conversions, as with Equalizer APO's `Copy` routing. 64 filters total across the stereo chain, so separate left and right corrections can each use up to 32 (or any split). |
 | Exact control | Edit frequency, gain, Q, type, and enabled state directly in the main window. The filter editor lets you preview a draft before applying it. |
 | Editing tools | Undo/redo, duplicate/delete/add, gain offset, gain scaling/inversion, and frequency shifting. The draft editor also lets you reorder filters. |
 | Comparison | Edit and compare two A/B versions, including their stereo settings and preset names. Their curves appear together when they differ. Optional level matching plays Bypass and the louder version at the same K-weighted loudness estimate. A/B settings reset when changing output or quitting. |
@@ -16,7 +16,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 | Volume and peak protection | Preamp, **Auto preamp** that accounts for EQ and stereo gain, an output level meter, highest-level hold/reset, and linked true-peak protection with 1 ms look-ahead. |
 | Presets | Search, favorites, save, rename/duplicate/delete, undo the latest deletion, curve previews, and versioned JSON backup/restore. |
 | Audio outputs | Saved EQ settings and preset names for each output, device selection and refresh, automatic startup for the saved device, and skipping unavailable devices. Optional following of the macOS output. Running EQ resumes after sleep, on reconnection, and after a format change. |
-| Import and export | AutoEQ parametric/fixed-band text, clipboard and file import/export, and `Channel: ALL/L/R`. Unsupported commands report the line that needs attention. |
+| Import and export | AutoEQ parametric/fixed-band text, clipboard and file import/export, `Channel: ALL/L/R`, and the mid/side `Copy` routing. Unsupported commands report the line that needs attention. |
 | Menu bar and startup | Start/stop, bypass, presets, preamp, and A/B from the menu bar. Closing the window keeps EQ running and removes the Dock icon. Optional launch at login and keyboard shortcuts while Aural is active. |
 
 ## Audio processing

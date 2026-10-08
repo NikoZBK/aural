@@ -6,14 +6,19 @@ struct AudioFailure: LocalizedError {
 }
 struct ImportedFilter: Codable, Equatable, Sendable {
     enum Channel: String, Codable, CaseIterable, Sendable {
-        case stereo = "ALL", left = "L", right = "R"
+        /// Mid filters act on (L + R)/2 and Side filters on (L − R)/2, as in Equalizer APO's
+        /// mid/side Copy routing. Aural 1.3 and earlier cannot read profiles that use them.
+        case stereo = "ALL", left = "L", right = "R", mid = "M", side = "S"
         var label: String {
             switch self {
             case .stereo: return "Stereo"
             case .left: return "Left"
             case .right: return "Right"
+            case .mid: return "Mid"
+            case .side: return "Side"
             }
         }
+        var isMidSide: Bool { self == .mid || self == .side }
     }
     enum Kind: String, Codable, CaseIterable, Sendable {
         case peak = "PK", lowShelf = "LSC", highShelf = "HSC"

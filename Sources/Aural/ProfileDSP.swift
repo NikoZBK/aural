@@ -41,6 +41,8 @@ extension Profile {
                 case .stereo: channel = UInt32(EQChannelStereo)
                 case .left: channel = UInt32(EQChannelLeft)
                 case .right: channel = UInt32(EQChannelRight)
+                case .mid: channel = UInt32(EQChannelMid)
+                case .side: channel = UInt32(EQChannelSide)
                 }
                 return EQFilter(frequency: filter.frequency, gain: filter.gain, q: filter.q, type: type, disabled: !filter.enabled, channel: channel)
             }
@@ -57,7 +59,8 @@ extension Profile {
         return bandGains.indices.map { band($0, gain: bandGains[$0]) }
     }
     // This is the EQ/preamp response, before stereo processing. The default
-    // returns the louder channel so automatic headroom covers both channels.
+    // returns the louder channel so automatic headroom covers both channels;
+    // with Mid/Side filters, the most either output can reach.
     func response(_ frequency: Double, rate: Double, preamp: Double? = nil, channel: ImportedFilter.Channel = .stereo) -> Double {
         let filters = dspFilters(rate: rate)
         let target: UInt32
@@ -65,6 +68,8 @@ extension Profile {
         case .stereo: target = UInt32(EQChannelStereo)
         case .left: target = UInt32(EQChannelLeft)
         case .right: target = UInt32(EQChannelRight)
+        case .mid: target = UInt32(EQChannelMid)
+        case .side: target = UInt32(EQChannelSide)
         }
         return eq_response_filters_channel(frequency, rate, filters, UInt32(filters.count), preamp ?? self.preamp, target)
     }

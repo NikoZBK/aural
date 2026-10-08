@@ -448,13 +448,57 @@ do {
             "A hidden Q blocked a 6 dB/octave shelf")
     hiddenQ.kind = .lowShelf
     do { _ = try hiddenQ.filter(row: 1); fatalError("A visible invalid Q was accepted") } catch {}
+    // Mid/Side filters travel as Equalizer APO's Copy routing: mid in the left slot and side
+    // in the right, decoded before the next left/right filter and at the end.
+    let midSide = try Profile(preamp: -3, filters: [
+        ImportedFilter(kind: .peak, frequency: 100, gain: 2, q: 1, enabled: true, channel: .mid),
+        ImportedFilter(kind: .peak, frequency: 3000, gain: -4, q: 2, enabled: true),
+        ImportedFilter(kind: .highShelf, frequency: 8000, gain: 3, q: 0.7, enabled: false, channel: .side),
+        ImportedFilter(kind: .peak, frequency: 500, gain: 1, q: 1, enabled: true, channel: .right),
+        ImportedFilter(kind: .lowShelf, frequency: 80, gain: -2, q: 0.7, enabled: true, channel: .side)]).validated()
+    let midSideText = try AutoEQ.export(midSide)
+    let routing = midSideText.split(separator: "\n").filter { !$0.hasPrefix("Filter") && !$0.hasPrefix("Preamp") }.map(String.init)
+    require(routing == [AutoEQ.midSideEncode, "Channel: L", "Channel: ALL", "Channel: R", AutoEQ.midSideDecode,
+                        AutoEQ.midSideEncode, AutoEQ.midSideDecode], "Mid/Side export must route through Copy: \(routing)")
+    require(AutoEQ.midSideEncode == "Copy: L=0.5*L+0.5*R R=0.5*L+-0.5*R" && AutoEQ.midSideDecode == "Copy: L=L+R R=L+-1*R",
+            "Mid/Side Copy commands must keep Equalizer APO's syntax")
+    let restoredMidSide = try AutoEQ.parse(midSideText, name: "Mid/Side")
+    require(restoredMidSide.filters == midSide.filters && restoredMidSide.preamp == midSide.preamp, "Mid/Side text round trip changed filters")
+    let draftMidSide = try ParametricDraft(midSide).profile()
+    require(draftMidSide.filters == midSide.filters, "Draft editing dropped Mid/Side channels")
+    let savedMidSide = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(midSide))
+    require(savedMidSide == midSide, "Preset lost Mid/Side channels")
+    // Any scale that the decoding Copy undoes, assignments in either order, and dB factors.
+    let scaled = try AutoEQ.parse("""
+    Channel: R
+    Copy: R=L+-1*R L=L+R
+    Filter 1: ON PK Fc 1000 Hz Gain 3 dB Q 1
+    Channel: ALL
+    Filter 2: ON PK Fc 2000 Hz Gain 1 dB Q 1
+    Copy: l=-6.0206dB*L+-6.0206dB*R r=0.5*l+-0.5*r
+    Filter 3: ON PK Fc 3000 Hz Gain 1 dB Q 1
+    Channel: L
+    Filter 4: ON PK Fc 4000 Hz Gain 1 dB Q 1
+    """, name: "Scaled")
+    require(scaled.filters?.map(\.effectiveChannel) == [.side, .stereo, .stereo, .left], "Mid/Side Copy routing did not target filters")
+    for (text, message) in [
+        ("Copy: L=0.5*L+0.5*R R=0.5*L+-0.5*R\nChannel: L\nFilter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1", "Line 1: This mid/side Copy is never converted back"),
+        ("Copy: L=0.5*L+0.5*R R=0.5*L+-0.5*R\nCopy: L=0.5*L+0.5*R R=0.5*L+-0.5*R", "Line 2: This Copy does not convert the mid/side Copy on line 1"),
+        ("Copy: L=R R=L", "Line 1: Only Copy commands"),
+        ("Copy: L=0.5*L+0.5*R", "Line 1: Only Copy commands"),
+        ("Copy: L=0.5*L+0.5*R R=0.5*L-0.5*R", "Line 1: Only Copy commands"),
+        ("Copy: M=0.5*L+0.5*R S=0.5*L+-0.5*R", "Line 1: Only Copy commands"),
+        ("Channel: M\nFilter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1", "Line 1: Supported channel targets")] {
+        do { _ = try AutoEQ.parse(text, name: "Invalid"); fatalError("Accepted unsupported routing: \(text)") }
+        catch { require(error.localizedDescription.hasPrefix(message), "Unexpected routing failure: \(error.localizedDescription)") }
+    }
     var settings = Settings(presets: ["Stereo fixture": effects])
     let data = try JSONEncoder().encode(PresetBackup(presets: settings.presets, favorites: []))
     settings.presets = [:]
     settings.mergePresets(try PresetBackup.decode(data))
     require(settings.presets["Stereo fixture"] == effects, "Native preset backup lost stereo settings")
 }
-print("PASS channel text import/export, draft preservation, unsupported semantics and complete stereo backup")
+print("PASS channel and Mid/Side text import/export, draft preservation, unsupported semantics and complete stereo backup")
 
 // Diagnostics must identify physical lines in Windows exports as well as LF files.
 for newline in ["\n", "\r\n", "\r"] {

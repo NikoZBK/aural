@@ -10,7 +10,10 @@ enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
 // disabled defaults to false for existing C initializers. Gain applies only to EQ/shelves.
 // The first-order (6 dB/octave) shelves ignore q; like the others, they reach half
 // their gain at the filter frequency.
-enum { EQChannelStereo, EQChannelLeft, EQChannelRight };
+// Mid and Side filters act on M = (L + R)/2 and S = (L - R)/2, which are decoded
+// back to L = M + S and R = M - S, as Equalizer APO's mid/side Copy routing does.
+// Filters run in list order; Stereo filters apply to both channels either way.
+enum { EQChannelStereo, EQChannelLeft, EQChannelRight, EQChannelMid, EQChannelSide };
 typedef struct { double frequency, gain, q; unsigned type; bool disabled; unsigned channel; } EQFilter;
 // width=1 is neutral; use eq_stereo_default() instead of a zero initializer.
 // Balance attenuates the opposite side, crossfeed is a normalized 700 Hz blend,
@@ -29,10 +32,15 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
     const EQStereo *stereo, double bypassGainDB);
 bool eq_update_filters(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass);
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp);
-// Stereo returns the larger L/R response for conservative automatic headroom.
+// Stereo returns the larger L/R response for conservative automatic headroom: with
+// Mid/Side filters, the most either output can reach when both inputs are full scale.
+// Left and Right are each output's level for independent, equally loud inputs, and
+// Mid and Side the gain from that component of the input to the same component of
+// the output. Without Mid/Side filters, Left and Right are the filters' own responses.
+// Returns NAN for an invalid rate, channel, preamp, filter channel, or filter count.
 double eq_response_filters_channel(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp, unsigned channel);
 // Control/UI thread only: prepare coefficients once for an entire frequency grid.
-// Returns false for an invalid rate, channel, preamp, or excessive filter count.
+// Returns false for an invalid rate, channel, preamp, filter channel, or excessive filter count.
 bool eq_response_filters_channel_samples(const double *frequencies, unsigned frequencyCount, double rate,
     const EQFilter *filters, unsigned count, double preamp, unsigned channel, double *decibels);
 extern const double EQFrequencies[EQBands];

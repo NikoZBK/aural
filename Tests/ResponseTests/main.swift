@@ -71,12 +71,39 @@ require(splitReference.hasChannelFilters && near(splitReference.comparisonLeft![
 require(splitReference.scale(showFilters: false, channel: .right).lower <= -21, "Reference bounds must follow the inspected channel")
 let splitBypass = ResponseAnalysis(profile: splitProfile, rate: 48000, bypass: true)
 require(splitBypass.left.allSatisfy { $0 == 0 } && splitBypass.right.allSatisfy { $0 == 0 }, "Bypass must flatten both channels")
+require(!split.midSide && split.mid.isEmpty && split.displayedChannels(channel: .both) == [.left, .right], "Left/right filters must keep left and right traces")
+let midBoost = ImportedFilter(kind: .peak, frequency: 1000, gain: 12, q: 3, enabled: true, channel: .mid)
+let sideCut = ImportedFilter(kind: .peak, frequency: 1000, gain: -18, q: 3, enabled: true, channel: .side)
+let midSideProfile = Profile(preamp: -3, filters: [midBoost, sideCut])
+let midSide = ResponseAnalysis(profile: midSideProfile, rate: 48000, bypass: false)
+let midSideCenter = midSide.frequencies.firstIndex(of: 1000)!
+require(midSide.midSide && midSide.hasChannelFilters && abs(midSide.mid[midSideCenter] - 9) < 0.01 && abs(midSide.side[midSideCenter] + 21) < 0.01,
+        "Mid/Side filters must draw distinct mid and side responses")
+require(midSide.displayedChannels(channel: .both) == [.mid, .side] && midSide.displayedChannels(channel: .right) == [.side],
+        "Mid/Side filters must replace the left/right traces")
+require(midSide.visibleFilters(channel: .left).map(\.index) == [0] && midSide.visibleFilters(channel: .right).map(\.index) == [1]
+        && near(midSide.filters[1].values[midSideCenter], -18), "Mid and side inspection must show their own filters")
+require(abs(midSide.combined[midSideCenter] - 9) < 0.01 && midSide.peak == midSide.combined.max()!, "Peak must cover mid and side adding in one output")
+for index in stride(from: 0, to: midSide.frequencies.count, by: 29) {
+    let frequency = midSide.frequencies[index]
+    for channel in [ImportedFilter.Channel.left, .right, .mid, .side] {
+        require(near(midSide.values(for: channel)[index], midSideProfile.response(frequency, rate: 48000, channel: channel)),
+                "\(channel.label) curve must match the exact engine response")
+    }
+    require(near(midSide.combined[index], midSideProfile.response(frequency, rate: 48000)) && midSide.combined[index] >= max(midSide.left[index], midSide.right[index]) - 1e-9,
+            "The Mid/Side envelope must be the engine's bound for both outputs")
+}
+let midSideReference = ResponseAnalysis(profile: splitProfile, rate: 48000, bypass: false, comparisonProfile: midSideProfile)
+require(midSideReference.midSide && abs(midSideReference.comparisonValues(for: .side)![midSideCenter] + 21) < 0.01
+        && midSideReference.scale(showFilters: false, channel: .right).lower <= -21, "A Mid/Side reference must draw mid and side")
+let midSideBypass = ResponseAnalysis(profile: midSideProfile, rate: 48000, bypass: true)
+require(midSideBypass.mid.allSatisfy { $0 == 0 } && midSideBypass.side.allSatisfy { $0 == 0 } && midSideBypass.peak == 0, "Bypass must flatten mid and side")
 var effectsProfile = splitProfile
 effectsProfile.stereo = StereoSettings(leftTrimDB: 12, rightTrimDB: -12, balance: 0.5, width: 2)
 let effectsPlot = ResponseAnalysis(profile: effectsProfile, rate: 48000, bypass: false)
 require(effectsPlot.left == split.left && effectsPlot.right == split.right, "EQ plot must not falsely include signal-dependent stereo effects")
 
-print("PASS response sampling, exact high-Q centers, DSP parity, auto dB bounds, disabled filters, bypass, preamp, comparison, independent L/R curves, channel-aware overlays, and Nyquist handling")
+print("PASS response sampling, exact high-Q centers, DSP parity, auto dB bounds, disabled filters, bypass, preamp, comparison, independent L/R and Mid/Side curves, channel-aware overlays, and Nyquist handling")
 
 for target in HarmanTarget.allCases {
     let reference = try HarmanReference.load(target)
