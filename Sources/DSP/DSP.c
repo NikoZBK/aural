@@ -44,34 +44,86 @@ struct EQ {
     double limiter, release;
 };
 _Static_assert(ATOMIC_INT_LOCK_FREE == 2, "Audio control requires lock-free atomics");
+// Filters follow the analog prototypes of the RBJ cookbook
+// (https://www.w3.org/TR/audio-eq-cookbook/) at every sample rate. The bilinear
+// transform would squeeze their treble toward Nyquist by a rate-dependent amount,
+// so a profile would sound different at 44.1 and 96 kHz. Instead, the poles are
+// mapped exactly and the numerator matches the analog magnitude at DC, Nyquist
+// and the filter frequency: M. Vicanek, "Matched Second Order Digital Filters" (2016).
+
+// |c2 s² + c1 s + c0|² at s = jx.
+static double quad(double c2, double c1, double c0, double x) {
+    double re=c0-c2*x*x, im=c1*x;
+    return re*re+im*im;
+}
+// A pole pair r·e^{±jθ}, or two real poles r[0], r[1] (θ = 0); d = 1 - r.
+typedef struct { double r[2], d[2], theta; } Poles;
+// Poles of s² + s w/q + w², with w in radians per sample, mapped by z = e^s.
+static Poles matched_poles(double w, double q) {
+    double z=1/(2*q);
+    if (z<1) { double r=exp(-z*w), d=-expm1(-z*w); return (Poles){{r,r},{d,d},w*sqrt(1-z*z)}; }
+    double s=sqrt(z*z-1), slow=w/(z+s), fast=w*(z+s); // slow = w(z - s) without cancellation
+    return (Poles){{exp(-slow),exp(-fast)},{-expm1(-slow),-expm1(-fast)},0};
+}
+// |1 + a1 e^{-jw} + a2 e^{-2jw}|² from distances to the poles, which stays exact
+// even for slow, sharp filters whose coefficients nearly cancel.
+static double pole_distance(Poles p, double w) {
+    double u=sin((w-p.theta)/2), v=sin((w+p.theta)/2);
+    return (p.d[0]*p.d[0]+4*p.r[0]*u*u)*(p.d[1]*p.d[1]+4*p.r[1]*v*v);
+}
+static Coeff with_poles(double b0, double b1, double b2, Poles p) {
+    return (Coeff){b0,b1,b2,-(p.r[0]+p.r[1])*cos(p.theta),p.r[0]*p.r[1]};
+}
+// The numerator whose squared magnitude is dc, nyquist and at (at w). The real part
+// of e^{jw}·B(e^{jw}) is fixed by the first two; the imaginary part, (b0 - b2) sin w,
+// supplies the rest.
+static Coeff matched(Poles p, double dc, double nyquist, double at, double w) {
+    double r0=sqrt(dc*pole_distance(p,0)), r1=sqrt(nyquist*pole_distance(p,M_PI));
+    double c=cos(w/2), s=sin(w/2), re=r0*c*c-r1*s*s;
+    double sum=(r0+r1)/2, difference=sqrt(fmax(0,at*pole_distance(p,w)-re*re))/sin(w);
+    return with_poles((sum+difference)/2,(r0-r1)/2,(sum-difference)/2,p);
+}
 static Coeff coeff(EQFilter filter, double db, double rate) {
     double hz=filter.frequency;
     if (filter.disabled || hz >= rate * .49 || (filter.type <= EQFilterHighShelf && fabs(db) < 1e-10)) return (Coeff){1,0,0,0,0};
-    double a=pow(10,db/40), w=2*M_PI*hz/rate, alpha=sin(w)/(2*filter.q), c=cos(w);
-    double b0,b1,b2,a0,a1,a2;
-    if (filter.type==1) {
-        double t=2*sqrt(a)*alpha;
-        b0=a*((a+1)-(a-1)*c+t); b1=2*a*((a-1)-(a+1)*c); b2=a*((a+1)-(a-1)*c-t);
-        a0=(a+1)+(a-1)*c+t; a1=-2*((a-1)+(a+1)*c); a2=(a+1)+(a-1)*c-t;
-    } else if (filter.type==2) {
-        double t=2*sqrt(a)*alpha;
-        b0=a*((a+1)+(a-1)*c+t); b1=-2*a*((a-1)+(a+1)*c); b2=a*((a+1)+(a-1)*c-t);
-        a0=(a+1)-(a-1)*c+t; a1=2*((a-1)-(a+1)*c); a2=(a+1)-(a-1)*c-t;
-    } else if (filter.type==EQFilterPeak) {
-        a0=1+alpha/a; b0=1+alpha*a; b1=-2*c; b2=1-alpha*a; a1=-2*c; a2=1-alpha/a;
-    } else {
-        // RBJ biquads: https://www.w3.org/TR/audio-eq-cookbook/
-        a0=1+alpha; a1=-2*c; a2=1-alpha;
-        switch (filter.type) {
-        case EQFilterLowPass: b0=(1-c)/2; b1=1-c; b2=b0; break;
-        case EQFilterHighPass: b0=(1+c)/2; b1=-(1+c); b2=b0; break;
-        case EQFilterBandPass: b0=alpha; b1=0; b2=-alpha; break; // 0 dB peak
-        case EQFilterNotch: b0=1; b1=-2*c; b2=1; break;
-        case EQFilterAllPass: b0=1-alpha; b1=-2*c; b2=1+alpha; break;
-        default: return (Coeff){NAN,NAN,NAN,NAN,NAN}; // invalid callers must not look like unity
-        }
+    double w=2*M_PI*hz/rate, q=filter.q, x=rate/(2*hz); // x: Nyquist relative to hz
+    if (filter.type<=EQFilterHighShelf) {
+        // Each prototype's cut is the exact inverse of its boost. Design the direction
+        // whose poles are at or below hz (a high shelf's boost would put them above
+        // Nyquist), then invert; the matched zeros are minimum phase, so this is stable.
+        bool high=filter.type==EQFilterHighShelf, invert=high ? db>0 : db<0;
+        double a=pow(10,(high ? -fabs(db) : fabs(db))/40), s=sqrt(a);
+        Coeff c;
+        if (filter.type==EQFilterPeak)
+            c=matched(matched_poles(w,a*q),1,quad(1,a/q,1,x)/quad(1,1/(a*q),1,x),a*a*a*a,w);
+        else if (!high)
+            c=matched(matched_poles(w/s,q),a*a*a*a,a*a*quad(1,s/q,a,x)/quad(a,s/q,1,x),a*a,w);
+        else
+            c=matched(matched_poles(w*s,q),1,a*a*quad(a,s/q,1,x)/quad(1,s/q,a,x),a*a,w);
+        return invert ? (Coeff){1/c.b0,c.a1/c.b0,c.a2/c.b0,c.b1/c.b0,c.b2/c.b0} : c;
     }
-    return (Coeff){b0/a0,b1/a0,b2/a0,a1/a0,a2/a0};
+    if (filter.type==EQFilterAllPass) {
+        // Unity magnitude at any rate; the bilinear form keeps the phase inversion at hz.
+        double alpha=sin(w)/(2*q), a0=1+alpha;
+        return (Coeff){(1-alpha)/a0,-2*cos(w)/a0,1,-2*cos(w)/a0,(1-alpha)/a0};
+    }
+    Poles p=matched_poles(w,q);
+    double d=quad(1,1/q,1,x);
+    switch (filter.type) {
+    case EQFilterLowPass: return matched(p,1,1/d,q*q,w);
+    case EQFilterHighPass: {
+        // A double zero at DC keeps the 12 dB/octave slope; the gain matches at hz.
+        double k=q*sqrt(pole_distance(p,w))/(4*sin(w/2)*sin(w/2));
+        return with_poles(k,-2*k,k,p);
+    }
+    case EQFilterBandPass: return matched(p,0,x*x/(q*q*d),1,w); // 0 dB peak
+    case EQFilterNotch: {
+        // Zeros exactly at hz; unity at DC, where |A| is the pole distance.
+        double k=sqrt(pole_distance(p,0))/(4*sin(w/2)*sin(w/2));
+        return with_poles(k,-2*cos(w)*k,k,p);
+    }
+    default: return (Coeff){NAN,NAN,NAN,NAN,NAN}; // invalid callers must not look like unity
+    }
 }
 EQ *eq_create(double rate, unsigned offset) {
     if (!isfinite(rate) || rate < 32000 || rate > 192000) return NULL;

@@ -37,6 +37,8 @@ enum Headroom {
             maximum = max(maximum, leftGain, rightGain)
         }
         maximum = max(0, maximum + profile.stereoSettings.headroomGainDB)
-        return min(profile.preampRange.upperBound, max(profile.preampRange.lowerBound, -ceil(maximum * 10) / 10))
+        // Coefficient rounding can leave a cut-only curve femtodecibels above 0 dB;
+        // that must not cost a whole 0.1 dB step.
+        return min(profile.preampRange.upperBound, max(profile.preampRange.lowerBound, -ceil(maximum * 10 - 1e-6) / 10))
     }
 }

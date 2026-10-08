@@ -332,7 +332,52 @@ static void edit_history_tests(void) {
     }
     puts("PASS small edits and drags keep slow bass history; type changes and large jumps restart at five rates");
 }
+// |c2 s² + c1 s + c0|² at s = jx.
+static double analog_part(double c2, double c1, double c0, double x) { return (c0-c2*x*x)*(c0-c2*x*x)+c1*c1*x*x; }
+// The cookbook's analog prototypes in dB, at x = frequency / filter frequency.
+static double analog_db(EQFilter f, double x) {
+    double a=pow(10,f.gain/40), s=sqrt(a), q=f.q, d=analog_part(1,1/q,1,x), m=1;
+    switch (f.type) {
+    case EQFilterPeak: m=analog_part(1,a/q,1,x)/analog_part(1,1/(a*q),1,x); break;
+    case EQFilterLowShelf: m=a*a*analog_part(1,s/q,a,x)/analog_part(a,s/q,1,x); break;
+    case EQFilterHighShelf: m=a*a*analog_part(a,s/q,1,x)/analog_part(1,s/q,a,x); break;
+    case EQFilterLowPass: m=1/d; break;
+    case EQFilterHighPass: m=x*x*x*x/d; break;
+    case EQFilterBandPass: m=x*x/(q*q*d); break;
+    case EQFilterNotch: m=(1-x*x)*(1-x*x)/d; break;
+    }
+    return 10*log10(m);
+}
+static void analog_shape_tests(void) {
+    // Treble filters keep their analog shape instead of bunching up toward Nyquist,
+    // so a profile sounds the same at every sample rate. The bilinear designs missed
+    // all but the low shelf, high-pass and narrow peak here by 1-20 dB.
+    const struct { EQFilter filter; double tolerance; } cases[]={
+        {{10000,6,1,EQFilterPeak,false,EQChannelStereo},.5}, {{3000,-9,4,EQFilterPeak,false,EQChannelStereo},.05},
+        {{16000,4,2,EQFilterPeak,false,EQChannelStereo},.5}, {{200,6,M_SQRT1_2,EQFilterLowShelf,false,EQChannelStereo},.01},
+        {{8000,5,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},.1}, {{12000,-8,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},.3},
+        {{12000,0,M_SQRT1_2,EQFilterLowPass,false,EQChannelStereo},1}, {{60,0,M_SQRT1_2,EQFilterHighPass,false,EQChannelStereo},.01},
+        {{5000,0,2,EQFilterBandPass,false,EQChannelStereo},1}, {{6000,0,4,EQFilterNotch,false,EQChannelStereo},.05},
+    };
+    const double rates[]={44100,48000,96000,192000};
+    for (unsigned i=0;i<sizeof cases/sizeof *cases;i++) for (unsigned r=0;r<4;r++) {
+        EQFilter f=cases[i].filter; double rate=rates[r];
+        // The match points are exact: the filter frequency, and DC (or the cut-off slope).
+        double center=eq_response_filters(f.frequency,rate,&f,1,0), dc=eq_response_filters(1e-3,rate,&f,1,0);
+        assert(fabs(fmax(-100,center)-fmax(-100,analog_db(f,1)))<1e-6);
+        assert(fabs(fmax(-100,dc)-fmax(-100,analog_db(f,1e-3/f.frequency)))<1e-4);
+        for (double hz=20;hz<=fmin(20000,rate*.45);hz*=1.01) {
+            double want=analog_db(f,hz/f.frequency), got=eq_response_filters(hz,rate,&f,1,0);
+            if (f.type==EQFilterNotch && want < -30) continue; // the null itself
+            double error=fabs(fmax(-40,got)-fmax(-40,want));
+            if (error>=cases[i].tolerance) fprintf(stderr,"type %u %.0f Hz at %.0f: %.3f dB vs analog %.3f dB at %.0f Hz\n",f.type,f.frequency,rate,got,want,hz);
+            assert(error<cases[i].tolerance);
+        }
+    }
+    puts("PASS peak, shelf, pass and notch filters keep their analog shape and exact centers at four sample rates");
+}
 int main(void) {
+    analog_shape_tests();
     stereo_tests();
     channel_tests();
     preamp_history_tests();
