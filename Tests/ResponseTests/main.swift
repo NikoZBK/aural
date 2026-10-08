@@ -145,3 +145,11 @@ inEar.autoEQSource = AutoEQSource(name: "Test IEM", measurement: "crinacle on 71
 require(HarmanTarget.suggested(for: inEar) == .inEar2019 && HarmanTarget.suggested(for: Profile()) == .overEar2018,
         "Automatic reference selection must distinguish known in-ear profiles and the over-ear default")
 print("PASS bundled Harman targets, exact 1 kHz normalization, published-sample preservation, log interpolation, sample-rate bounds, no extrapolation, reference scaling, validation, and unchanged EQ/bypass/headroom")
+
+var tiltedProfile = narrowProfile; tiltedProfile.tilt = 3
+let tilted = ResponseAnalysis(profile: tiltedProfile, rate: 48000, bypass: false)
+let tiltedCenter = tilted.frequencies.firstIndex(of: 1733)!
+require(tilted.filters.count == 1 && near(tilted.filters[0].values[tiltedCenter], 20), "Tilt must not appear as a filter trace")
+require(near(tilted.combined[tiltedCenter], tiltedProfile.response(1733, rate: 48000)) && tilted.combined[tiltedCenter] > narrow.combined[center],
+        "The curve must include tilt")
+print("PASS tilt shows in the curve and not as a filter")

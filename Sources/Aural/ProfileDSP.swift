@@ -20,7 +20,19 @@ extension Profile {
                         swapChannels: settings.swapChannels)
     }
 
-    func dspFilters(rate: Double) -> [EQFilter] {
+    /// The profile's filters, then its tilt.
+    func dspFilters(rate: Double) -> [EQFilter] { bandFilters(rate: rate) + tiltFilters }
+
+    /// A 6 dB/octave low and high shelf on the pivot, each reaching half its gain there,
+    /// so the pivot keeps its level and bass and treble move apart by up to twice the tilt.
+    var tiltFilters: [EQFilter] {
+        guard tilt != 0 else { return [] }
+        return [(EQFilterLowShelf1, -tilt), (EQFilterHighShelf1, tilt)].map { type, gain in
+            EQFilter(frequency: Self.tiltPivot, gain: gain, q: 0.7071067811865476, type: UInt32(type), disabled: false, channel: UInt32(EQChannelStereo))
+        }
+    }
+
+    private func bandFilters(rate: Double) -> [EQFilter] {
         if let filters {
             return filters.map { filter in
                 let type: UInt32

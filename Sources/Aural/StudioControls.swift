@@ -289,6 +289,32 @@ struct PreampControls: View {
     }
 }
 
+/// One control that brightens or darkens the whole EQ around 1 kHz.
+struct TiltControls: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
+    @ObservedObject var model: Model
+    let submissions: PrecisionSubmissionCoordinator
+    var body: some View {
+        HStack(spacing: 7 * interfaceScale) {
+            Text("Tilt").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+            PrecisionField(value: model.profile.tilt, range: Profile.tiltRange, label: "Tilt in decibels", decimals: 1, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
+                model.endProfileGesture(); model.setTilt(value)
+            }.auralFrame(width: 56)
+            Text("dB").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+            Stepper("Tilt", onIncrement: { if submitPendingInput() { model.adjustTilt(0.5) } },
+                    onDecrement: { if submitPendingInput() { model.adjustTilt(-0.5) } })
+                .labelsHidden().accessibilityLabel("Tilt").accessibilityValue(AuralAccessibility.decibels(model.profile.tilt))
+        }.help("Tilt the EQ around 1 kHz. Positive values raise the treble and lower the bass, each by up to the amount set; negative values do the reverse.")
+    }
+    private func submitPendingInput() -> Bool {
+        switch submissions.submitActive() {
+        case .rejected: return false
+        case .submitted: return model.error == nil
+        case .unchanged: return true
+        }
+    }
+}
+
 struct OutputSelection: View {
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model

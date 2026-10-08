@@ -79,3 +79,9 @@ let quietest = Profile(preamp: -60, filters: [ImportedFilter(kind: .peak, freque
 let preampFloor = LevelMatch(current: Profile(preamp: -55, filters: []), comparedWith: quietest)
 require(preampFloor.eqOffsetDB == -5 && !preampFloor.eqOffsetExact, "A/B matching must stop at the preamp floor and report it")
 print("PASS level matching: flat EQ, preamp, A/B offsets, K-weighted bass and treble, trim, balance, channel filters, disabled filters, and reported limits")
+
+var tilted = Profile(); tilted.tilt = 6
+let tiltPreamp = Headroom.preamp(for: tilted, rate: 48000)
+require(tiltPreamp < -5.5 && tiltPreamp > -6.1 && tilted.response(20000, rate: 48000, preamp: tiltPreamp) <= 0.00001,
+        "Auto preamp must cover the treble that tilt raises")
+print("PASS auto preamp covers tilt")

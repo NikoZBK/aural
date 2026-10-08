@@ -626,3 +626,23 @@ do {
     require(legacyParametric.gains == [5, 5, 4, 2, 0, 0, 0, 0, 0, 0], "Inactive graphic gains of a parametric profile must not migrate")
 }
 print("PASS graphic sliders set centre levels, and Aural 1.3 profiles and presets migrate with their sound")
+
+// Tilt persists only when set, and text export refuses it rather than dropping it.
+var tilted = Profile.builtInPresets.values.first!
+let untiltedJSON = String(decoding: try JSONEncoder().encode(tilted), as: UTF8.self)
+require(!untiltedJSON.contains("tilt"), "An untilted profile must keep the earlier format")
+tilted.tilt = -2.5
+let tiltedRoundTrip = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(tilted))
+require(tiltedRoundTrip.tilt == -2.5 && tiltedRoundTrip == tilted && !tiltedRoundTrip.hasSameEQ(as: Profile.builtInPresets.values.first!),
+        "Tilt lost in persistence or ignored by EQ comparison")
+let untilted = try JSONDecoder().decode(Profile.self, from: Data(#"{"gains":[0,0,0,0,0,0,0,0,0,0],"preamp":0}"#.utf8))
+require(untilted.tilt == 0, "Earlier profiles must play without tilt")
+for invalid in [6.5, -7, .nan, .infinity] {
+    var bad = Profile(); bad.tilt = invalid
+    do { _ = try bad.validated(); fatalError("Accepted tilt \(invalid)") } catch { require(error is AudioFailure, "Unexpected tilt error") }
+}
+do {
+    _ = try AutoEQ.export(tilted)
+    fatalError("Exported tilt as Equalizer APO text")
+} catch { require(error.localizedDescription.contains("tilt"), error.localizedDescription) }
+print("PASS tilt persistence, earlier profiles, validation, and export refusal")

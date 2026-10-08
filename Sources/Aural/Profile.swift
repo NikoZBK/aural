@@ -145,26 +145,33 @@ struct AutoEQSource: Codable, Equatable, Sendable {
 }
 
 struct Profile: Codable, Equatable, Sendable {
-    /// The engine's EQMaxFilters also holds loudness compensation; the bridge tests check this.
+    /// The engine's EQMaxFilters also holds tilt and loudness compensation; the bridge tests check this.
     static let maxFilters = 64
+    /// Tilt pivots on 1 kHz: positive values raise the treble and lower the bass by up to that many dB.
+    static let tiltRange = -6.0...6.0
+    static let tiltPivot = 1000.0
     var gains = Array(repeating: 0.0, count: 10)
     var preamp = 0.0
     var filters: [ImportedFilter]?
     var sourceName: String?
     var stereo: StereoSettings?
     var autoEQSource: AutoEQSource?
+    var tilt = 0.0
     var stereoSettings: StereoSettings { stereo ?? StereoSettings() }
     var preampRange: ClosedRange<Double> { filters == nil ? -24...0 : -60...24 }
     func hasSameEQ(as other: Profile) -> Bool {
         // Parametric filters replace the graphic bands. Their retained slider
         // values are inactive and need not survive an APO text round trip.
         let sameBands = filters != nil || gains == other.gains
-        return sameBands && preamp == other.preamp && filters == other.filters && stereoSettings == other.stereoSettings
+        return sameBands && preamp == other.preamp && tilt == other.tilt && filters == other.filters && stereoSettings == other.stereoSettings
     }
     func validated() throws -> Profile {
         guard gains.count == 10, gains.allSatisfy({ $0.isFinite && abs($0) <= 12 }),
               preamp.isFinite, preampRange.contains(preamp) else {
             throw AudioFailure(message: "The profile contains invalid gain or preamp values.")
+        }
+        guard tilt.isFinite, Self.tiltRange.contains(tilt) else {
+            throw AudioFailure(message: "Tilt must be from −6 to +6 dB.")
         }
         if let filters {
             guard (1...Self.maxFilters).contains(filters.count) else {
@@ -182,7 +189,7 @@ extension Profile {
     // Aural 1.3 and earlier saved graphic sliders as raw band gains, whose overlapping
     // bands overshoot. Profiles now record that their sliders set the level at each centre.
     private enum CodingKeys: String, CodingKey {
-        case gains, preamp, filters, sourceName, stereo, autoEQSource, graphicVersion
+        case gains, preamp, filters, sourceName, stereo, autoEQSource, tilt, graphicVersion
     }
 
     init(from decoder: Decoder) throws {
@@ -193,6 +200,7 @@ extension Profile {
         sourceName = try values.decodeIfPresent(String.self, forKey: .sourceName)
         stereo = try values.decodeIfPresent(StereoSettings.self, forKey: .stereo)
         autoEQSource = try values.decodeIfPresent(AutoEQSource.self, forKey: .autoEQSource)
+        tilt = try values.decodeIfPresent(Double.self, forKey: .tilt) ?? 0
         if try values.decodeIfPresent(Int.self, forKey: .graphicVersion) == nil { self = migratingLegacySliders() }
     }
 
@@ -204,6 +212,8 @@ extension Profile {
         try values.encodeIfPresent(sourceName, forKey: .sourceName)
         try values.encodeIfPresent(stereo, forKey: .stereo)
         try values.encodeIfPresent(autoEQSource, forKey: .autoEQSource)
+        // Untilted profiles keep the format earlier releases read.
+        if tilt != 0 { try values.encode(tilt, forKey: .tilt) }
         try values.encode(2, forKey: .graphicVersion)
     }
 

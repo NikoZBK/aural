@@ -153,6 +153,13 @@ struct MenuBarControls: View {
                 Button("Decrease 1 dB") { model.adjustPreamp(-1) }
                     .disabled(model.profile.preamp <= model.profile.preampRange.lowerBound)
             }
+            Menu("Tilt: \(model.profile.tilt, specifier: "%+.1f") dB") {
+                Button("Brighter 0.5 dB") { model.adjustTilt(0.5) }
+                    .disabled(model.profile.tilt >= Profile.tiltRange.upperBound)
+                Button("Darker 0.5 dB") { model.adjustTilt(-0.5) }
+                    .disabled(model.profile.tilt <= Profile.tiltRange.lowerBound)
+                Button("No tilt") { model.setTilt(0) }.disabled(model.profile.tilt == 0)
+            }
             Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
                 Button("A") { withAuralAnimation { model.selectComparison(.a) } }
                 Button("B") { withAuralAnimation { model.selectComparison(.b) } }

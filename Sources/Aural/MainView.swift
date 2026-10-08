@@ -306,18 +306,20 @@ struct MainView: View {
     }
 
     /// One bar for the end of the signal path, in processing order: the preamp that
-    /// sets headroom, then the level leaving the EQ and the protection limiting it.
-    /// The sample rate already shows under the graph.
+    /// sets headroom, the tilt after the filters, then the level leaving the EQ and the
+    /// protection limiting it. The sample rate already shows under the graph.
     private func footer(compact: Bool) -> some View {
         HStack(spacing: 14 * interfaceScale) {
             PreampControls(model: model, submissions: submissions, compact: true)
+            Divider().auralFrame(height: compact ? 36 : 18)
+            TiltControls(model: model, submissions: submissions)
             Divider().auralFrame(height: compact ? 36 : 18)
             StudioMeter(meter: model.meter, running: model.running,
                         protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
                         compact: true, inline: !compact)
         }
         .auralFrame(maxWidth: .infinity, alignment: .leading)
-        .help("Audio passes through preamp and filters, stereo and delay, then optional peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
+        .help("Audio passes through preamp, filters and tilt, stereo and delay, then optional peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
         .auralPadding(.horizontal, 20).auralPadding(.vertical, 8)
     }
 

@@ -37,6 +37,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 - **Fair comparisons.** Optional level matching plays Bypass and both A/B versions at the same estimated loudness.
 - **AutoEQ built in.** Search the online headphone catalog, preview a correction, and import it. You can also paste or import Equalizer APO text.
 - **Stereo and delay.** Balance, width, crossfeed, mono, polarity, a left/right swap, and up to 30 ms of delay.
+- **Tilt.** One control brightens or darkens the whole EQ around 1 kHz.
 - **Gain staging.** Preamp, Auto preamp, a peak-hold meter, and true-peak protection.
 - **Loudness compensation.** Optional ISO 226 compensation keeps bass and treble full as you turn the volume down.
 - **Presets.** A searchable library with favorites, curve previews, and backups. Each output remembers its own preset.

@@ -97,8 +97,9 @@ print("PASS independent A/B editing, capture/copy, comparison undo/redo, and pre
 
 var reference = Profile(gains: [1, -2, 3, -4, 5, -6, 7, -8, 9, -10], preamp: -12)
 reference.stereo = StereoSettings(leftTrimDB: -3, balance: 0.25)
+reference.tilt = 1.5
 let graphic31 = try ProfileTools.graphicTemplate(bands: 31, preserving: reference)
-require(graphic31.filters?.count == 31 && graphic31.preamp == 0, "31-band template is not flat")
+require(graphic31.filters?.count == 31 && graphic31.preamp == 0 && graphic31.tilt == 0, "31-band template is not flat")
 require(graphic31.filters?.map(\.frequency) == ProfileTools.thirdOctaveFrequencies, "31-band centers changed")
 require(graphic31.filters?.allSatisfy { $0.gain == 0 && $0.enabled && abs($0.q - 4.318473046963146) < 0.000001 } == true, "Third-octave bandwidth is incorrect")
 require(graphic31.stereo == reference.stereo, "Template must preserve stereo settings")
@@ -109,12 +110,13 @@ rejects("unsupported template") { _ = try ProfileTools.graphicTemplate(bands: 15
 
 let scaled = try ProfileTools.transformGains(reference, scale: -0.5, offset: 1)
 require(scaled.gains == reference.gains.map { $0 * -0.5 + 1 }, "Gain scale/offset arithmetic is incorrect")
-require(scaled.preamp == reference.preamp && scaled.stereo == reference.stereo, "Gain tools changed unrelated controls")
+require(scaled.preamp == reference.preamp && scaled.tilt == reference.tilt && scaled.stereo == reference.stereo, "Gain tools changed unrelated controls")
 rejects("graphic gain overflow") { _ = try ProfileTools.transformGains(reference, scale: 4, offset: 0) }
 rejects("non-finite scale") { _ = try ProfileTools.transformGains(reference, scale: .nan, offset: 0) }
 rejects("non-finite offset") { _ = try ProfileTools.transformGains(reference, scale: 1, offset: .infinity) }
 require(reference.gains[0] == 1 && reference.preamp == -12, "Rejected transformation mutated its input")
 let parametric = try ProfileTools.parametric(reference)
+require(parametric.tilt == reference.tilt, "Converting graphic EQ lost its tilt")
 require(parametric.filters?.map(\.gain) == GraphicEQ.bandGains(for: reference.gains) && parametric.filters?.map(\.frequency) == ProfileTools.graphicFrequencies, "Converting graphic EQ changed its transfer function")
 for (band, slider) in reference.gains.enumerated() {
     let level = parametric.filters!.indices.reduce(0) { $0 + GraphicEQ.level(band: $1, gain: parametric.filters![$1].gain, at: ProfileTools.graphicFrequencies[band]) }

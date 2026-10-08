@@ -159,6 +159,7 @@ enum ProfileTools {
         var result = profile
         result.gains = Array(repeating: 0, count: 10)
         result.preamp = 0
+        result.tilt = 0
         result.sourceName = "\(bands)-band graphic EQ"
         let q = 1 / (pow(2, 1.0 / 6) - pow(2, -1.0 / 6))
         result.filters = bands == 10 ? nil : thirdOctaveFrequencies.map {

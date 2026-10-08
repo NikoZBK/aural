@@ -26,7 +26,7 @@ for kind in ImportedFilter.Kind.allCases {
     require(eq_update_filters(engine, disabled, UInt32(disabled.count), profile.preamp, false), "Bridge output rejected by engine")
     eq_destroy(engine)
 }
-require(Profile.maxFilters + Loudness.filterCount <= Int(EQMaxFilters), "The engine must hold a full profile and loudness compensation")
+require(Profile.maxFilters + 2 + Loudness.filterCount <= Int(EQMaxFilters), "The engine must hold a full profile, tilt and loudness compensation")
 let fixed = Profile.builtInPresets["Warm"]!
 let at32k = fixed.dspFilters(rate: 32000)
 require(at32k.last?.disabled == true && at32k.dropLast().allSatisfy { !$0.disabled }, "Legacy Nyquist band behavior changed")
@@ -147,10 +147,11 @@ for reference in Loudness.referenceLevels {
     }
 }
 require(worstLoudness < 1.5, "Loudness filters miss ISO 226 by \(worstLoudness) dB")
-let fullProfile = Profile(filters: Array(repeating: ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true), count: Profile.maxFilters))
+var fullProfile = Profile(filters: Array(repeating: ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true), count: Profile.maxFilters))
+fullProfile.tilt = Profile.tiltRange.upperBound
 let withLoudness = fullProfile.dspFilters(rate: 48000) + Loudness.filters(level: 40, reference: 80)
 guard let loudEngine = eq_create(48000, 0) else { fatalError("Engine allocation failed") }
-require(eq_update_filters(loudEngine, withLoudness, UInt32(withLoudness.count), -12, false), "The engine must hold a full profile with loudness")
+require(eq_update_filters(loudEngine, withLoudness, UInt32(withLoudness.count), -12, false), "The engine must hold a full profile with tilt and loudness")
 eq_destroy(loudEngine)
 let oldSettings = try JSONDecoder().decode(Settings.self, from: Data(#"{"devices":{},"presets":{},"selectedUID":""}"#.utf8))
 require(oldSettings.loudness == LoudnessSettings(), "Earlier settings must leave loudness off")
@@ -164,3 +165,27 @@ require(savedLoudness.loudness == loudSettings.loudness, "Loudness settings lost
 let invalidLoudness = try JSONDecoder().decode(LoudnessSettings.self, from: Data(#"{"enabled":true,"referenceLevel":200}"#.utf8))
 require(invalidLoudness.enabled && invalidLoudness.referenceLevel == 80 && invalidLoudness.referenceVolumes.isEmpty, "Invalid loudness reference must fall back")
 print(String(format: "PASS ISO 226:2003 contours, listening level, loudness filters within %.2f dB at three rates, capacity and persistence", worstLoudness))
+
+// Tilt: two 6 dB/octave shelves that keep 1 kHz and move bass and treble apart.
+require(Profile().tiltFilters.isEmpty && Profile().dspFilters(rate: 48000).count == 10, "No tilt must add no filters")
+var worstTilt = 0.0
+for tilt in [-6.0, -2.5, 1, 6] {
+    var tilted = Profile(); tilted.tilt = tilt
+    let filters = tilted.dspFilters(rate: 48000)
+    require(filters.count == 12 && filters.suffix(2).map { [$0.type, $0.channel] } == [[UInt32(EQFilterLowShelf1), UInt32(EQChannelStereo)], [UInt32(EQFilterHighShelf1), UInt32(EQChannelStereo)]]
+        && filters.suffix(2).map(\.gain) == [-tilt, tilt], "Tilt must follow the profile's filters")
+    let a = pow(10, tilt / 40)
+    for rate in [44100.0, 48000, 96000] {
+        let shelves = tilted.tiltFilters
+        require(abs(eq_response_filters(1000, rate, shelves, 2, 0)) < 0.01, "Tilt must keep 1 kHz at \(rate) Hz")
+        for frequency in stride(from: 20.0, through: 12000, by: 10) {
+            let x2 = frequency * frequency / 1e6
+            let analog = tilt + 20 * log10((x2 + 1 / (a * a)) / (x2 + a * a))
+            worstTilt = max(worstTilt, abs(eq_response_filters(frequency, rate, shelves, 2, 0) - analog))
+        }
+        require(tilt.sign == .minus ? eq_response_filters(20, rate, shelves, 2, 0) > 0 : eq_response_filters(20, rate, shelves, 2, 0) < 0,
+                "Positive tilt must lower the bass and negative tilt raise it")
+    }
+}
+require(worstTilt < 0.05, "Tilt misses its analog shape by \(worstTilt) dB")
+print(String(format: "PASS tilt keeps 1 kHz and follows 6 dB/octave shelves within %.3f dB at three rates", worstTilt))

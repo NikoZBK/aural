@@ -56,15 +56,19 @@ import AppKit
     model.setPreamp(-8.75)
     var stereo = StereoSettings(); stereo.width = 1.4; stereo.leftDelayMS = 7.25; stereo.invertRight = true
     model.setStereoSettings(stereo)
+    model.adjustTilt(4); model.adjustTilt(4)
+    require(model.profile.tilt == Profile.tiltRange.upperBound, "Tilt steps must stop at the range")
+    model.setTilt(-1.25)
     let beforeReset = model.profile
     model.resetEQ()
     var expectedReset = beforeReset
     expectedReset.preamp = 0
+    expectedReset.tilt = 0
     expectedReset.filters = beforeReset.filters!.map { filter in
         var next = filter; if next.kind.usesGain { next.gain = 0 }; return next
     }
     require(model.profile == expectedReset && model.error == nil && model.undoLabel == "Undo Reset EQ",
-            "Reset must zero gain and preamp, preserve filter metadata and stereo effects, and create one explicit undo step")
+            "Reset must zero gain, tilt and preamp, preserve filter metadata and stereo effects, and create one explicit undo step")
     model.undoProfile()
     require(model.profile == beforeReset, "One undo must restore the entire EQ before Reset")
     model.redoProfile()

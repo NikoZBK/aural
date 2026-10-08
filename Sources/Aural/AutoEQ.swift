@@ -13,6 +13,9 @@ enum AutoEQ {
         guard profile.stereoSettings == StereoSettings() else {
             throw AudioFailure(message: "Equalizer APO text export cannot preserve Aural's stereo effects. Reset Stereo & delay before exporting EQ text, or save a preset and use Back up presets to preserve the complete configuration.")
         }
+        guard profile.tilt == 0 else {
+            throw AudioFailure(message: "Equalizer APO text has no 6 dB/octave shelves for Aural's tilt. Set Tilt to 0 dB before exporting EQ text, or save a preset and use Back up presets to preserve it.")
+        }
         // Use the same fixed-band conversion as the filter editor.
         let parametric = try ParametricDraft(profile).profile()
         guard let filters = parametric.filters else {

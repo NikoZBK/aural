@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #pragma clang assume_nonnull begin
 typedef struct EQ EQ;
-// A profile holds up to 64 filters; the rest carry Aural's loudness compensation.
+// A profile holds up to 64 filters; the rest carry Aural's tilt and loudness compensation.
 enum { EQBands = 10, EQMaxFilters = 80 };
 enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
        EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass,

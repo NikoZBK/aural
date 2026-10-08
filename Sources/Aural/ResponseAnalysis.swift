@@ -83,7 +83,8 @@ struct ResponseAnalysis: Sendable {
         // Mid and side can add up in one output, so with them it is the engine's stereo bound.
         combined = midSide && !bypass ? sample(activeFilters, preamp: profile.preamp, channel: UInt32(EQChannelStereo))
             : zip(left, right).map { max($0.0, $0.1) }
-        filters = bypass ? [] : activeFilters.enumerated().compactMap { index, filter in
+        // Tilt is not a band; it shows in the curve only.
+        filters = bypass ? [] : activeFilters.dropLast(profile.tiltFilters.count).enumerated().compactMap { index, filter in
             guard !filter.disabled else { return nil }
             let channel: ImportedFilter.Channel
             switch Int(filter.channel) {

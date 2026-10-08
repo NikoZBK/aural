@@ -88,7 +88,7 @@ struct FilterRack: View {
             Button("Shift down ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: -1.0 / 3) } } }
         }.fixedSize().help("Adjust all bands together. Undo restores your previous EQ.")
         Button("Reset EQ") { if finishNumericEdit() { withAuralAnimation { model.resetEQ() } } }
-            .buttonStyle(AuralButtonStyle()).help("Set band gains and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
+            .buttonStyle(AuralButtonStyle()).help("Set band gains, tilt, and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
         Button { if finishNumericEdit() { withAuralAnimation { model.addFilter() } } } label: { Image(systemName: "plus") }
             .buttonStyle(AuralButtonStyle()).disabled(count >= Profile.maxFilters).help("Add a parametric filter").accessibilityLabel("Add filter")
     }

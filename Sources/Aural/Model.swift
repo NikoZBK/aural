@@ -556,8 +556,17 @@ import ServiceManagement
         editProfile("Reset EQ") {
             var next = try ProfileTools.transformGains($0, scale: 0, offset: 0)
             next.preamp = 0
+            next.tilt = 0
             return next
         }
+    }
+    func setTilt(_ value: Double) {
+        editProfile("Adjust tilt", coalescing: true) { var next = $0; next.tilt = value; return next }
+    }
+    func adjustTilt(_ delta: Double) {
+        guard delta.isFinite else { error = "Tilt adjustment must be a finite number."; return }
+        workspace.endGesture()
+        setTilt(min(Profile.tiltRange.upperBound, max(Profile.tiltRange.lowerBound, ((profile.tilt + delta) * 10).rounded() / 10)))
     }
     func shiftFrequencies(octaves: Double) {
         editProfile("Shift frequencies") { try ProfileTools.shiftFrequencies($0, octaves: octaves) }
