@@ -17,13 +17,18 @@ struct ImportedFilter: Codable, Equatable, Sendable {
     }
     enum Kind: String, Codable, CaseIterable, Sendable {
         case peak = "PK", lowShelf = "LSC", highShelf = "HSC"
+        /// First-order shelves with a fixed 6 dB/octave slope. Equalizer APO text has no match for them.
+        case firstOrderLowShelf = "LS1", firstOrderHighShelf = "HS1"
         case lowPass = "LPQ", highPass = "HPQ", bandPass = "BP", notch = "NO", allPass = "AP"
-        var usesGain: Bool { self == .peak || self == .lowShelf || self == .highShelf }
+        var usesGain: Bool { [.peak, .lowShelf, .highShelf, .firstOrderLowShelf, .firstOrderHighShelf].contains(self) }
+        var usesQ: Bool { self != .firstOrderLowShelf && self != .firstOrderHighShelf }
         var label: String {
             switch self {
             case .peak: return "Peak · PK"
             case .lowShelf: return "Low shelf · LSC"
             case .highShelf: return "High shelf · HSC"
+            case .firstOrderLowShelf: return "Low shelf 6 dB/oct · LS1"
+            case .firstOrderHighShelf: return "High shelf 6 dB/oct · HS1"
             case .lowPass: return "Low pass · LPQ"
             case .highPass: return "High pass · HPQ"
             case .bandPass: return "Band pass · BP"

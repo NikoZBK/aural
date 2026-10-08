@@ -247,9 +247,16 @@ private struct FilterRow: View {
                     .accessibilityLabel("Filter \(number) has no gain parameter")
                     .overlay(alignment: .topLeading) { numericLabel("dB") }
             }
-            PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                Self.updateFilter(model: model, index: index) { $0.q = value }
-            }.auralFrame(width: 58).overlay(alignment: .topLeading) { numericLabel("Q") }
+            if filter.kind.usesQ {
+                PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
+                    Self.updateFilter(model: model, index: index) { $0.q = value }
+                }.auralFrame(width: 58).overlay(alignment: .topLeading) { numericLabel("Q") }
+            } else {
+                Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary).auralFrame(width: 58)
+                    .accessibilityLabel("Filter \(number) has a fixed 6 dB per octave slope")
+                    .help("This shelf has a fixed 6 dB/octave slope, so it has no Q.")
+                    .overlay(alignment: .topLeading) { numericLabel("Q") }
+            }
             Menu {
                 Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.count ?? 0) >= Profile.maxFilters)
                 Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.disabled(model.profile.filters?.count == 1)

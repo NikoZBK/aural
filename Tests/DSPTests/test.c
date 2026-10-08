@@ -254,7 +254,9 @@ int main(void) {
     assert(eq_peak(eq)==0);
     puts("PASS planar buffers and invalid-buffer fault reporting");free(planar);free(out);eq_destroy(eq);
     EQFilter custom={1000,6,.707,0,false,EQChannelStereo};
-    for(unsigned type=0;type<3;type++) {
+    const unsigned gainTypes[]={EQFilterPeak,EQFilterLowShelf,EQFilterHighShelf,EQFilterLowShelf1,EQFilterHighShelf1};
+    for(unsigned t=0;t<5;t++) {
+        unsigned type=gainTypes[t];
         eq=eq_create(48000,0);assert(eq);custom.type=type;
         assert(eq_update_filters(eq,&custom,1,0,false));tone(.1,1);process(eq,2);
         double db=20*log10(rms(dest,N,N*2)/rms(source,N,N*2));
@@ -263,13 +265,16 @@ int main(void) {
         assert(fabs(eq_response_filters(1000,48000,&custom,1,0)-db)<.02);
         if(type==1) {assert(fabs(eq_response_filters(10,48000,&custom,1,0)-6)<.01);assert(fabs(eq_response_filters(20000,48000,&custom,1,0))<.01);}
         if(type==2) {assert(fabs(eq_response_filters(10,48000,&custom,1,0))<.01);assert(fabs(eq_response_filters(20000,48000,&custom,1,0)-6)<.01);}
+        // A 6 dB/octave shelf is still 0.016 dB from its plateau at 20 times or 1/20 of its frequency.
+        if(type==EQFilterLowShelf1) {assert(fabs(eq_response_filters(10,48000,&custom,1,0)-6)<.01);assert(fabs(eq_response_filters(20000,48000,&custom,1,0)-.016)<.01);}
+        if(type==EQFilterHighShelf1) {assert(fabs(eq_response_filters(50,48000,&custom,1,0)-.016)<.01);assert(fabs(eq_response_filters(23000,48000,&custom,1,0)-6)<.05);}
         eq_destroy(eq);
     }
     custom=(EQFilter){1234,-7.3,3.21,0,false,EQChannelStereo};
     assert(fabs(eq_response_filters(1234,48000,&custom,1,-6.7)+14)<.001);
     custom.q=.7;double wide=eq_response_filters(2000,48000,&custom,1,0);
     custom.q=5;double narrow=eq_response_filters(2000,48000,&custom,1,0);assert(wide<narrow-1);
-    eq=eq_create(48000,0);assert(eq);custom.type=EQFilterAllPass+1;assert(!eq_update_filters(eq,&custom,1,0,false));
+    eq=eq_create(48000,0);assert(eq);custom.type=EQFilterHighShelf1+1;assert(!eq_update_filters(eq,&custom,1,0,false));
     custom.type=0;custom.q=0;assert(!eq_update_filters(eq,&custom,1,0,false));
     assert(!eq_update_filters(eq,&custom,33,0,false));eq_destroy(eq);
     puts("PASS imported peaking, low/high shelves, custom frequency/Q, response consistency, and validation");

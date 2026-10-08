@@ -13,7 +13,7 @@ for kind in ImportedFilter.Kind.allCases {
     let response = profile.response(1000, rate: 48000)
     switch kind {
     case .peak: require(abs(response - 3) < 0.001, "Peak bridge mismatch")
-    case .lowShelf, .highShelf: require(abs(response) < 0.001, "Shelf bridge mismatch")
+    case .lowShelf, .highShelf, .firstOrderLowShelf, .firstOrderHighShelf: require(abs(response) < 0.001, "Shelf bridge mismatch")
     case .lowPass, .highPass: require(abs(response + 6.01029995664) < 0.001, "Pass bridge mismatch")
     case .bandPass, .allPass: require(abs(response + 3) < 0.001, "Unity-peak bridge mismatch")
     case .notch: require(response < -100 && response.isFinite, "Notch bridge mismatch")

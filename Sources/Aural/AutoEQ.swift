@@ -12,6 +12,9 @@ enum AutoEQ {
         guard let filters = parametric.filters else {
             throw AudioFailure(message: "Could not prepare EQ filters for copying.")
         }
+        if let index = filters.firstIndex(where: { !$0.kind.usesQ }) {
+            throw AudioFailure(message: "Equalizer APO text has no 6 dB/octave shelf that matches filter \(index + 1). Change it to a Low shelf or High shelf before exporting EQ text, or save a preset and use Back up presets to preserve it.")
+        }
         var lines = ["Preamp: \(parametric.preamp) dB"]
         var channel = ImportedFilter.Channel.stereo
         for (index, filter) in filters.enumerated() {

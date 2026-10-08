@@ -21,7 +21,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 
 ## Audio processing
 
-Peaking, Q-based low/high shelf, second-order low/high pass, band-pass, notch, and all-pass filters are implemented. Live control updates use prepared coefficients and preallocated chains. Audio callbacks allocate no memory, acquire no locks, perform no file I/O, and make no Swift/UI calls. Channel/stereo additions preserve default output and complete bypass semantics; peak protection follows its saved On/Off switch during bypass.
+Peaking, Q-based and first-order (6 dB/octave) low/high shelf, second-order low/high pass, band-pass, notch, and all-pass filters are implemented. Live control updates use prepared coefficients and preallocated chains. Audio callbacks allocate no memory, acquire no locks, perform no file I/O, and make no Swift/UI calls. Channel/stereo additions preserve default output and complete bypass semantics; peak protection follows its saved On/Off switch during bypass.
 
 ## Added in Aural 1.1
 

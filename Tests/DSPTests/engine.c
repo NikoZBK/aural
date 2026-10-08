@@ -391,6 +391,8 @@ static double analog_db(EQFilter f, double x) {
     case EQFilterPeak: m=analog_part(1,a/q,1,x)/analog_part(1,1/(a*q),1,x); break;
     case EQFilterLowShelf: m=a*a*analog_part(1,s/q,a,x)/analog_part(a,s/q,1,x); break;
     case EQFilterHighShelf: m=a*a*analog_part(a,s/q,1,x)/analog_part(1,s/q,a,x); break;
+    case EQFilterLowShelf1: m=(x*x+a*a)/(x*x+1/(a*a)); break;
+    case EQFilterHighShelf1: m=a*a*(a*a*x*x+1)/(x*x+a*a); break;
     case EQFilterLowPass: m=1/d; break;
     case EQFilterHighPass: m=x*x*x*x/d; break;
     case EQFilterBandPass: m=x*x/(q*q*d); break;
@@ -408,6 +410,8 @@ static void analog_shape_tests(void) {
         {{8000,5,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},.1}, {{12000,-8,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},.3},
         {{12000,0,M_SQRT1_2,EQFilterLowPass,false,EQChannelStereo},1}, {{60,0,M_SQRT1_2,EQFilterHighPass,false,EQChannelStereo},.01},
         {{5000,0,2,EQFilterBandPass,false,EQChannelStereo},1}, {{6000,0,4,EQFilterNotch,false,EQChannelStereo},.05},
+        {{150,9,M_SQRT1_2,EQFilterLowShelf1,false,EQChannelStereo},.01}, {{1000,-12,50,EQFilterLowShelf1,false,EQChannelStereo},.02},
+        {{3000,6,.05,EQFilterHighShelf1,false,EQChannelStereo},.05}, {{10000,-10,M_SQRT1_2,EQFilterHighShelf1,false,EQChannelStereo},.3},
     };
     const double rates[]={44100,48000,96000,192000};
     for (unsigned i=0;i<sizeof cases/sizeof *cases;i++) for (unsigned r=0;r<4;r++) {
@@ -424,7 +428,10 @@ static void analog_shape_tests(void) {
             assert(error<cases[i].tolerance);
         }
     }
-    puts("PASS peak, shelf, pass and notch filters keep their analog shape and exact centers at four sample rates");
+    // The 6 dB/octave shelves have no Q.
+    EQFilter loose={1000,-12,.05,EQFilterLowShelf1,false,EQChannelStereo}, tight=loose; tight.q=50;
+    for (double hz=20;hz<20000;hz*=1.5) assert(eq_response_filters(hz,48000,&loose,1,0)==eq_response_filters(hz,48000,&tight,1,0));
+    puts("PASS peak, shelf, 6 dB/octave shelf, pass and notch filters keep their analog shape and exact centers at four sample rates");
 }
 int main(void) {
     analog_shape_tests();
@@ -472,7 +479,8 @@ int main(void) {
     puts("PASS pass/notch/all-pass magnitude, phase, stereo isolation, disabled filters and bypass at five rates");
 
     // Disabled gain filters must preserve their saved gain while acting as identity.
-    for(unsigned type=0;type<=EQFilterHighShelf;type++) {
+    for(unsigned type=0;type<=EQFilterHighShelf1;type++) {
+        if (type>EQFilterHighShelf && type<=EQFilterAllPass) continue;
         EQ *eq=eq_create(48000,0); EQFilter filter={1000,12,.7,type,true,EQChannelStereo};
         assert(eq_update_filters(eq,&filter,1,0,false));
         assert(fabs(measure(eq,48000,1000,NULL))<.001);
@@ -530,8 +538,8 @@ int main(void) {
         for(unsigned block=0;block<2000;block++) {
             if(block%80==0) {
                 for(unsigned b=0;b<EQMaxFilters;b++) {
-                    unsigned type=(b+block/80)%8;
-                    filters[b]=(EQFilter){b%2 ? 10 : fmin(22000,rates[r]*.48),type<3 ? (b%2 ? 30 : -30) : 0,
+                    unsigned type=(b+block/80)%10;
+                    filters[b]=(EQFilter){b%2 ? 10 : fmin(22000,rates[r]*.48),type<3 || type>EQFilterAllPass ? (b%2 ? 30 : -30) : 0,
                         b%2 ? .05 : 50,type,block%160==0,EQChannelStereo};
                 }
                 assert(eq_update_filters(eq,filters,EQMaxFilters,-12,false));

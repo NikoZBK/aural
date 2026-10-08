@@ -18,9 +18,11 @@ struct FilterDraft: Identifiable, Equatable {
     func filter(row: Int) throws -> ImportedFilter {
         guard let hz = Double(frequency.trimmingCharacters(in: .whitespaces)),
               let db = kind.usesGain ? Double(gain.trimmingCharacters(in: .whitespaces)) : 0,
-              let quality = Double(q.trimmingCharacters(in: .whitespaces)) else {
+              let typed = Double(q.trimmingCharacters(in: .whitespaces)) ?? (kind.usesQ ? nil : 0.7071) else {
             throw AudioFailure(message: "Filter \(row): enter numbers for frequency, gain, and Q (use a decimal point).")
         }
+        // A hidden Q is kept for switching back to a shelf with Q, but must not block the filter.
+        let quality = kind.usesQ || (0.05...50).contains(typed) ? typed : 0.7071
         let result = ImportedFilter(kind: kind, frequency: hz, gain: db, q: quality, enabled: enabled, channel: channel == .stereo ? nil : channel)
         do { try result.validate() }
         catch { throw AudioFailure(message: "Filter \(row): \(error.localizedDescription)") }

@@ -5,8 +5,11 @@
 typedef struct EQ EQ;
 enum { EQBands = 10, EQMaxFilters = 64 };
 enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
-       EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass };
+       EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass,
+       EQFilterLowShelf1, EQFilterHighShelf1 };
 // disabled defaults to false for existing C initializers. Gain applies only to EQ/shelves.
+// The first-order (6 dB/octave) shelves ignore q; like the others, they reach half
+// their gain at the filter frequency.
 enum { EQChannelStereo, EQChannelLeft, EQChannelRight };
 typedef struct { double frequency, gain, q; unsigned type; bool disabled; unsigned channel; } EQFilter;
 // width=1 is neutral; use eq_stereo_default() instead of a zero initializer.

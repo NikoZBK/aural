@@ -83,19 +83,30 @@ static Coeff matched(Poles p, double dc, double nyquist, double at, double w) {
     double sum=(r0+r1)/2, difference=sqrt(fmax(0,at*pole_distance(p,w)-re*re))/sin(w);
     return with_poles((sum+difference)/2,(r0-r1)/2,(sum-difference)/2,p);
 }
+static bool has_gain(unsigned type) {
+    return type<=EQFilterHighShelf || type==EQFilterLowShelf1 || type==EQFilterHighShelf1;
+}
 static Coeff coeff(EQFilter filter, double db, double rate) {
     double hz=filter.frequency;
-    if (filter.disabled || hz >= rate * .49 || (filter.type <= EQFilterHighShelf && fabs(db) < 1e-10)) return (Coeff){1,0,0,0,0};
+    if (filter.disabled || hz >= rate * .49 || (has_gain(filter.type) && fabs(db) < 1e-10)) return (Coeff){1,0,0,0,0};
     double w=2*M_PI*hz/rate, q=filter.q, x=rate/(2*hz); // x: Nyquist relative to hz
-    if (filter.type<=EQFilterHighShelf) {
+    if (has_gain(filter.type)) {
         // Each prototype's cut is the exact inverse of its boost. Design the direction
         // whose poles are at or below hz (a high shelf's boost would put them above
         // Nyquist), then invert; the matched zeros are minimum phase, so this is stable.
-        bool high=filter.type==EQFilterHighShelf, invert=high ? db>0 : db<0;
+        bool high=filter.type==EQFilterHighShelf || filter.type==EQFilterHighShelf1, invert=high ? db>0 : db<0;
         double a=pow(10,(high ? -fabs(db) : fabs(db))/40), s=sqrt(a);
         Coeff c;
         if (filter.type==EQFilterPeak)
             c=matched(matched_poles(w,a*q),1,quad(1,a/q,1,x)/quad(1,1/(a*q),1,x),a*a*a*a,w);
+        else if (filter.type>=EQFilterLowShelf1) {
+            // The low shelf is (s + a)/(s + 1/a), the high shelf a²(s + 1/a)/(s + a). One real
+            // pole leaves the other at the origin. One pole cannot follow the analog shape
+            // all the way to Nyquist: shelves up to 15 kHz stay within 0.6 dB at 44.1 kHz.
+            double pole=high ? w*a : w/a, low=quad(0,1,a,x)/quad(0,1,1/a,x);
+            Poles p={{exp(-pole),0},{-expm1(-pole),1},0};
+            c=high ? matched(p,1,a*a*a*a/low,a*a,w) : matched(p,a*a*a*a,low,a*a,w);
+        }
         else if (!high)
             c=matched(matched_poles(w/s,q),a*a*a*a,a*a*quad(1,s/q,a,x)/quad(a,s/q,1,x),a*a,w);
         else
@@ -166,7 +177,7 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
     for (unsigned i=0;i<count;i++) {
         EQFilter f=filters[i];
         if (!isfinite(f.frequency) || f.frequency<10 || f.frequency>22000 || !isfinite(f.gain) || fabs(f.gain)>30 ||
-            !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterAllPass || f.channel>EQChannelRight || (f.type>EQFilterHighShelf && f.gain!=0)) return false;
+            !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterHighShelf1 || f.channel>EQChannelRight || (!has_gain(f.type) && f.gain!=0)) return false;
     }
     Settings *next=&eq->slots[eq->back];
     memcpy(next->filters,filters,sizeof(EQFilter)*count);

@@ -212,10 +212,16 @@ struct FilterEditor: View {
                     .accessibilityLabel("Filter \(number) has no gain parameter")
                     .help("This filter uses frequency and Q. Adjust preamp to change the overall level.")
             }
-            TextField("Q", text: filter.q)
-                .auralFrame(width: 80)
-                .accessibilityLabel("Filter \(number) Q")
-                .accessibilityHint("Enter a number from 0.05 to 50")
+            if filter.wrappedValue.kind.usesQ {
+                TextField("Q", text: filter.q)
+                    .auralFrame(width: 80)
+                    .accessibilityLabel("Filter \(number) Q")
+                    .accessibilityHint("Enter a number from 0.05 to 50")
+            } else {
+                Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 80)
+                    .accessibilityLabel("Filter \(number) has a fixed 6 dB per octave slope")
+                    .help("This shelf has a fixed 6 dB/octave slope, so it has no Q.")
+            }
             Menu {
                 Button("Duplicate", systemImage: "plus.square.on.square") {
                     do { try withAuralAnimation { try draft.duplicateFilter(id) }; error = nil }

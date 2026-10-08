@@ -28,6 +28,8 @@ extension Profile {
                 case .peak: type = UInt32(EQFilterPeak)
                 case .lowShelf: type = UInt32(EQFilterLowShelf)
                 case .highShelf: type = UInt32(EQFilterHighShelf)
+                case .firstOrderLowShelf: type = UInt32(EQFilterLowShelf1)
+                case .firstOrderHighShelf: type = UInt32(EQFilterHighShelf1)
                 case .lowPass: type = UInt32(EQFilterLowPass)
                 case .highPass: type = UInt32(EQFilterHighPass)
                 case .bandPass: type = UInt32(EQFilterBandPass)

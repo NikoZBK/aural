@@ -426,6 +426,28 @@ do {
     effects.stereo = StereoSettings(leftTrimDB: -3)
     do { _ = try AutoEQ.export(effects); fatalError("Export silently discarded stereo effects") }
     catch { require(error.localizedDescription.contains("stereo effects"), "Export must explain unsupported effects") }
+    // 6 dB/octave shelves have no Equalizer APO equivalent: export refuses them, text never
+    // creates them, and presets keep them.
+    let gentle = try Profile(preamp: -2, filters: [
+        ImportedFilter(kind: .peak, frequency: 100, gain: 2, q: 1, enabled: true),
+        ImportedFilter(kind: .firstOrderHighShelf, frequency: 3000, gain: -4, q: 0.7071, enabled: true)]).validated()
+    do { _ = try AutoEQ.export(gentle); fatalError("Export wrote a 6 dB/octave shelf as text") }
+    catch { require(error.localizedDescription.contains("filter 2"), "Export must name the 6 dB/octave shelf") }
+    for code in ["LS1", "HS1"] {
+        do { _ = try AutoEQ.parse("Filter 1: ON \(code) Fc 1000 Hz Gain 3 dB Q 0.7", name: "Invalid"); fatalError("Parsed \(code) as text") }
+        catch { require(error is AudioFailure, "Unexpected \(code) parse failure") }
+    }
+    let savedGentle = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(gentle))
+    require(savedGentle == gentle, "Preset lost a 6 dB/octave shelf")
+    var hiddenQ = FilterDraft(ImportedFilter(kind: .firstOrderLowShelf, frequency: 200, gain: 3, q: 2, enabled: true))
+    let keptQ = try hiddenQ.filter(row: 1)
+    require(keptQ.q == 2, "Hidden Q was not kept for switching back")
+    hiddenQ.q = "x"
+    let invalidQ = try hiddenQ.filter(row: 1)
+    require(invalidQ == ImportedFilter(kind: .firstOrderLowShelf, frequency: 200, gain: 3, q: 0.7071, enabled: true),
+            "A hidden Q blocked a 6 dB/octave shelf")
+    hiddenQ.kind = .lowShelf
+    do { _ = try hiddenQ.filter(row: 1); fatalError("A visible invalid Q was accepted") } catch {}
     var settings = Settings(presets: ["Stereo fixture": effects])
     let data = try JSONEncoder().encode(PresetBackup(presets: settings.presets, favorites: []))
     settings.presets = [:]

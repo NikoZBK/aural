@@ -10,8 +10,8 @@ int main(void) {
     double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         for (unsigned i=0;i<EQMaxFilters;i++) {
-            unsigned type=i%8;
-            filters[i]=(EQFilter){20*pow(1000,(i+.5)/EQMaxFilters),type<=EQFilterHighShelf ? (int)(i%7)*4.5-13.5 : 0,
+            unsigned type=i%10;
+            filters[i]=(EQFilter){20*pow(1000,(i+.5)/EQMaxFilters),type<=EQFilterHighShelf || type>EQFilterAllPass ? (int)(i%7)*4.5-13.5 : 0,
                 i%2 ? .05 : 50,type,i%5==0,i%3};
         }
         for (unsigned i=0;i<513;i++) frequencies[i]=20*pow(1000,i/512.0);
