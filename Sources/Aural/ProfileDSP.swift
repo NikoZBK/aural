@@ -42,8 +42,16 @@ extension Profile {
                 return EQFilter(frequency: filter.frequency, gain: filter.gain, q: filter.q, type: type, disabled: !filter.enabled, channel: channel)
             }
         }
-        let frequencies: [Double] = [31.5,63,125,250,500,1000,2000,4000,8000,16000]
-        return zip(frequencies, gains).map { EQFilter(frequency: $0.0, gain: $0.1, q: 1.4, type: UInt32(EQFilterPeak), disabled: $0.0 >= rate * 0.49, channel: UInt32(EQChannelStereo)) }
+        // Solve against the engine's own response, so each slider is exact at this rate.
+        func band(_ index: Int, gain: Double) -> EQFilter {
+            EQFilter(frequency: GraphicEQ.frequencies[index], gain: gain, q: GraphicEQ.q, type: UInt32(EQFilterPeak),
+                     disabled: GraphicEQ.frequencies[index] >= rate * 0.49, channel: UInt32(EQChannelStereo))
+        }
+        let bandGains = GraphicEQ.bandGains(for: gains, rate: rate) { index, gain, frequency in
+            var filter = band(index, gain: gain)
+            return eq_response_filters(frequency, rate, &filter, 1, 0)
+        }
+        return bandGains.indices.map { band($0, gain: bandGains[$0]) }
     }
     // This is the EQ/preamp response, before stereo processing. The default
     // returns the louder channel so automatic headroom covers both channels.

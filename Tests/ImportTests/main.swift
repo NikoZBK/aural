@@ -149,7 +149,7 @@ for invalid in ["", "abc", "nan", "inf", "9", "22001"] {
 }
 for builtIn in Profile.builtInPresets.values {
     let converted = try ParametricDraft(builtIn).profile()
-    require(converted.filters?.map(\.gain) == builtIn.gains && converted.preamp == builtIn.preamp, "Graphic conversion changed gain")
+    require(converted.filters?.map(\.gain) == GraphicEQ.bandGains(for: builtIn.gains) && converted.preamp == builtIn.preamp, "Graphic conversion changed gain")
 }
 var empty = ParametricDraft(Profile()); empty.filters = []
 do { _ = try empty.profile(); fatalError("Empty filter draft accepted") } catch {}
@@ -512,3 +512,51 @@ do {
             "Switching EQ representations must remain a document change")
 }
 print("PASS parametric EQ identity ignores inactive graphic gains while retaining active changes")
+
+do {
+    func sum(_ gains: [Double], at frequency: Double) -> Double {
+        gains.indices.reduce(0) { $0 + GraphicEQ.level(band: $1, gain: gains[$1], at: frequency) }
+    }
+    let audible = stride(from: log(20.0), through: log(20000.0), by: 0.002).map { exp($0) }
+    for sliders in [[6.0, 6, 6, 6, 6, 6, 6, 6, 6, 6], [12, -12, 12, -12, 12, -12, 12, -12, 12, -12],
+                    [-12, -12, -12, -12, -12, 12, 12, 12, 12, 12], [0, 0, 0, 0, 0, 12, 0, 0, 0, 0]] {
+        let gains = GraphicEQ.bandGains(for: sliders)
+        require(gains.allSatisfy { abs($0) <= 30 }, "Solved band gains must stay within the parametric range")
+        for (band, frequency) in GraphicEQ.frequencies.enumerated() {
+            require(abs(sum(gains, at: frequency) - sliders[band]) < 1e-6, "Graphic slider does not set its centre level: \(sliders)")
+        }
+    }
+
+    // Aural 1.3 stored raw Q 1.4 band gains. Migration keeps their sound.
+    let legacyPresets: [String: ([Double], Double)] = [
+        "Flat": ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0),
+        "Warm": ([2, 3, 2, 1, 0, 0, -1, -1, 0, 0], -5), "Voice": ([-4, -3, -2, 0, 1, 2, 3, 2, 0, -1], -5),
+        "Detail": ([0, 0, -1, -1, 0, 1, 2, 3, 2, 1], -5), "Bass Boost": ([5, 5, 4, 2, 0, 0, 0, 0, 0, 0], -8),
+        "Treble Boost": ([0, 0, 0, 0, 0, 1, 2, 3, 4, 4], -7), "Classical": ([1, 1, 0, 0, -1, -1, 0, 1, 2, 2], -4),
+        "Electronic": ([4, 4, 2, 0, -1, 0, 1, 2, 3, 2], -7), "Rock": ([3, 2, 1, -1, -2, 0, 2, 3, 2, 1], -6),
+        "Vocal": ([-2, -2, -1, 0, 1, 2, 2, 1, 0, -1], -4)
+    ]
+    require(Set(legacyPresets.keys) == Set(Profile.builtInPresets.keys), "Every built-in preset needs its Aural 1.3 gains")
+    for (name, (gains, preamp)) in legacyPresets {
+        let saved = Data(#"{"gains":\#(gains),"preamp":\#(preamp)}"#.utf8)
+        let migrated = try JSONDecoder().decode(Profile.self, from: saved)
+        require(migrated == Profile.builtInPresets[name], "Built-in preset does not match its migrated Aural 1.3 gains: \(name)")
+        let now = GraphicEQ.bandGains(for: migrated.gains)
+        require(audible.allSatisfy { abs(sum(now, at: $0) - sum(gains, at: $0)) <= 0.05 }, "Migration changed the sound of \(name)")
+    }
+
+    let saved = try JSONEncoder().encode(Profile.builtInPresets["Bass Boost"]!)
+    require(String(decoding: saved, as: UTF8.self).contains(#""graphicVersion":2"#), "Profiles must record that sliders set centre levels")
+    let reloaded = try JSONDecoder().decode(Profile.self, from: saved)
+    require(reloaded == Profile.builtInPresets["Bass Boost"], "A saved profile must not migrate again")
+
+    let loud = try JSONDecoder().decode(Profile.self, from: Data(#"{"gains":[12,12,12,12,12,12,12,12,12,12],"preamp":-24}"#.utf8))
+    _ = try loud.validated()
+    require(loud.filters?.map(\.gain) == loud.gains && loud.gains.allSatisfy { $0 == 12 } &&
+            loud.filters?.allSatisfy({ $0.kind == .peak && $0.q == GraphicEQ.q && $0.enabled }) == true &&
+            loud.filters?.map(\.frequency) == GraphicEQ.frequencies && loud.preamp == -24,
+            "A legacy profile beyond the slider range must keep its sound as parametric filters")
+    let legacyParametric = try JSONDecoder().decode(Profile.self, from: Data(#"{"gains":[5,5,4,2,0,0,0,0,0,0],"preamp":-3,"filters":[{"kind":"PK","frequency":1000,"gain":6,"q":1,"enabled":true}]}"#.utf8))
+    require(legacyParametric.gains == [5, 5, 4, 2, 0, 0, 0, 0, 0, 0], "Inactive graphic gains of a parametric profile must not migrate")
+}
+print("PASS graphic sliders set centre levels, and Aural 1.3 profiles and presets migrate with their sound")

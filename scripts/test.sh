@@ -17,25 +17,25 @@ xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,unde
 xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Tests/DSPTests/state.c -framework CoreAudio -o .build/dsp-state-tests
 .build/dsp-state-tests
 
-xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/PresetLibrary.swift Sources/Aural/ReleaseInfo.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQ.swift Sources/Aural/Startup.swift Tests/ImportTests/main.swift -o .build/import-tests
+xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/PresetLibrary.swift Sources/Aural/ReleaseInfo.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQ.swift Sources/Aural/Startup.swift Tests/ImportTests/main.swift -o .build/import-tests
 .build/import-tests
 
 # Exercise the app's actual Swift-to-C bridge, not a test-only reimplementation.
 xcrun clang -std=c11 -I Sources/DSP/include -c Sources/DSP/DSP.c -o .build/dsp-bridge.o
-xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Tests/BridgeTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/bridge-tests
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileDSP.swift Tests/BridgeTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/bridge-tests
 .build/bridge-tests
 
-xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/ProfileWorkspace.swift Tests/WorkflowTests/main.swift -o .build/workflow-tests
+xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileWorkspace.swift Tests/WorkflowTests/main.swift -o .build/workflow-tests
 .build/workflow-tests
 
 # Preserve imported precision while distinguishing explicit numeric edits from display formatting.
 xcrun swiftc -parse-as-library Sources/Aural/PrecisionInput.swift Tests/PrecisionTests/main.swift -o .build/precision-tests
 .build/precision-tests
 
-xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/AutoEQ.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQCatalog.swift Sources/Aural/HarmanReference.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileDSP.swift Sources/Aural/AutoEQ.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQCatalog.swift Sources/Aural/HarmanReference.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
 .build/response-tests
 
-xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Headroom.swift Sources/Aural/LevelMatch.swift Tests/HeadroomTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/headroom-tests
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Headroom.swift Sources/Aural/LevelMatch.swift Tests/HeadroomTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/headroom-tests
 .build/headroom-tests
 
 # Exercise the actual window lifecycle controller without launching audio or showing UI.

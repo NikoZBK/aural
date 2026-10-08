@@ -135,7 +135,7 @@ struct ProfileWorkspace {
 }
 
 enum ProfileTools {
-    static let graphicFrequencies: [Double] = [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+    static let graphicFrequencies = GraphicEQ.frequencies
     static let thirdOctaveFrequencies: [Double] = [
         20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500,
         630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000,
@@ -145,8 +145,8 @@ enum ProfileTools {
     static func parametric(_ profile: Profile) throws -> Profile {
         var result = try profile.validated()
         if result.filters == nil {
-            result.filters = zip(graphicFrequencies, result.gains).map {
-                ImportedFilter(kind: .peak, frequency: $0.0, gain: $0.1, q: 1.4, enabled: true)
+            result.filters = zip(graphicFrequencies, GraphicEQ.bandGains(for: result.gains)).map {
+                ImportedFilter(kind: .peak, frequency: $0.0, gain: $0.1, q: GraphicEQ.q, enabled: true)
             }
         }
         return result

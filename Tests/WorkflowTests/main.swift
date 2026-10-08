@@ -115,12 +115,16 @@ rejects("non-finite scale") { _ = try ProfileTools.transformGains(reference, sca
 rejects("non-finite offset") { _ = try ProfileTools.transformGains(reference, scale: 1, offset: .infinity) }
 require(reference.gains[0] == 1 && reference.preamp == -12, "Rejected transformation mutated its input")
 let parametric = try ProfileTools.parametric(reference)
-require(parametric.filters?.map(\.gain) == reference.gains && parametric.filters?.map(\.frequency) == ProfileTools.graphicFrequencies, "Converting graphic EQ changed its transfer function")
+require(parametric.filters?.map(\.gain) == GraphicEQ.bandGains(for: reference.gains) && parametric.filters?.map(\.frequency) == ProfileTools.graphicFrequencies, "Converting graphic EQ changed its transfer function")
+for (band, slider) in reference.gains.enumerated() {
+    let level = parametric.filters!.indices.reduce(0) { $0 + GraphicEQ.level(band: $1, gain: parametric.filters![$1].gain, at: ProfileTools.graphicFrequencies[band]) }
+    require(abs(level - slider) < 1e-6, "Converted graphic EQ must keep each slider's level at its centre")
+}
 require(parametric.filters?.allSatisfy { $0.q == 1.4 && $0.kind == .peak && $0.enabled } == true, "Converting graphic EQ changed bandwidth or filter state")
 require(try ProfileTools.shiftFrequencies(reference, octaves: 0) == reference, "A zero shift must preserve graphic mode")
 let shifted = try ProfileTools.shiftFrequencies(reference, octaves: -1)
 require(shifted.filters?.map(\.frequency) == ProfileTools.graphicFrequencies.map { $0 / 2 }, "Octave shift is incorrect")
-require(shifted.filters?.map(\.gain) == reference.gains && shifted.preamp == reference.preamp && shifted.stereo == reference.stereo, "Frequency shift changed unrelated controls")
+require(shifted.filters?.map(\.gain) == parametric.filters?.map(\.gain) && shifted.preamp == reference.preamp && shifted.stereo == reference.stereo, "Frequency shift changed unrelated controls")
 rejects("frequency above range") { _ = try ProfileTools.shiftFrequencies(reference, octaves: 1) }
 rejects("frequency below range") { _ = try ProfileTools.shiftFrequencies(reference, octaves: -10) }
 rejects("non-finite shift") { _ = try ProfileTools.shiftFrequencies(reference, octaves: .nan) }

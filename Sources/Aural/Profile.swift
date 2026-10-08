@@ -144,6 +144,53 @@ struct Profile: Codable, Equatable, Sendable {
     }
 }
 
+extension Profile {
+    // Aural 1.3 and earlier saved graphic sliders as raw band gains, whose overlapping
+    // bands overshoot. Profiles now record that their sliders set the level at each centre.
+    private enum CodingKeys: String, CodingKey {
+        case gains, preamp, filters, sourceName, stereo, autoEQSource, graphicVersion
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        gains = try values.decode([Double].self, forKey: .gains)
+        preamp = try values.decode(Double.self, forKey: .preamp)
+        filters = try values.decodeIfPresent([ImportedFilter].self, forKey: .filters)
+        sourceName = try values.decodeIfPresent(String.self, forKey: .sourceName)
+        stereo = try values.decodeIfPresent(StereoSettings.self, forKey: .stereo)
+        autoEQSource = try values.decodeIfPresent(AutoEQSource.self, forKey: .autoEQSource)
+        if try values.decodeIfPresent(Int.self, forKey: .graphicVersion) == nil { self = migratingLegacySliders() }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(gains, forKey: .gains)
+        try values.encode(preamp, forKey: .preamp)
+        try values.encodeIfPresent(filters, forKey: .filters)
+        try values.encodeIfPresent(sourceName, forKey: .sourceName)
+        try values.encodeIfPresent(stereo, forKey: .stereo)
+        try values.encodeIfPresent(autoEQSource, forKey: .autoEQSource)
+        try values.encode(2, forKey: .graphicVersion)
+    }
+
+    /// Keeps the sound of a graphic profile saved with raw band gains: each slider moves
+    /// to the level that was heard at its centre. A profile that would need more than
+    /// ±12 dB becomes the same ten bands as parametric filters instead.
+    func migratingLegacySliders() -> Profile {
+        guard filters == nil, gains.count == GraphicEQ.frequencies.count,
+              gains.allSatisfy({ $0.isFinite && abs($0) <= 12 }) else { return self }
+        var result = self
+        if let sliders = GraphicEQ.sliders(forBandGains: gains) {
+            result.gains = sliders
+        } else {
+            result.filters = zip(GraphicEQ.frequencies, gains).map {
+                ImportedFilter(kind: .peak, frequency: $0.0, gain: $0.1, q: GraphicEQ.q, enabled: true)
+            }
+        }
+        return result
+    }
+}
+
 enum InterfaceMode: String, Codable, CaseIterable {
     case easy, professional
 
@@ -231,17 +278,18 @@ extension Settings {
 
 // Broad listening curves, ordered from 31.5 Hz to 16 kHz.
 // These are creative starting points, not headphone correction profiles.
+// They sound as in Aural 1.3; the import tests derive them from its raw band gains.
 extension Profile {
     static let builtInPresets: [String: Profile] = [
         "Flat": Profile(),
-        "Warm": Profile(gains: [2,3,2,1,0,0,-1,-1,0,0], preamp: -5),
-        "Voice": Profile(gains: [-4,-3,-2,0,1,2,3,2,0,-1], preamp: -5),
-        "Detail": Profile(gains: [0,0,-1,-1,0,1,2,3,2,1], preamp: -5),
-        "Bass Boost": Profile(gains: [5,5,4,2,0,0,0,0,0,0], preamp: -8),
-        "Treble Boost": Profile(gains: [0,0,0,0,0,1,2,3,4,4], preamp: -7),
-        "Classical": Profile(gains: [1,1,0,0,-1,-1,0,1,2,2], preamp: -4),
-        "Electronic": Profile(gains: [4,4,2,0,-1,0,1,2,3,2], preamp: -7),
-        "Rock": Profile(gains: [3,2,1,-1,-2,0,2,3,2,1], preamp: -6),
-        "Vocal": Profile(gains: [-2,-2,-1,0,1,2,2,1,0,-1], preamp: -4)
+        "Warm": Profile(gains: [2.6,3.8,2.8,1.5,0.2,-0.2,-1.2,-1.2,-0.2,0], preamp: -5),
+        "Voice": Profile(gains: [-4.6,-4.1,-2.7,-0.2,1.4,2.8,3.8,2.6,0.3,-0.9], preamp: -5),
+        "Detail": Profile(gains: [0,-0.2,-1.2,-1.1,0.1,1.5,2.8,3.8,2.8,1.5], preamp: -5),
+        "Bass Boost": Profile(gains: [6.1,6.8,5.5,3,0.6,0.1,0,0,0,0], preamp: -8),
+        "Treble Boost": Profile(gains: [0,0,0,0.1,0.3,1.5,2.9,4.3,5.4,4.9], preamp: -7),
+        "Classical": Profile(gains: [1.2,1.2,0.2,-0.2,-1.2,-1.1,0.1,1.4,2.5,2.4], preamp: -4),
+        "Electronic": Profile(gains: [4.8,5.1,2.9,0.4,-0.8,0.1,1.5,2.8,3.8,2.6], preamp: -7),
+        "Rock": Profile(gains: [3.4,2.7,1.2,-1.1,-2,0.1,2.6,3.8,2.8,1.5], preamp: -6),
+        "Vocal": Profile(gains: [-2.4,-2.5,-1.4,0,1.4,2.6,2.6,1.4,0.1,-0.9], preamp: -4)
     ]
 }

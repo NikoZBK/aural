@@ -36,9 +36,8 @@ struct ParametricDraft: Equatable {
     init(_ profile: Profile) {
         original = profile
         preamp = String(profile.preamp)
-        let frequencies: [Double] = [31.5,63,125,250,500,1000,2000,4000,8000,16000]
-        filters = (profile.filters ?? zip(frequencies, profile.gains).map {
-            ImportedFilter(kind: .peak, frequency: $0.0, gain: $0.1, q: 1.4, enabled: true)
+        filters = (profile.filters ?? zip(GraphicEQ.frequencies, GraphicEQ.bandGains(for: profile.gains)).map {
+            ImportedFilter(kind: .peak, frequency: $0.0, gain: $0.1, q: GraphicEQ.q, enabled: true)
         }).map { FilterDraft($0) }
     }
 

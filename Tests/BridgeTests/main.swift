@@ -83,3 +83,16 @@ require(oldFilter.effectiveChannel == .stereo, "Legacy filter did not decode as 
 let channelData = try JSONEncoder().encode(channelProfile)
 require(try JSONDecoder().decode(Profile.self, from: channelData) == channelProfile, "Channel targets lost in profile persistence")
 print("PASS channel-target bridge, per-channel graph, conservative headroom, legacy targets and channel persistence")
+
+for rate in [32000.0, 44100, 48000, 88200, 96000, 176400, 192000] {
+    for sliders in [[6.0, 6, 6, 6, 6, 6, 6, 6, 6, 6], [12, -12, 12, -12, 12, -12, 12, -12, 12, -12],
+                    [-12, -12, -12, -12, -12, 12, 12, 12, 12, 12], [0, 0, 0, 0, 0, 0, 0, 0, -12, 12]] {
+        let profile = Profile(gains: sliders)
+        let filters = profile.dspFilters(rate: rate)
+        for (band, frequency) in GraphicEQ.frequencies.enumerated() where frequency < rate * 0.49 {
+            require(abs(profile.response(frequency, rate: rate) - sliders[band]) < 1e-6, "Engine misses graphic slider at \(frequency) Hz, \(rate) Hz")
+        }
+        require(filters.map(\.disabled) == GraphicEQ.frequencies.map { $0 >= rate * 0.49 }, "Graphic band disabled at the wrong rate")
+    }
+}
+print("PASS the engine's response at each graphic band centre equals its slider at seven sample rates")
