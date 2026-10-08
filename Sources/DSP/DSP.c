@@ -198,6 +198,15 @@ static void reset_history(Chain *chain) {
     // large buffer in the callback. Both delay rings are allocated at creation.
     chain->delayIndex=chain->delayValid=0;
 }
+static bool within(double a, double b, double ratio) { return a<=b*ratio && b<=a*ratio; }
+// Dragging a control sends many small in-place edits. Restarting the edited
+// filter for each one drops slow bass until it rings up again. Measured against
+// a restart at 44.1-192 kHz, carried state dips less and overshoots no more
+// within these limits; larger frequency jumps can overshoot, so they restart.
+static bool small_edit(EQFilter a, EQFilter b) {
+    return a.type==b.type && a.channel==b.channel && a.disabled==b.disabled &&
+           within(a.frequency,b.frequency,1.2599210498948732) && within(a.q,b.q,4) && fabs(a.gain-b.gain)<=3;
+}
 static void begin_transition(EQ *eq) {
     Chain *old=&eq->chains[eq->active], *next=&eq->chains[1-eq->active];
     eq->pending=false;
@@ -208,12 +217,21 @@ static void begin_transition(EQ *eq) {
     // scale exactly with preamp amplitude; discarding them on a volume change
     // would temporarily remove slow bass correction after the crossfade ends.
     // Other-channel and identity filters do not break that prefix, even when
-    // insertion/removal moves its slots. Never copy downstream of an edited
-    // coefficient on the channel whose state is being transferred.
+    // insertion/removal moves its slots. A small in-place edit keeps its state
+    // and the prefix; after any other edited coefficient, never copy history on
+    // the channel whose state is being transferred.
     double scale=next->settings.amplitude/old->settings.amplitude;
+    bool sameSlots=old->settings.count==next->settings.count;
     for (unsigned c=0;c<2;c++) {
         unsigned before=0,after=0;
         while (before<old->settings.count && after<next->settings.count) {
+            if (sameSlots && before==after && small_edit(old->settings.filters[before],next->settings.filters[after])) {
+                if (applies_to_channel(next->settings.filters[after],c) && !identity(next->settings.coefficients[after])) {
+                    next->z1[c][after]=old->z1[c][before]*scale;
+                    next->z2[c][after]=old->z2[c][before]*scale;
+                }
+                before++; after++; continue;
+            }
             if (!applies_to_channel(old->settings.filters[before],c) || identity(old->settings.coefficients[before])) { before++; continue; }
             if (!applies_to_channel(next->settings.filters[after],c) || identity(next->settings.coefficients[after])) { after++; continue; }
             if (!same_coefficients(old->settings.coefficients[before],next->settings.coefficients[after])) break;

@@ -261,11 +261,81 @@ static void channel_history_tests(void) {
     }
     puts("PASS independent channel history across other-channel edits, removal, insertion, identity filters, preamp and routing at five rates");
 }
+static const double bassTone=.01;
+static float bass_input(unsigned sample, double rate) { return bassTone*sin(2*M_PI*30*sample/rate); }
+// Largest deviation (dB) of a 30 Hz tone from the settled response of the
+// current filters, after skipping some frames. |sin| peaks once per 1/60 s.
+static double bass_error(EQ *eq, double rate, unsigned *sample, unsigned skip, unsigned windows, const EQFilter *filters, unsigned count, double preamp) {
+    double expected=eq_response_filters(30,rate,filters,count,preamp), worst=0;
+    unsigned window=(unsigned)ceil(rate/60);
+    float out[2];
+    for (unsigned i=0;i<skip;i++,(*sample)++) frame(eq,bass_input(*sample,rate),bass_input(*sample,rate),out);
+    for (unsigned w=0;w<windows;w++) {
+        double peak=0;
+        for (unsigned i=0;i<window;i++,(*sample)++) {
+            frame(eq,bass_input(*sample,rate),bass_input(*sample,rate),out);
+            assert(out[0]==out[1]); peak=fmax(peak,fabs(out[0]));
+        }
+        worst=fmax(worst,fabs(20*log10(peak/bassTone)-expected));
+    }
+    assert(eq_faults(eq)==0);
+    return worst;
+}
+static void edit_history_tests(void) {
+    const double rates[]={32000,44100,48000,96000,192000};
+    for (unsigned r=0;r<5;r++) {
+        double rate=rates[r];
+        EQ *eq=eq_create(rate,0); assert(eq);
+        unsigned fade=(unsigned)ceil(rate*.02);
+        // An AutoEQ-like order: slow bass correction after a treble filter.
+        EQFilter filters[2]={{3000,-3,2,EQFilterPeak,false,EQChannelStereo},{30,8,6,EQFilterPeak,false,EQChannelStereo}};
+        assert(eq_update_filters(eq,filters,2,-8,false));
+        unsigned sample=0;
+        bass_error(eq,rate,&sample,0,180,filters,2,-8);
+        assert(bass_error(eq,rate,&sample,0,6,filters,2,-8)<.01);
+        // Restarting the edited bass filter would drop its 30 Hz level by ~5 dB.
+        filters[1].gain=7.9; assert(eq_update_filters(eq,filters,2,-8,false));
+        assert(bass_error(eq,rate,&sample,fade,60,filters,2,-8)<.12);
+        // Drag its gain 4 dB at 60 updates per second; the level follows closely.
+        double drag=0;
+        for (unsigned step=1;step<=60;step++) {
+            filters[1].gain=7.9-4.0*step/60; assert(eq_update_filters(eq,filters,2,-8,false));
+            drag=fmax(drag,bass_error(eq,rate,&sample,0,1,filters,2,-8));
+        }
+        assert(drag<.6 && bass_error(eq,rate,&sample,fade,30,filters,2,-8)<.4);
+        // Small upstream edits, including through 0 dB identity, keep bass history.
+        const double treble[]={-2.5,0,.5};
+        for (unsigned e=0;e<3;e++) {
+            filters[0].gain=treble[e]; assert(eq_update_filters(eq,filters,2,-8,false));
+            assert(bass_error(eq,rate,&sample,fade,30,filters,2,-8)<.01);
+        }
+        // Type changes and larger jumps restart the edited filter and those after
+        // it: with nothing before it, the chain matches a fresh one exactly.
+        EQFilter first=filters[0]; filters[0]=filters[1]; filters[1]=first;
+        assert(eq_update_filters(eq,filters,2,-8,false));
+        bass_error(eq,rate,&sample,0,30,filters,2,-8);
+        for (unsigned jump=0;jump<2;jump++) {
+            if (jump==0) filters[0].type=EQFilterLowShelf; else filters[0].frequency=60;
+            EQ *reference=eq_create(rate,0); assert(reference);
+            assert(eq_update_filters(eq,filters,2,-8,false) && eq_update_filters(reference,filters,2,-8,false));
+            float out[2],base[2];
+            for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
+                frame(eq,bass_input(sample,rate),bass_input(sample,rate),out);
+                frame(reference,bass_input(sample,rate),bass_input(sample,rate),base);
+                if (i>=fade) assert(out[0]==base[0] && out[1]==base[1]);
+            }
+            assert(eq_faults(eq)==0 && eq_faults(reference)==0); eq_destroy(reference);
+        }
+        eq_destroy(eq);
+    }
+    puts("PASS small edits and drags keep slow bass history; type changes and large jumps restart at five rates");
+}
 int main(void) {
     stereo_tests();
     channel_tests();
     preamp_history_tests();
     channel_history_tests();
+    edit_history_tests();
     const double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         double rate=rates[r];
