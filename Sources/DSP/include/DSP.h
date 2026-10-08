@@ -39,9 +39,14 @@ extern const double EQFrequencies[EQBands];
 EQ * _Nullable eq_create(double sampleRate, unsigned inputOffset);
 void eq_destroy(EQ *eq);
 // Enabled by default. A control-thread change takes effect at the next buffer,
-// independently of filter updates and Bypass. Off stops limiting new peaks, and
-// attenuation already applied releases smoothly (80 ms time constant) to none.
+// independently of filter updates and Bypass. Protection keeps true (inter-sample)
+// peaks at or below 0.98, lowering the gain over 1 ms before each one. Off stops
+// limiting new peaks, and attenuation already applied releases smoothly (80 ms
+// time constant) to none.
 void eq_set_peak_protection(EQ *eq, bool enabled);
+// Frames the output lags the input, for the protection's look-ahead: about 1.2 ms,
+// fixed for the engine whether protection is on or off and in Bypass.
+unsigned eq_latency(const EQ *eq);
 // Single control-thread producer; the audio callback is the sole consumer.
 // Valid settings are always accepted, even while the callback is not running:
 // it applies the latest update and skips any it never took.

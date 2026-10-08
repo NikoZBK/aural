@@ -317,7 +317,7 @@ struct MainView: View {
                         compact: true, inline: !compact)
         }
         .auralFrame(maxWidth: .infinity, alignment: .leading)
-        .help("Audio passes through preamp and filters, stereo and delay, then optional sample-peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
+        .help("Audio passes through preamp and filters, stereo and delay, then optional peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
         .auralPadding(.horizontal, 20).auralPadding(.vertical, 8)
     }
 

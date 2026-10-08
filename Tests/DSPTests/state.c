@@ -10,9 +10,14 @@ static unsigned nonzero_state(const EQ *eq) {
         for (unsigned b=0;b<EQMaxFilters;b++) count+=(chain->z1[c][b]!=0)+(chain->z2[c][b]!=0);
         count+=chain->crossfeedLow[c]!=0;
     }
+    const Limiter *l=&eq->limiter;
+    for (unsigned c=0;c<2;c++) {
+        for (unsigned i=0;i<2*LimiterTaps;i++) count+=l->history[c][i]!=0;
+        for (unsigned i=0;i<LimiterCapacity;i++) count+=l->delayed[c][i]!=0;
+    }
     return count;
 }
-// Silence after loud noise must bring filter and crossfeed state to exact zero,
+// Silence after loud noise must bring filter, crossfeed and look-ahead state to exact zero,
 // not leave it cycling in the subnormal range (slow on Intel, forever).
 static void silence_tests(void) {
     const double rates[]={44100,48000,96000,192000};
@@ -46,7 +51,7 @@ static void silence_tests(void) {
         assert(eq_faults(eq)==0 && eq_signal_faults(eq)==0);
         eq_destroy(eq);
     }
-    printf("PASS silence flushes filter and crossfeed state to zero at four rates\n");
+    printf("PASS silence flushes filter, crossfeed and look-ahead state to zero at four rates\n");
 }
 int main(void) {
     silence_tests();

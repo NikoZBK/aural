@@ -417,7 +417,7 @@ struct StudioMeter: View {
                 }
             }.toggleStyle(.checkbox).auralControlSize(.small)
                 .accessibilityLabel("Peak protection")
-                .help("Limits sample peaks in both channels together, including Bypass. Off allows peaks above full scale. This is not true-peak protection.")
+                .help("Limits true peaks, including those between samples, in both channels together, including Bypass. It eases the level down over 1 ms before each peak. Off allows peaks above full scale.")
             if reducing {
                 Text(String(format: "Reducing %.1f dB", meter.reductionDB)).monospacedDigit()
                     .accessibilityLabel(String(format: "Reducing peaks by %.1f decibels", meter.reductionDB))

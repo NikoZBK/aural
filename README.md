@@ -37,7 +37,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 - **Fair comparisons.** Optional level matching plays Bypass and both A/B versions at the same estimated loudness.
 - **AutoEQ built in.** Search the online headphone catalog, preview a correction, and import it. You can also paste or import Equalizer APO text.
 - **Stereo and delay.** Balance, width, crossfeed, mono, polarity, a left/right swap, and up to 30 ms of delay.
-- **Gain staging.** Preamp, Auto preamp, a peak-hold meter, and sample-peak protection.
+- **Gain staging.** Preamp, Auto preamp, a peak-hold meter, and true-peak protection.
 - **Presets.** A searchable library with favorites, curve previews, and backups. Each output remembers its own preset.
 - **Follows your Mac.** Optionally switches with the macOS sound output. EQ resumes after sleep, a disconnect, or a sample-rate change.
 - **At home on macOS.** System, Light, and Dark themes with one fixed instrument color. Menu bar controls, interface zoom, and keyboard shortcuts.

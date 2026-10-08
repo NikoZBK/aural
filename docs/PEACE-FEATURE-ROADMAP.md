@@ -13,7 +13,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 | Comparison | Edit and compare two A/B versions, including their stereo settings and preset names. Their curves appear together when they differ. Optional level matching plays Bypass and the louder version at the same K-weighted loudness estimate. A/B settings reset when changing output or quitting. |
 | EQ curves | Separate left/right curves calculated from the actual filters, individual filter curves, frequency inspection, an automatically scaled dB range, and estimated headroom. This shows how EQ changes the sound, not a live FFT analysis of the music. |
 | Stereo effects | Left/right trims, balance, width, normalized low-frequency crossfeed, mono sum, polarity inversion, left/right swap, and fractional channel delay. Defaults preserve the previous audio path. |
-| Volume and peak protection | Preamp, **Auto preamp** that accounts for EQ and stereo gain, an output level meter, highest-level hold/reset, and linked sample-peak protection. |
+| Volume and peak protection | Preamp, **Auto preamp** that accounts for EQ and stereo gain, an output level meter, highest-level hold/reset, and linked true-peak protection with 1 ms look-ahead. |
 | Presets | Search, favorites, save, rename/duplicate/delete, undo the latest deletion, curve previews, and versioned JSON backup/restore. |
 | Audio outputs | Saved EQ settings and preset names for each output, device selection and refresh, automatic startup for the saved device, and skipping unavailable devices. Optional following of the macOS output. Running EQ resumes after sleep, on reconnection, and after a format change. |
 | Import and export | AutoEQ parametric/fixed-band text, clipboard and file import/export, and `Channel: ALL/L/R`. Unsupported commands report the line that needs attention. |
@@ -37,7 +37,7 @@ Online AutoEQ search is now implemented in the working tree: a searchable full c
 
 ## Peak protection
 
-The working tree now provides an On/Off checkbox beside the Level meter and in the Equalizer and menu-bar menus, alongside protection status and measured gain reduction. Protection is enabled by default and the choice persists independently of presets, outputs, undo, and A/B. The stereo-linked sample-peak limiter follows this choice during Bypass too. Brief output peaks and gain reduction are retained between display updates.
+The working tree now provides an On/Off checkbox beside the Level meter and in the Equalizer and menu-bar menus, alongside protection status and measured gain reduction. Protection is enabled by default and the choice persists independently of presets, outputs, undo, and A/B. The stereo-linked limiter follows this choice during Bypass too. It reads true peaks between samples (8x interpolation) and lowers the gain over 1 ms before each one, for a fixed latency of about 1.2 ms that does not change with the switch or Bypass. Brief output peaks and gain reduction are retained between display updates.
 
 ## What's still missing
 

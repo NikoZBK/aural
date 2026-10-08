@@ -27,6 +27,15 @@ typedef struct {
     double crossfeedLow[2], delay[2][EQDelayCapacity];
     unsigned delayIndex, delayValid;
 } Chain;
+// The capacity holds the look-ahead at 192 kHz: a 1 ms ramp plus 7 frames.
+enum { LimiterTaps = 12, LimiterPhases = 8, LimiterCapacity = 200 };
+typedef struct {
+    double interpolator[LimiterPhases-1][LimiterTaps], bound;
+    double history[2][2*LimiterTaps], delayed[2][LimiterCapacity];
+    double minimum[LimiterCapacity], ramp[LimiterCapacity], rampSum, held, release;
+    unsigned minimumFrame[LimiterCapacity], minimumHead, minimumCount;
+    unsigned frame, historyIndex, delayIndex, rampIndex, rampLength, window, latency;
+} Limiter;
 struct EQ {
     double rate;
     unsigned offset;
@@ -41,7 +50,7 @@ struct EQ {
     Chain chains[2];
     unsigned active, transitionFrame, transitionLength, warmupRemaining;
     bool transitioning, pending;
-    double limiter, release;
+    Limiter limiter;
 };
 _Static_assert(ATOMIC_INT_LOCK_FREE == 2, "Audio control requires lock-free atomics");
 // Filters follow the analog prototypes of the RBJ cookbook
@@ -136,14 +145,90 @@ static Coeff coeff(EQFilter filter, double db, double rate) {
     default: return (Coeff){NAN,NAN,NAN,NAN,NAN}; // invalid callers must not look like unity
     }
 }
+// Peak protection looks ahead instead of jumping: the output is the input `latency`
+// frames late, and its gain falls along a 1 ms ramp to arrive at each peak in time.
+// Peaks are true peaks, read between samples at 8x by windowed-sinc interpolation, so
+// the waveform a DAC reconstructs also stays at the ceiling: within 0.05 dB below
+// 13 kHz at 44.1 kHz, and 0.2 dB at 20 kHz. Each frame's requirement covers the
+// interpolated interval six to five frames back, plus two frames either side for the
+// ramp. The minimum spans `window` requirements and the ramp averages `rampLength`
+// of them, so every gain applied to a frame is at or below each requirement covering it.
+static double bessel0(double x) {
+    double sum=1, term=1;
+    for (unsigned k=1;k<40;k++) { term*=(x/(2*k))*(x/(2*k)); sum+=term; }
+    return sum;
+}
+static void limiter_init(Limiter *l, double rate) {
+    l->rampLength=(unsigned)ceil(rate/1000);
+    l->window=l->rampLength+5; l->latency=l->rampLength+7;
+    l->release=1-exp(-1/(rate*.08));
+    l->held=1; l->rampSum=l->rampLength;
+    for (unsigned i=0;i<l->rampLength;i++) l->ramp[i]=1;
+    // Kaiser-windowed sinc (beta 5). Phase k lies k/8 of a frame after tap 5, the frame
+    // itself being phase 0; each phase has unity gain at DC.
+    for (unsigned k=1;k<LimiterPhases;k++) {
+        double *h=l->interpolator[k-1], sum=0, magnitude=0;
+        for (unsigned j=0;j<LimiterTaps;j++) {
+            double t=(double)j-(LimiterTaps/2-1)-(double)k/LimiterPhases, r=t/(LimiterTaps/2);
+            h[j]=sin(M_PI*t)/(M_PI*t)*bessel0(5*sqrt(1-r*r))/bessel0(5);
+            sum+=h[j];
+        }
+        for (unsigned j=0;j<LimiterTaps;j++) { h[j]/=sum; magnitude+=fabs(h[j]); }
+        l->bound=fmax(l->bound,magnitude);
+    }
+}
+// Takes this frame and returns, in place, the frame `latency` earlier, with its gain.
+static double limit(Limiter *l, double samples[2], bool enabled, double ceiling) {
+    unsigned h=l->historyIndex;
+    double peak=0, requirement=1;
+    for (unsigned c=0;c<2;c++) l->history[c][h]=l->history[c][h+LimiterTaps]=samples[c];
+    l->historyIndex=(h+1)%LimiterTaps;
+    if (enabled) {
+        for (unsigned c=0;c<2;c++) {
+            const double *x=&l->history[c][h+1]; // the doubled ring keeps the taps contiguous, oldest first
+            double largest=0;
+            for (unsigned j=0;j<LimiterTaps;j++) largest=fmax(largest,fabs(x[j]));
+            if (largest*l->bound<=ceiling) continue; // nothing between these frames can reach the ceiling
+            peak=fmax(peak,fabs(x[LimiterTaps/2-1]));
+            for (unsigned k=0;k<LimiterPhases-1;k++) {
+                double y=0;
+                for (unsigned j=0;j<LimiterTaps;j++) y+=l->interpolator[k][j]*x[j];
+                peak=fmax(peak,fabs(y));
+            }
+        }
+        if (peak>ceiling) requirement=ceiling/peak;
+    }
+    // Sliding minimum: a queue of requirements, each smaller than those after it.
+    unsigned n=l->frame++;
+    while (l->minimumCount && l->minimum[(l->minimumHead+l->minimumCount-1)%LimiterCapacity]>=requirement) l->minimumCount--;
+    unsigned tail=(l->minimumHead+l->minimumCount++)%LimiterCapacity;
+    l->minimum[tail]=requirement; l->minimumFrame[tail]=n;
+    if (n-l->minimumFrame[l->minimumHead]>=l->window) { l->minimumHead=(l->minimumHead+1)%LimiterCapacity; l->minimumCount--; }
+    double least=l->minimum[l->minimumHead];
+    // Instant attack, 80 ms release, never above the minimum.
+    l->held=least<l->held ? least : l->held+(least-l->held)*l->release;
+    l->rampSum+=l->held-l->ramp[l->rampIndex];
+    l->ramp[l->rampIndex]=l->held;
+    if (++l->rampIndex==l->rampLength) {
+        l->rampIndex=0; l->rampSum=0;
+        for (unsigned i=0;i<l->rampLength;i++) l->rampSum+=l->ramp[i]; // no drift
+    }
+    for (unsigned c=0;c<2;c++) {
+        double next=samples[c];
+        samples[c]=l->delayed[c][l->delayIndex];
+        l->delayed[c][l->delayIndex]=next;
+    }
+    l->delayIndex=(l->delayIndex+1)%l->latency;
+    return l->rampSum/l->rampLength;
+}
 EQ *eq_create(double rate, unsigned offset) {
     if (!isfinite(rate) || rate < 32000 || rate > 192000) return NULL;
     EQ *eq=calloc(1,sizeof(EQ));
     if (!eq) return NULL;
-    eq->rate=rate; eq->offset=offset; eq->limiter=1;
+    eq->rate=rate; eq->offset=offset;
     eq->back=0; atomic_init(&eq->mailbox,1); eq->front=2;
     atomic_init(&eq->protectionEnabled,1);
-    eq->release=1-exp(-1/(rate*.08));
+    limiter_init(&eq->limiter,rate);
     eq->transitionLength=(unsigned)ceil(rate*.02);
     eq->chains[0].settings.amplitude=eq->chains[1].settings.amplitude=1;
     eq->chains[0].settings.bypassAmplitude=eq->chains[1].settings.bypassAmplitude=1;
@@ -438,13 +523,16 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         }
         // Off stops limiting new peaks. Reduction already applied releases as
         // usual instead of jumping back up within one sample, which clicks.
-        double p=protectionEnabled ? fmax(fabs(samples[0]),fabs(samples[1])) : 0;
-        double target=p>.98 ? .98/p : 1;
-        if (target<eq->limiter) eq->limiter=target;
-        else eq->limiter+=(target-eq->limiter)*eq->release;
-        minimumGain=fmin(minimumGain,eq->limiter);
+        double gain=limit(&eq->limiter,samples,protectionEnabled,.98);
+        if (protectionEnabled) {
+            // Frames delayed while protection was off, and rounding in the ramp,
+            // must not pass the ceiling either.
+            double over=fmax(fabs(samples[0]),fabs(samples[1]))*gain;
+            if (over>.98) gain*=.98/over;
+        }
+        minimumGain=fmin(minimumGain,gain);
         for (unsigned c=0;c<2;c++) {
-            double y=samples[c]*eq->limiter;
+            double y=samples[c]*gain;
             out[c][f*os[c]]=(float)y;
             peak=fmaxf(peak,fabsf((float)y));
         }
@@ -460,6 +548,7 @@ OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp *now, const Audi
     eq_process(context,input,output); return noErr;
 }
 float eq_peak(EQ *eq) { return atomic_load_explicit(&eq->peak,memory_order_relaxed); }
+unsigned eq_latency(const EQ *eq) { return eq->limiter.latency; }
 EQMeter eq_read_meter(EQ *eq) {
     float peak=atomic_exchange_explicit(&eq->meterPeak,0,memory_order_relaxed);
     float reduction=atomic_exchange_explicit(&eq->meterReduction,0,memory_order_relaxed);

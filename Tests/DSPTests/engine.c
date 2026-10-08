@@ -21,9 +21,10 @@ static double measure(EQ *eq, double rate, double frequency, double *correlation
         for (unsigned i=0;i<128;i++) {
             assert(isfinite(out[2*i]) && fabs(out[2*i])<=.981 && out[2*i+1]==0);
             if(block>=400) {
-                powerIn+=in[2*i]*in[2*i]; powerOut+=out[2*i]*out[2*i]; cross+=in[2*i]*out[2*i];
-                double phase=2*M_PI*frequency*(block*128+i)/rate;
+                // Compare with the input as it was when this frame entered the look-ahead.
+                double phase=2*M_PI*frequency*((double)block*128+i-eq_latency(eq))/rate;
                 double sine=.02*sin(phase), cosine=.02*cos(phase);
+                powerIn+=sine*sine; powerOut+=out[2*i]*out[2*i]; cross+=sine*out[2*i];
                 ss+=sine*sine; cc+=cosine*cosine; sc+=sine*cosine;
                 ys+=out[2*i]*sine; yc+=out[2*i]*cosine;
             }
@@ -101,7 +102,8 @@ static void stereo_tests(void) {
         eq=eq_create(rates[r],0); assert(eq);
         s=neutral; s.leftDelayMS=1.25; s.rightDelayMS=30;
         assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,0,0,out);
-        double delay[2]={s.leftDelayMS*rates[r]/1000,s.rightDelayMS*rates[r]/1000};
+        // Peak protection's look-ahead adds the same whole frames to both channels.
+        double delay[2]={s.leftDelayMS*rates[r]/1000+eq_latency(eq),s.rightDelayMS*rates[r]/1000+eq_latency(eq)};
         for (unsigned i=0;i<6000;i++) {
             frame(eq,i==0 ? .2 : 0,i==0 ? .1 : 0,out);
             for (unsigned c=0;c<2;c++) {
@@ -179,7 +181,7 @@ static void swap_tests(void) {
         for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
             frame(eq,LEFT(sample),RIGHT(sample),out);
             frame(reference,RIGHT(sample),LEFT(sample),base);
-            if (i>=(unsigned)ceil(rate*.02)) assert(out[0]==base[0] && out[1]==base[1]);
+            if (i>=(unsigned)ceil(rate*.02)+eq_latency(eq)) assert(out[0]==base[0] && out[1]==base[1]);
         }
         #undef LEFT
         #undef RIGHT
@@ -243,7 +245,8 @@ static void preamp_history_tests(void) {
             for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
                 float input=.001*sin(2*M_PI*20*sample/rate);
                 frame(eq,input,input,out); frame(reference,input,input,base);
-                double mix=fmin(1,(double)i/fade);
+                // The fade reaches the output once the look-ahead has passed.
+                double mix=fmin(1,fmax(0,(double)i-eq_latency(eq))/fade);
                 double expected=base[0]*(oldAmplitude*(1-mix)+amplitude*mix);
                 assert(fabs(out[0]-expected)<2e-8 && out[0]==out[1]);
             }
@@ -290,7 +293,7 @@ static void channel_history_tests(void) {
             for (unsigned i=0;i<(unsigned)(rate*.12);i++,sample++) {
                 float input=.001*sin(2*M_PI*20*sample/rate);
                 frame(eq,input,input,out); frame(reference,input,input,base);
-                double mix=fmin(1,(double)i/fade);
+                double mix=fmin(1,fmax(0,(double)i-eq_latency(eq))/fade);
                 double expected=base[c]*(oldAmplitude*(1-mix)+amplitude*mix);
                 assert(fabs(out[c]-expected)<2e-8);
             }
@@ -306,7 +309,7 @@ static void channel_history_tests(void) {
         for (unsigned i=0;i<(unsigned)(rate*.12);i++,sample++) {
             float input=.001*sin(2*M_PI*20*sample/rate);
             frame(eq,input,input,out); frame(reference,input,input,base);
-            if (i>=(unsigned)ceil(rate*.02)) assert(out[c]==base[c]);
+            if (i>=(unsigned)ceil(rate*.02)+eq_latency(eq)) assert(out[c]==base[c]);
         }
         assert(no_faults(eq) && no_faults(reference));
         eq_destroy(eq); eq_destroy(reference);
@@ -374,7 +377,7 @@ static void edit_history_tests(void) {
             for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
                 frame(eq,bass_input(sample,rate),bass_input(sample,rate),out);
                 frame(reference,bass_input(sample,rate),bass_input(sample,rate),base);
-                if (i>=fade) assert(out[0]==base[0] && out[1]==base[1]);
+                if (i>=fade+eq_latency(eq)) assert(out[0]==base[0] && out[1]==base[1]);
             }
             assert(no_faults(eq) && no_faults(reference)); eq_destroy(reference);
         }
@@ -515,6 +518,7 @@ int main(void) {
         if(block==40) {filter.disabled=true; assert(eq_update_filters(eq,&filter,1,0,false));}
         eq_process(eq,&input,&output);
         for(unsigned i=0;i<64;i++) {
+            if(block*64+i<eq_latency(eq)) { assert(out[2*i]==0); continue; } // the look-ahead filling
             largestStep=fmax(largestStep,fabs(out[2*i]-previous));previous=out[2*i];
             assert(isfinite(previous) && out[2*i]==out[2*i+1]);
         }
