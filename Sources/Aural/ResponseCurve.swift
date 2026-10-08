@@ -99,12 +99,17 @@ private struct InteractiveResponseCurve: View {
     }
     private var inspecting: Bool { hoverFraction != nil || inspection.fraction != nil }
     /// The curve stays the EQ shape; level matching is a playback gain shown here.
+    /// A limit that stops matching short is reported, never shown as a match.
     private var statusReadout: String {
         if bypass {
-            return abs(levelMatch.bypassGainDB) < 0.05 ? "Bypassed · 0 dB" : String(format: "Bypassed · matched %+.1f dB", levelMatch.bypassGainDB)
+            let matched = levelMatch.bypassGainExact ? "matched" : "partly matched"
+            return abs(levelMatch.bypassGainDB) < 0.05 && levelMatch.bypassGainExact ? "Bypassed · 0 dB"
+                : String(format: "Bypassed · %@ %+.1f dB", matched, levelMatch.bypassGainDB)
         }
         let base = String(format: "%g kHz · %@", rate / 1000, running ? "Processing" : "Preview")
-        return abs(levelMatch.eqOffsetDB) < 0.05 ? base : base + String(format: " · matched %+.1f dB", levelMatch.eqOffsetDB)
+        let matched = levelMatch.eqOffsetExact ? "matched" : "partly matched"
+        return abs(levelMatch.eqOffsetDB) < 0.05 && levelMatch.eqOffsetExact ? base
+            : base + String(format: " · %@ %+.1f dB", matched, levelMatch.eqOffsetDB)
     }
     private var motion: CurveMotion {
         CurveMotion(showFilters: showFilters, channel: channel, showHarman: showHarman, reference: reference?.target,

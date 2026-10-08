@@ -8,19 +8,28 @@ struct LevelMatch: Equatable {
     var eqOffsetDB = 0.0
     /// Applied to the unprocessed signal during Bypass.
     var bypassGainDB = 0.0
+    /// False when a limit stopped a gain short of the matching level, so the
+    /// versions still differ in estimated loudness.
+    var eqOffsetExact = true, bypassGainExact = true
 
     static let none = LevelMatch()
 
-    init(eqOffsetDB: Double = 0, bypassGainDB: Double = 0) {
+    init(eqOffsetDB: Double = 0, bypassGainDB: Double = 0, eqOffsetExact: Bool = true, bypassGainExact: Bool = true) {
         self.eqOffsetDB = eqOffsetDB
         self.bypassGainDB = bypassGainDB
+        self.eqOffsetExact = eqOffsetExact
+        self.bypassGainExact = bypassGainExact
     }
 
     /// `other` is the A/B version being compared with `current`, if any.
     init(current: Profile, comparedWith other: Profile?) {
         let level = Self.loudnessChange(of: current)
-        let offset = other.map { min(0, max(-24, Self.loudnessChange(of: $0) - level)) } ?? 0
-        self.init(eqOffsetDB: offset, bypassGainDB: min(12, max(-24, level + offset)))
+        let wanted = other.map { min(0, Self.loudnessChange(of: $0) - level) } ?? 0
+        // A/B lowers by at most 24 dB and never below the engine's -60 dB preamp
+        // floor; the engine accepts Bypass gains from -24 to +12 dB.
+        let offset = min(0, max(wanted, -24, -60 - current.preamp))
+        let bypass = min(12, max(-24, level + offset))
+        self.init(eqOffsetDB: offset, bypassGainDB: bypass, eqOffsetExact: offset == wanted, bypassGainExact: bypass == level + offset)
     }
 
     /// Estimated loudness change in dB for pink noise through the EQ, preamp, and
