@@ -87,30 +87,51 @@ static void check_peak_protection_switch(void) {
         float input[256]={4,-1}, output[256];
         AudioBufferList in={1,{{2,sizeof(input),input}}}, out={1,{{2,sizeof(output),output}}};
         eq_process(eq,&in,&out); // Do not read the previous reduction before switching.
+        double held=output[0]/4.0; // 0.245; the silent rest of the buffer releases toward 0.28.
         eq_set_peak_protection(eq,false);
         assert(eq_read_meter(eq).reductionDB==0);
+        // Off stops limiting the new peak; the reduction already applied releases
+        // instead of jumping up by more than 10 dB within one sample.
         eq_process(eq,&in,&out);
-        assert(memcmp(input,output,sizeof(input))==0 && eq_peak(eq)==4);
+        double gain=output[0]/4.0;
+        assert(gain>held && gain<.3 && fabs(output[1]/output[0]+.25)<1e-6 && eq_peak(eq)==output[0]);
         EQMeter meter=eq_read_meter(eq);
-        assert(meter.peak==4 && meter.reductionDB==0);
-        input[0]=.5f; input[1]=-.25f;
-        eq_process(eq,&in,&out);
-        assert(memcmp(input,output,sizeof(input))==0); // Off must remove release attenuation.
+        assert(meter.peak==output[0] && meter.reductionDB==0);
+        // A steady signal rises smoothly and monotonically to unity.
+        for(unsigned i=0;i<256;i+=2) { input[i]=.5f; input[i+1]=-.25f; }
+        double largestStep=0, previous=gain;
+        for(unsigned b=0;b<(unsigned)ceil(rates[r]*1.5/128);b++) {
+            eq_process(eq,&in,&out);
+            for(unsigned i=0;i<256;i+=2) {
+                double g=output[i]/.5;
+                assert(g>=previous && g<=1 && output[i+1]==-output[i]/2);
+                if(b || i) largestStep=fmax(largestStep,g-previous);
+                previous=g;
+            }
+        }
+        assert(largestStep<.001);
+        assert(memcmp(input,output,sizeof(input))==0); // Off removes all attenuation once released.
         eq_set_peak_protection(eq,true);
         eq_process(eq,&in,&out);
         assert(memcmp(input,output,sizeof(input))==0); // Re-enable without stale gain.
+        memset(input,0,sizeof(input));
+        previous=1;
         for(unsigned toggle=0;toggle<200;toggle++) {
             bool enabled=toggle%2!=0;
             eq_set_peak_protection(eq,enabled);
             input[0]=.2f; input[1]=-8;
             eq_process(eq,&in,&out);
             meter=eq_read_meter(eq);
+            double g=output[1]/-8.0;
             if(enabled) {
                 assert(fabs(output[1]+.98)<1e-7 && fabs(output[0]/output[1]+.025)<1e-7);
                 assert(meter.reductionDB>18);
             } else {
-                assert(memcmp(input,output,sizeof(input))==0 && meter.peak==8 && meter.reductionDB==0);
+                // Unlimited, still releasing from the previous buffer's 18 dB reduction.
+                assert(g>=previous && g<=1 && (toggle==0 || g<.2) && fabs(output[0]/output[1]+.025)<1e-7);
+                assert(meter.peak==-output[1] && meter.reductionDB==0);
             }
+            previous=g;
         }
         assert(no_faults(eq));
         eq_destroy(eq);

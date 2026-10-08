@@ -34,7 +34,8 @@ extern const double EQFrequencies[EQBands];
 EQ * _Nullable eq_create(double sampleRate, unsigned inputOffset);
 void eq_destroy(EQ *eq);
 // Enabled by default. A control-thread change takes effect at the next buffer,
-// independently of filter updates and Bypass. Off removes all limiter attenuation.
+// independently of filter updates and Bypass. Off stops limiting new peaks, and
+// attenuation already applied releases smoothly (80 ms time constant) to none.
 void eq_set_peak_protection(EQ *eq, bool enabled);
 // Single control-thread producer; the audio callback is the sole consumer.
 bool eq_update(EQ *eq, const double *gains, double preamp, bool bypass);

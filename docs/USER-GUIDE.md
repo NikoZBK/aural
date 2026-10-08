@@ -80,7 +80,7 @@ APO text supports channel-targeted filters, but does not encode Aural's stereo e
 
 ## Peak protection
 
-Use the **Peak protection** checkbox beside the Level meter to turn protection on or off. It starts enabled and remembers your choice across restarts, presets, outputs, and A/B comparisons. When enabled, it limits both channels together to 0.98 (about −0.2 dB, just under full scale), including during Bypass. **Reducing** shows its gain reduction; **Ready** means EQ is stopped. Off removes limiter attenuation and allows peaks above full scale. The switch is also in the Equalizer and menu-bar menus. Brief peaks are retained between display updates. Lower the preamp if protection frequently reduces the level. This is sample-peak protection, not a true-peak mastering limiter.
+Use the **Peak protection** checkbox beside the Level meter to turn protection on or off. It starts enabled and remembers your choice across restarts, presets, outputs, and A/B comparisons. When enabled, it limits both channels together to 0.98 (about −0.2 dB, just under full scale), including during Bypass. **Reducing** shows its gain reduction; **Ready** means EQ is stopped. Off fades out any limiter attenuation within about half a second, without a click, and allows peaks above full scale. The switch is also in the Equalizer and menu-bar menus. Brief peaks are retained between display updates. Lower the preamp if protection frequently reduces the level. This is sample-peak protection, not a true-peak mastering limiter.
 
 ## AutoEQ search and import
 

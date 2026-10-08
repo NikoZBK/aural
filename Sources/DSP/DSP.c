@@ -329,7 +329,6 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
     }
     if (eq->pending && !eq->transitioning) begin_transition(eq);
     bool protectionEnabled=atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed)!=0;
-    if (!protectionEnabled) eq->limiter=1;
     float peak=0;
     double minimumGain=1;
     for (unsigned f=0;f<outf[0];f++) {
@@ -362,12 +361,12 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
                 eq->active=1-eq->active; eq->transitioning=false;
             }
         }
-        if (protectionEnabled) {
-            double p=fmax(fabs(samples[0]),fabs(samples[1]));
-            double target=p>.98 ? .98/p : 1;
-            if (target<eq->limiter) eq->limiter=target;
-            else eq->limiter+=(target-eq->limiter)*eq->release;
-        }
+        // Off stops limiting new peaks. Reduction already applied releases as
+        // usual instead of jumping back up within one sample, which clicks.
+        double p=protectionEnabled ? fmax(fabs(samples[0]),fabs(samples[1])) : 0;
+        double target=p>.98 ? .98/p : 1;
+        if (target<eq->limiter) eq->limiter=target;
+        else eq->limiter+=(target-eq->limiter)*eq->release;
         minimumGain=fmin(minimumGain,eq->limiter);
         for (unsigned c=0;c<2;c++) {
             double y=samples[c]*eq->limiter;
