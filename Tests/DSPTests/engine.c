@@ -83,7 +83,7 @@ static void stereo_tests(void) {
     assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.2,.2,out);
     assert(fabs(out[0]-.2)<1e-7 && out[0]==out[1]); // Normalized mono remains unity at DC.
     assert(crossfeed_ratio(eq,100)>.98 && crossfeed_ratio(eq,10000)<.09);
-    s=(EQStereo){12,-24,-.7,2,1,30,17,true,true,true};
+    s=(EQStereo){12,-24,-.7,2,1,30,17,true,true,true,true};
     assert(eq_update_filters_stereo(eq,&flat,1,-12,true,&s)); settle(eq,.125,-.25,out);
     assert(out[0]==.125f && out[1]==-.25f); // Full-chain bypass, including channel delay.
     s=neutral; s.leftTrimDB=NAN; assert(!eq_update_filters_stereo(eq,&flat,1,0,false,&s));
@@ -137,6 +137,56 @@ static void stereo_tests(void) {
     assert(largestStep<.001 && out[0]==.05f && out[1]==.05f && no_faults(eq));
     eq_destroy(eq);
     puts("PASS delay warmup without signal drop, rapid stereo edits, smooth polarity transitions and latest target");
+}
+static void swap_tests(void) {
+    EQFilter flat={1000,0,1,EQFilterPeak,false,EQChannelStereo};
+    EQStereo s=eq_stereo_default(); s.swapChannels=true;
+    float out[2];
+    EQ *eq=eq_create(48000,0); assert(eq);
+    assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.125,-.25,out);
+    assert(out[0]==-.25f && out[1]==.125f);
+    // Left filters and trims stay on the left output, now fed by the right input.
+    EQFilter shelf={100,6,M_SQRT1_2,EQFilterLowShelf,false,EQChannelLeft};
+    s.leftTrimDB=-6;
+    assert(eq_update_filters_stereo(eq,&shelf,1,0,false,&s)); settle(eq,.1,.05,out);
+    assert(fabs(out[0]-.05*pow(10,6.0/20)*pow(10,-6.0/20))<1e-6 && fabs(out[1]-.1)<1e-7);
+    assert(eq_update_filters_stereo(eq,&shelf,1,0,true,&s)); settle(eq,.1,.05,out);
+    assert(out[0]==.1f && out[1]==.05f); // Bypass plays the inputs untouched.
+    eq_destroy(eq);
+    // Toggling the swap carries slow bass history across to the channel that now
+    // filters the same input; a left-only filter restarts instead.
+    const double rates[]={44100,192000};
+    for (unsigned r=0;r<2;r++) for (unsigned target=EQChannelStereo;target<=EQChannelLeft;target++) {
+        double rate=rates[r];
+        EQFilter bass={20,18,20,EQFilterPeak,false,target};
+        EQStereo plain=eq_stereo_default(),swapped=plain; swapped.swapChannels=true;
+        eq=eq_create(rate,0); assert(eq);
+        EQ *reference=eq_create(rate,0); assert(reference);
+        assert(eq_update_filters_stereo(eq,&bass,1,0,false,&plain));
+        assert(eq_update_filters_stereo(reference,&bass,1,0,false,&plain));
+        float base[2]; unsigned sample=0;
+        #define LEFT(n) (float)(.001*sin(2*M_PI*20*(n)/rate))
+        #define RIGHT(n) (float)(.0005*sin(2*M_PI*20*(n)/rate+1))
+        for (;sample<(unsigned)rate;sample++) {
+            frame(eq,LEFT(sample),RIGHT(sample),out);
+            frame(reference,RIGHT(sample),LEFT(sample),base); // the swapped input all along
+        }
+        if (target==EQChannelLeft) {
+            eq_destroy(reference); reference=eq_create(rate,0); assert(reference);
+            assert(eq_update_filters_stereo(reference,&bass,1,0,false,&plain));
+        }
+        assert(eq_update_filters_stereo(eq,&bass,1,0,false,&swapped));
+        for (unsigned i=0;i<(unsigned)(rate*.1);i++,sample++) {
+            frame(eq,LEFT(sample),RIGHT(sample),out);
+            frame(reference,RIGHT(sample),LEFT(sample),base);
+            if (i>=(unsigned)ceil(rate*.02)) assert(out[0]==base[0] && out[1]==base[1]);
+        }
+        #undef LEFT
+        #undef RIGHT
+        assert(no_faults(eq) && no_faults(reference));
+        eq_destroy(eq); eq_destroy(reference);
+    }
+    puts("PASS channel swap before EQ, per-output filters and trims, bypass, and swap toggles that keep or restart bass history");
 }
 static void channel_tests(void) {
     EQ *eq=eq_create(48000,0); assert(eq);
@@ -379,6 +429,7 @@ static void analog_shape_tests(void) {
 int main(void) {
     analog_shape_tests();
     stereo_tests();
+    swap_tests();
     channel_tests();
     preamp_history_tests();
     channel_history_tests();

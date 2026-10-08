@@ -64,6 +64,8 @@ struct StereoSettings: Codable, Equatable, Sendable {
     var invertLeft = false
     var invertRight = false
     var mono = false
+    /// Plays the left input on the right output and the right on the left.
+    var swapChannels = false
 
     var isNeutral: Bool { self == StereoSettings() }
     func resettingListeningControls() -> Self {
@@ -89,6 +91,28 @@ struct StereoSettings: Codable, Equatable, Sendable {
               [leftDelayMS, rightDelayMS].allSatisfy({ $0.isFinite && (0...30).contains($0) }) else {
             throw AudioFailure(message: "Stereo settings must use −24 to +12 dB trims, balance −1 to +1, width 0–200%, crossfeed 0–100%, and delays 0–30 ms.")
         }
+    }
+}
+
+extension StereoSettings {
+    private enum CodingKeys: String, CodingKey {
+        case leftTrimDB, rightTrimDB, balance, width, crossfeed, leftDelayMS, rightDelayMS, invertLeft, invertRight, mono, swapChannels
+    }
+
+    // Settings saved before the swap existed have no swapChannels key.
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        leftTrimDB = try values.decode(Double.self, forKey: .leftTrimDB)
+        rightTrimDB = try values.decode(Double.self, forKey: .rightTrimDB)
+        balance = try values.decode(Double.self, forKey: .balance)
+        width = try values.decode(Double.self, forKey: .width)
+        crossfeed = try values.decode(Double.self, forKey: .crossfeed)
+        leftDelayMS = try values.decode(Double.self, forKey: .leftDelayMS)
+        rightDelayMS = try values.decode(Double.self, forKey: .rightDelayMS)
+        invertLeft = try values.decode(Bool.self, forKey: .invertLeft)
+        invertRight = try values.decode(Bool.self, forKey: .invertRight)
+        mono = try values.decode(Bool.self, forKey: .mono)
+        swapChannels = try values.decodeIfPresent(Bool.self, forKey: .swapChannels) ?? false
     }
 }
 

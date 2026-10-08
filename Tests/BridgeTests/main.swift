@@ -41,7 +41,7 @@ stereoProfile.stereo = StereoSettings()
 require(stereoProfile.hasSameEQ(as: legacy), "Explicit neutral stereo changes preset identity")
 stereoProfile.stereo = StereoSettings(leftTrimDB: -3, rightTrimDB: 2, balance: -0.3, width: 1.5,
                                      crossfeed: 0.4, leftDelayMS: 0.25, rightDelayMS: 30,
-                                     invertLeft: true, invertRight: false, mono: true)
+                                     invertLeft: true, invertRight: false, mono: true, swapChannels: true)
 _ = try stereoProfile.validated()
 require(!stereoProfile.hasSameEQ(as: legacy), "Stereo edits must mark a preset as modified")
 let encoded = try JSONEncoder().encode(stereoProfile)
@@ -49,13 +49,18 @@ require(try JSONDecoder().decode(Profile.self, from: encoded) == stereoProfile, 
 var bridgedStereo = stereoProfile.dspStereo
 require(bridgedStereo.leftTrimDB == -3 && bridgedStereo.rightTrimDB == 2 && bridgedStereo.balance == -0.3 &&
         bridgedStereo.width == 1.5 && bridgedStereo.crossfeed == 0.4 && bridgedStereo.leftDelayMS == 0.25 &&
-        bridgedStereo.rightDelayMS == 30 && bridgedStereo.invertLeft && !bridgedStereo.invertRight && bridgedStereo.mono,
+        bridgedStereo.rightDelayMS == 30 && bridgedStereo.invertLeft && !bridgedStereo.invertRight && bridgedStereo.mono &&
+        bridgedStereo.swapChannels,
         "Swift/C stereo bridge changed a setting")
 guard let stereoEngine = eq_create(48000, 0) else { fatalError("Engine allocation failed") }
 let stereoFilters = stereoProfile.dspFilters(rate: 48000)
 require(eq_update_filters_stereo(stereoEngine, stereoFilters, UInt32(stereoFilters.count), stereoProfile.preamp, false, &bridgedStereo),
         "Engine rejected bridged stereo settings")
 eq_destroy(stereoEngine)
+// Stereo settings saved before the swap existed still decode, without a swap.
+let savedStereo = try JSONDecoder().decode(StereoSettings.self, from: Data(#"{"leftTrimDB":-3,"rightTrimDB":0,"balance":0,"width":1,"crossfeed":0,"leftDelayMS":0,"rightDelayMS":0,"invertLeft":false,"invertRight":false,"mono":false}"#.utf8))
+require(savedStereo == StereoSettings(leftTrimDB: -3), "Stereo settings without a swap did not decode")
+require(StereoSettings(swapChannels: true).resettingListeningControls().swapChannels, "Resetting listening controls must keep the channel swap")
 require(abs(StereoSettings(width: 2).headroomGainDB - 6.020599913)<1e-6, "Width headroom bound is incorrect")
 require(abs(StereoSettings(leftTrimDB: 6, width: 2).headroomGainDB - 12.020599913)<1e-6, "Trim/width headroom is not combined")
 require(StereoSettings(width: 2, mono: true).headroomGainDB == 0, "Mono ignores width for headroom")

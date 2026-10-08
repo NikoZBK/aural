@@ -36,7 +36,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 - **Edit on the curve.** Drag numbered points, type exact values, or use faders. A/B comparison and 100 steps of undo.
 - **Fair comparisons.** Optional level matching plays Bypass and both A/B versions at the same estimated loudness.
 - **AutoEQ built in.** Search the online headphone catalog, preview a correction, and import it. You can also paste or import Equalizer APO text.
-- **Stereo and delay.** Balance, width, crossfeed, mono, polarity, and up to 30 ms of delay.
+- **Stereo and delay.** Balance, width, crossfeed, mono, polarity, a left/right swap, and up to 30 ms of delay.
 - **Gain staging.** Preamp, Auto preamp, a peak-hold meter, and sample-peak protection.
 - **Presets.** A searchable library with favorites, curve previews, and backups. Each output remembers its own preset.
 - **Follows your Mac.** Optionally switches with the macOS sound output. EQ resumes after sleep, a disconnect, or a sample-rate change.

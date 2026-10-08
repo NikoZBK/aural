@@ -16,7 +16,8 @@ extension Profile {
         return EQStereo(leftTrimDB: settings.leftTrimDB, rightTrimDB: settings.rightTrimDB,
                         balance: settings.balance, width: settings.width, crossfeed: settings.crossfeed,
                         leftDelayMS: settings.leftDelayMS, rightDelayMS: settings.rightDelayMS,
-                        invertLeft: settings.invertLeft, invertRight: settings.invertRight, mono: settings.mono)
+                        invertLeft: settings.invertLeft, invertRight: settings.invertRight, mono: settings.mono,
+                        swapChannels: settings.swapChannels)
     }
 
     func dspFilters(rate: Double) -> [EQFilter] {

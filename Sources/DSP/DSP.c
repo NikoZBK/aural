@@ -244,7 +244,8 @@ static bool same_settings(const Settings *a, const Settings *b) {
     EQStereo x=a->stereo,y=b->stereo;
     if (x.leftTrimDB!=y.leftTrimDB || x.rightTrimDB!=y.rightTrimDB || x.balance!=y.balance ||
         x.width!=y.width || x.crossfeed!=y.crossfeed || x.leftDelayMS!=y.leftDelayMS ||
-        x.rightDelayMS!=y.rightDelayMS || x.invertLeft!=y.invertLeft || x.invertRight!=y.invertRight || x.mono!=y.mono) return false;
+        x.rightDelayMS!=y.rightDelayMS || x.invertLeft!=y.invertLeft || x.invertRight!=y.invertRight || x.mono!=y.mono ||
+        x.swapChannels!=y.swapChannels) return false;
     for (unsigned i=0;i<a->count;i++) if (!same_filter(a->filters[i],b->filters[i])) return false;
     return true;
 }
@@ -280,21 +281,24 @@ static void begin_transition(EQ *eq) {
     // the channel whose state is being transferred.
     double scale=next->settings.amplitude/old->settings.amplitude;
     bool sameSlots=old->settings.count==next->settings.count;
+    // Toggling the swap moves each input to the other channel's filters, so
+    // history comes from the channel that was filtering the same input.
+    bool crossed=old->settings.stereo.swapChannels!=next->settings.stereo.swapChannels;
     for (unsigned c=0;c<2;c++) {
-        unsigned before=0,after=0;
+        unsigned from=crossed ? 1-c : c, before=0,after=0;
         while (before<old->settings.count && after<next->settings.count) {
-            if (sameSlots && before==after && small_edit(old->settings.filters[before],next->settings.filters[after])) {
+            if (!crossed && sameSlots && before==after && small_edit(old->settings.filters[before],next->settings.filters[after])) {
                 if (applies_to_channel(next->settings.filters[after],c) && !identity(next->settings.coefficients[after])) {
                     next->z1[c][after]=old->z1[c][before]*scale;
                     next->z2[c][after]=old->z2[c][before]*scale;
                 }
                 before++; after++; continue;
             }
-            if (!applies_to_channel(old->settings.filters[before],c) || identity(old->settings.coefficients[before])) { before++; continue; }
+            if (!applies_to_channel(old->settings.filters[before],from) || identity(old->settings.coefficients[before])) { before++; continue; }
             if (!applies_to_channel(next->settings.filters[after],c) || identity(next->settings.coefficients[after])) { after++; continue; }
             if (!same_coefficients(old->settings.coefficients[before],next->settings.coefficients[after])) break;
-            next->z1[c][after]=old->z1[c][before]*scale;
-            next->z2[c][after]=old->z2[c][before]*scale;
+            next->z1[c][after]=old->z1[from][before]*scale;
+            next->z2[c][after]=old->z2[from][before]*scale;
             before++; after++;
         }
     }
@@ -317,7 +321,8 @@ static double run_filters(Chain *chain, unsigned channelIndex, double dry) {
 static void run_chain(Chain *chain, const double dry[2], double result[2]) {
     const Settings *settings=&chain->settings;
     const EQStereo *stereo=&settings->stereo;
-    double wet[2]={run_filters(chain,0,dry[0]),run_filters(chain,1,dry[1])};
+    unsigned swap=stereo->swapChannels;
+    double wet[2]={run_filters(chain,0,dry[swap]),run_filters(chain,1,dry[1-swap])};
     if (!settings->hasStereoEffects) {
         for (unsigned c=0;c<2;c++) result[c]=settings->bypass ? dry[c]*settings->bypassAmplitude : wet[c];
         return;

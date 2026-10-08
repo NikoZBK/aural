@@ -40,10 +40,12 @@ struct StereoPanel: View {
                         delay("Right delay", value: settings.rightDelayMS, keyPath: \.rightDelayMS)
                         Toggle("Invert left polarity", isOn: flag(\.invertLeft)).toggleStyle(.checkbox)
                         Toggle("Invert right polarity", isOn: flag(\.invertRight)).toggleStyle(.checkbox)
+                        Toggle("Swap left and right", isOn: flag(\.swapChannels)).toggleStyle(.checkbox)
+                            .help("Play the left channel on the right output and the right on the left. Left and right filters, trims, delay, and polarity stay with their outputs.")
                         Text("Delay adds 0–30 ms to the selected channel. The curve shows EQ and preamp only.")
                             .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.auralFont(size: 12).auralFrame(maxWidth: .infinity).auralPanel(padding: 14)
-                        .accessibilityElement(children: .contain).accessibilityLabel("Channel trim, delay, and polarity")
+                        .accessibilityElement(children: .contain).accessibilityLabel("Channel trim, delay, polarity, and swap")
                 }
             }.auralPadding(.bottom, 8)
         }.scrollIndicators(.visible).onDisappear { model.endProfileGesture() }

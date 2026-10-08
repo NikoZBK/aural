@@ -12,9 +12,11 @@ typedef struct { double frequency, gain, q; unsigned type; bool disabled; unsign
 // width=1 is neutral; use eq_stereo_default() instead of a zero initializer.
 // Balance attenuates the opposite side, crossfeed is a normalized 700 Hz blend,
 // and mono sums before per-channel correction. Delays use linear interpolation.
+// swapChannels exchanges the inputs before any filter, so left/right filters,
+// trims, delays and polarity stay with the physical outputs.
 typedef struct {
     double leftTrimDB, rightTrimDB, balance, width, crossfeed, leftDelayMS, rightDelayMS;
-    bool invertLeft, invertRight, mono;
+    bool invertLeft, invertRight, mono, swapChannels;
 } EQStereo;
 EQStereo eq_stereo_default(void);
 bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass, const EQStereo *stereo);

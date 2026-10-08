@@ -34,7 +34,7 @@ struct LevelMatch: Equatable {
 
     /// Estimated loudness change in dB for pink noise through the EQ, preamp, and
     /// channel trim/balance, with ITU-R BS.1770 K-weighting. Width, crossfeed,
-    /// mono, and delay depend on the program and are not modeled. Analysis uses
+    /// mono, swap, and delay depend on the program and are not modeled. Analysis uses
     /// 48 kHz, so the estimate does not change with the output's sample rate.
     static func loudnessChange(of profile: Profile) -> Double {
         let filters = profile.dspFilters(rate: rate)
