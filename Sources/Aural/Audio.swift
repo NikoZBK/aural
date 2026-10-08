@@ -182,7 +182,7 @@ struct OutputDevice: Identifiable, Equatable {
         // A/B matching lowers playback only; the saved preamp is unchanged.
         let preamp = max(-60, profile.preamp + levelMatch.eqOffsetDB)
         if let dsp, !eq_update_filters_matched(dsp, filters, UInt32(filters.count), preamp, bypass, &stereo, levelMatch.bypassGainDB) {
-            throw AudioFailure(message: "The equalizer could not accept this setting. Stop and start processing to retry.")
+            throw AudioFailure(message: "The equalizer rejected this setting because a value is out of range.")
         }
     }
     /// Releases everything it can and throws the first failure at the end, so one

@@ -232,9 +232,13 @@ int main(void) {
     puts("PASS hardware input channels skipped");eq_destroy(eq);
     eq=eq_create(48000,0);assert(eq);memset(gains,0,sizeof(gains));gains[0]=NAN;
     assert(!eq_update(eq,gains,0,false));gains[0]=0;assert(!eq_update(eq,gains,1,false));
-    for(int i=0;i<63;i++) assert(eq_update(eq,gains,0,false));
-    assert(!eq_update(eq,gains,0,false));tone(.1,1);process(eq,2);assert(eq_update(eq,gains,0,false));
-    puts("PASS invalid parameters and queue saturation");eq_destroy(eq);
+    // A stalled callback must not make edits fail. It applies only the latest.
+    for(int i=0;i<1000;i++) assert(eq_update(eq,gains,-(i%24),false));
+    tone(.1,1);process(eq,2);
+    assert(fabs(dest[N*2-2]/source[N*2-2]-pow(10,-15/20.))<1e-6 && fabs(dest[N*2-1]/source[N*2-1]-pow(10,-15/20.))<1e-6);
+    assert(eq_update(eq,gains,0,false));process(eq,2);
+    assert(dest[N*2-2]==source[N*2-2] && dest[N*2-1]==source[N*2-1]);
+    puts("PASS invalid parameters and stalled-callback updates");eq_destroy(eq);
     eq=eq_create(48000,0);assert(eq);
     size_t bytes=offsetof(AudioBufferList,mBuffers)+2*sizeof(AudioBuffer);
     AudioBufferList *planar=calloc(1,bytes);assert(planar);planar->mNumberBuffers=2;

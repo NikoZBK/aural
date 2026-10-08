@@ -38,6 +38,8 @@ void eq_destroy(EQ *eq);
 // attenuation already applied releases smoothly (80 ms time constant) to none.
 void eq_set_peak_protection(EQ *eq, bool enabled);
 // Single control-thread producer; the audio callback is the sole consumer.
+// Valid settings are always accepted, even while the callback is not running:
+// it applies the latest update and skips any it never took.
 bool eq_update(EQ *eq, const double *gains, double preamp, bool bypass);
 void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output);
 OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp * _Nonnull now,

@@ -8,6 +8,7 @@
 const double EQFrequencies[EQBands] = {31.5,63,125,250,500,1000,2000,4000,8000,16000};
 typedef struct { double b0,b1,b2,a1,a2; } Coeff;
 enum { EQDelayCapacity = 5762 }; // 30 ms at 192 kHz, plus interpolation guard.
+enum { Fresh = 4 }; // Mailbox flag: its slot holds an update the callback has not taken.
 typedef struct {
     EQFilter filters[EQMaxFilters];
     Coeff coefficients[EQMaxFilters];
@@ -29,8 +30,12 @@ typedef struct {
 struct EQ {
     double rate;
     unsigned offset;
-    Settings queue[64], target;
-    _Atomic unsigned read, write, faults, signalFaults;
+    // Triple buffer: the control thread fills slots[back] and swaps it into the
+    // mailbox; the callback swaps its slot for the mailbox's when it is Fresh.
+    // Updates never fail, and only the latest one is copied.
+    Settings slots[3], target;
+    unsigned back, front;
+    _Atomic unsigned mailbox, faults, signalFaults;
     _Atomic unsigned protectionEnabled;
     _Atomic float peak, meterPeak, meterReduction;
     Chain chains[2];
@@ -73,6 +78,7 @@ EQ *eq_create(double rate, unsigned offset) {
     EQ *eq=calloc(1,sizeof(EQ));
     if (!eq) return NULL;
     eq->rate=rate; eq->offset=offset; eq->limiter=1;
+    eq->back=0; atomic_init(&eq->mailbox,1); eq->front=2;
     atomic_init(&eq->protectionEnabled,1);
     eq->release=1-exp(-1/(rate*.08));
     eq->transitionLength=(unsigned)ceil(rate*.02);
@@ -110,33 +116,33 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
         if (!isfinite(f.frequency) || f.frequency<10 || f.frequency>22000 || !isfinite(f.gain) || fabs(f.gain)>30 ||
             !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterAllPass || f.channel>EQChannelRight || (f.type>EQFilterHighShelf && f.gain!=0)) return false;
     }
-    unsigned w=atomic_load_explicit(&eq->write,memory_order_relaxed), next=(w+1)%64;
-    if (next==atomic_load_explicit(&eq->read,memory_order_acquire)) return false;
-    memcpy(eq->queue[w].filters,filters,sizeof(EQFilter)*count);
-    eq->queue[w].count=count; eq->queue[w].preamp=preamp; eq->queue[w].bypass=bypass;
-    eq->queue[w].amplitude=pow(10,preamp/20);
-    eq->queue[w].bypassGainDB=bypassGainDB;
-    eq->queue[w].bypassAmplitude=pow(10,bypassGainDB/20);
-    eq->queue[w].stereo=*stereo;
-    eq->queue[w].channelGain[0]=pow(10,stereo->leftTrimDB/20)*(1-fmax(0,stereo->balance))*(stereo->invertLeft ? -1 : 1);
-    eq->queue[w].channelGain[1]=pow(10,stereo->rightTrimDB/20)*(1+fmin(0,stereo->balance))*(stereo->invertRight ? -1 : 1);
+    Settings *next=&eq->slots[eq->back];
+    memcpy(next->filters,filters,sizeof(EQFilter)*count);
+    next->count=count; next->preamp=preamp; next->bypass=bypass;
+    next->amplitude=pow(10,preamp/20);
+    next->bypassGainDB=bypassGainDB;
+    next->bypassAmplitude=pow(10,bypassGainDB/20);
+    next->stereo=*stereo;
+    next->channelGain[0]=pow(10,stereo->leftTrimDB/20)*(1-fmax(0,stereo->balance))*(stereo->invertLeft ? -1 : 1);
+    next->channelGain[1]=pow(10,stereo->rightTrimDB/20)*(1+fmin(0,stereo->balance))*(stereo->invertRight ? -1 : 1);
     double delays[2]={stereo->leftDelayMS*eq->rate/1000,stereo->rightDelayMS*eq->rate/1000};
     for (unsigned c=0;c<2;c++) {
-        eq->queue[w].delayFrames[c]=(unsigned)delays[c];
-        eq->queue[w].delayFraction[c]=delays[c]-eq->queue[w].delayFrames[c];
+        next->delayFrames[c]=(unsigned)delays[c];
+        next->delayFraction[c]=delays[c]-next->delayFrames[c];
     }
-    eq->queue[w].crossfeedCoefficient=1-exp(-2*M_PI*700/eq->rate);
-    eq->queue[w].crossfeedDirect=1/(1+stereo->crossfeed);
-    eq->queue[w].crossfeedOpposite=stereo->crossfeed/(1+stereo->crossfeed);
-    eq->queue[w].hasStereoEffects=stereo->leftTrimDB!=0 || stereo->rightTrimDB!=0 || stereo->balance!=0 ||
+    next->crossfeedCoefficient=1-exp(-2*M_PI*700/eq->rate);
+    next->crossfeedDirect=1/(1+stereo->crossfeed);
+    next->crossfeedOpposite=stereo->crossfeed/(1+stereo->crossfeed);
+    next->hasStereoEffects=stereo->leftTrimDB!=0 || stereo->rightTrimDB!=0 || stereo->balance!=0 ||
         stereo->width!=1 || stereo->crossfeed!=0 || stereo->leftDelayMS!=0 || stereo->rightDelayMS!=0 ||
         stereo->invertLeft || stereo->invertRight || stereo->mono;
     // Fill the target's delay history before fading it in. This avoids a gap
     // when a new delay is longer than the normal 20 ms settings crossfade.
-    eq->queue[w].warmupFrames=(unsigned)ceil(fmax(delays[0],delays[1]));
-    if (stereo->crossfeed>0) eq->queue[w].warmupFrames+=(unsigned)ceil(eq->rate*.005);
-    for (unsigned i=0;i<count;i++) eq->queue[w].coefficients[i]=coeff(filters[i],filters[i].gain,eq->rate);
-    atomic_store_explicit(&eq->write,next,memory_order_release);
+    next->warmupFrames=(unsigned)ceil(fmax(delays[0],delays[1]));
+    if (stereo->crossfeed>0) next->warmupFrames+=(unsigned)ceil(eq->rate*.005);
+    for (unsigned i=0;i<count;i++) next->coefficients[i]=coeff(filters[i],filters[i].gain,eq->rate);
+    // Publish; an update the callback has not taken yet is replaced.
+    eq->back=atomic_exchange_explicit(&eq->mailbox,eq->back|Fresh,memory_order_acq_rel)&3;
     return true;
 }
 bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass, const EQStereo *stereo) {
@@ -314,9 +320,10 @@ static void hold_maximum(_Atomic float *held, float value) {
 void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
     for (unsigned b=0;b<output->mNumberBuffers;b++)
         if (output->mBuffers[b].mData) memset(output->mBuffers[b].mData,0,output->mBuffers[b].mDataByteSize);
-    unsigned r=atomic_load_explicit(&eq->read,memory_order_relaxed), w=atomic_load_explicit(&eq->write,memory_order_acquire);
-    while (r!=w) { eq->target=eq->queue[r]; eq->pending=true; r=(r+1)%64; }
-    atomic_store_explicit(&eq->read,r,memory_order_release);
+    if (atomic_load_explicit(&eq->mailbox,memory_order_relaxed)&Fresh) {
+        eq->front=atomic_exchange_explicit(&eq->mailbox,eq->front,memory_order_acq_rel)&3;
+        eq->target=eq->slots[eq->front]; eq->pending=true;
+    }
     unsigned is[2]={0}, os[2]={0}, inf[2]={0}, outf[2]={0};
     float *in[2], *out[2];
     for (unsigned c=0;c<2;c++) {
