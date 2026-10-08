@@ -292,6 +292,18 @@ static void run_chain(Chain *chain, const double dry[2], double result[2]) {
     }
     chain->delayIndex=(chain->delayIndex+1)%EQDelayCapacity;
 }
+// After the input goes silent, filter state decays into subnormal limit cycles
+// that never reach zero, and subnormal arithmetic is very slow on Intel. Flush
+// state far below audibility (-600 dB) once per buffer.
+static void flush_tiny_state(Chain *chain) {
+    for (unsigned c=0;c<2;c++) {
+        for (unsigned b=0;b<chain->settings.count;b++) {
+            if (fabs(chain->z1[c][b])<1e-30) chain->z1[c][b]=0;
+            if (fabs(chain->z2[c][b])<1e-30) chain->z2[c][b]=0;
+        }
+        if (fabs(chain->crossfeedLow[c])<1e-30) chain->crossfeedLow[c]=0;
+    }
+}
 static void hold_maximum(_Atomic float *held, float value) {
     float previous=atomic_load_explicit(held,memory_order_relaxed);
     // A UI read can reset the hold concurrently. Retry against that reset so
@@ -363,6 +375,7 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
             peak=fmaxf(peak,fabsf((float)y));
         }
     }
+    for (unsigned bank=0;bank<2;bank++) flush_tiny_state(&eq->chains[bank]);
     atomic_store_explicit(&eq->peak,peak,memory_order_relaxed);
     // Publish once per buffer; no per-sample atomics, allocations, or UI work.
     hold_maximum(&eq->meterPeak,peak);

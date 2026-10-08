@@ -14,6 +14,9 @@ xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,unde
 xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Sources/DSP/DSP.c Tests/DSPTests/response.c -framework CoreAudio -o .build/response-sampling-tests
 .build/response-sampling-tests
 
+xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Tests/DSPTests/state.c -framework CoreAudio -o .build/dsp-state-tests
+.build/dsp-state-tests
+
 xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/PresetLibrary.swift Sources/Aural/ReleaseInfo.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQ.swift Sources/Aural/Startup.swift Tests/ImportTests/main.swift -o .build/import-tests
 .build/import-tests
 
