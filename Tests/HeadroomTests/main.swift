@@ -36,7 +36,7 @@ require(stereoPreamp <= overlapPreamp - 12, "Auto preamp must reserve channel tr
 require(Headroom.preamp(for: Profile(), rate: 48000) == 0, "Flat EQ must not be attenuated")
 let cuts = Profile(preamp: -8, filters: [ImportedFilter(kind: .peak, frequency: 1000, gain: -12, q: 2, enabled: true)])
 require(Headroom.preamp(for: cuts, rate: 48000) == 0, "Auto preamp must not boost cut-only EQ")
-let extreme = Profile(filters: Array(repeating: ImportedFilter(kind: .peak, frequency: 1000, gain: 30, q: 1, enabled: true), count: 32))
+let extreme = Profile(filters: Array(repeating: ImportedFilter(kind: .peak, frequency: 1000, gain: 30, q: 1, enabled: true), count: Profile.maxFilters))
 require(Headroom.preamp(for: extreme, rate: 48000) == -60, "Auto preamp must respect profile limits")
 print("PASS Auto preamp narrow peaks, full frequency band, overlapping filters, channel/stereo gain, disabled filters, and bounds")
 

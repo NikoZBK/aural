@@ -46,7 +46,7 @@ require(disabledProfile.filters?[0].enabled == false && disabledProfile.filters?
 rejects("Preamp: -5 dB")
 rejects("# Empty")
 rejects(fixed + "\nFilter 1: ON PK Fc 1e3 Hz Gain 1 dB Q 1", contains: "unique")
-rejects((1...33).map { "Filter \($0): ON PK Fc 1000 Hz Gain 1 dB Q 1" }.joined(separator: "\n"), contains: "32")
+rejects((1...Profile.maxFilters + 1).map { "Filter \($0): ON PK Fc 1000 Hz Gain 1 dB Q 1" }.joined(separator: "\n"), contains: "\(Profile.maxFilters)")
 rejects(String(repeating: "#", count: 65537), contains: "64 KB")
 rejects("Preamp: -61 dB\n" + fixed)
 print("PASS AutoEQ parser, exact values, OFF filters, BOM/CRLF, case, FixedBand, persistence, legacy profiles, and malformed-input rejection cases")
@@ -240,9 +240,9 @@ try ordered.moveFilter(firstID, by: -1)
 require(ordered.filters[0].id == firstID, "Move up failed")
 do { try ordered.moveFilter(firstID, by: -1); fatalError("Moved past first row") }
 catch { require(ordered.filters[0].id == firstID, "Rejected move changed order") }
-while ordered.filters.count < 32 { try ordered.duplicateFilter(firstID) }
+while ordered.filters.count < Profile.maxFilters { try ordered.duplicateFilter(firstID) }
 do { try ordered.duplicateFilter(firstID); fatalError("Exceeded filter limit") }
-catch { require(ordered.filters.count == 32, "Rejected duplication changed filters") }
+catch { require(ordered.filters.count == Profile.maxFilters, "Rejected duplication changed filters") }
 print("PASS filter duplicate identities, ordering, edge moves and capacity")
 
 try library.toggleFavorite("Desk")

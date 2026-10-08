@@ -43,7 +43,7 @@ struct ParametricDraft: Equatable {
     }
 
     mutating func duplicateFilter(_ id: UUID) throws {
-        guard filters.count < 32 else { throw AudioFailure(message: "At most 32 filters are supported.") }
+        guard filters.count < Profile.maxFilters else { throw AudioFailure(message: "At most \(Profile.maxFilters) filters are supported.") }
         guard let index = filters.firstIndex(where: { $0.id == id }) else {
             throw AudioFailure(message: "The filter no longer exists.")
         }

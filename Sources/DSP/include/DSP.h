@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #pragma clang assume_nonnull begin
 typedef struct EQ EQ;
-enum { EQBands = 10, EQMaxFilters = 32 };
+enum { EQBands = 10, EQMaxFilters = 64 };
 enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
        EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass };
 // disabled defaults to false for existing C initializers. Gain applies only to EQ/shelves.

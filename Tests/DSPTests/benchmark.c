@@ -21,7 +21,7 @@ int main(void) {
         if(block%8==0) {
             for(unsigned i=0;i<EQMaxFilters;i++) {
                 unsigned type=i%8;
-                filters[i]=(EQFilter){100+i*500+(block%2),type<3 ? 2 : 0,.707,type,false,EQChannelStereo};
+                filters[i]=(EQFilter){100+i*(16000/EQMaxFilters)+(block%2),type<3 ? 2 : 0,.707,type,false,EQChannelStereo};
             }
             // Alternate preamp so the benchmark includes repeated two-chain fades.
             assert(eq_update_filters(eq,filters,EQMaxFilters,block%16 ? -10 : -12,false));
@@ -31,6 +31,6 @@ int main(void) {
     }
     assert(no_faults(eq));eq_destroy(eq);
     qsort(times,Blocks,sizeof(double),compare);
-    printf("192 kHz / 64 frames / 32 filters / repeated transitions: mean %.2f us, p99 %.2f us, max %.2f us; buffer budget %.2f us\n",
-        sum/Blocks*1e6,times[Blocks*99/100]*1e6,times[Blocks-1]*1e6,Frames/192000.0*1e6);
+    printf("192 kHz / 64 frames / %u filters / repeated transitions: mean %.2f us, p99 %.2f us, max %.2f us; buffer budget %.2f us\n",
+        (unsigned)EQMaxFilters,sum/Blocks*1e6,times[Blocks*99/100]*1e6,times[Blocks-1]*1e6,Frames/192000.0*1e6);
 }

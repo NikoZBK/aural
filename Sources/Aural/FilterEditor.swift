@@ -76,14 +76,14 @@ struct FilterEditor: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 5 * interfaceScale) {
-                Text("\(draft.filters.count) / 32")
+                Text("\(draft.filters.count) / \(Profile.maxFilters)")
                     .contentTransition(.numericText(value: Double(draft.filters.count)))
                     .auralFont(size: 16, weight: .medium, design: .monospaced)
                     .foregroundStyle(Color.primary)
                 Text("filters").foregroundStyle(AuralStyle.secondary)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(draft.filters.count) of 32 filters")
+            .accessibilityLabel("\(draft.filters.count) of \(Profile.maxFilters) filters")
         }
     }
 
@@ -131,8 +131,8 @@ struct FilterEditor: View {
                 Spacer()
                 Button("Add filter", systemImage: "plus") { withAuralAnimation { draft.filters.append(FilterDraft()) } }
                     .buttonStyle(AuralButtonStyle())
-                    .disabled(draft.filters.count >= 32)
-                    .help("Add a peak filter. You can use up to 32 filters.")
+                    .disabled(draft.filters.count >= Profile.maxFilters)
+                    .help("Add a peak filter. You can use up to \(Profile.maxFilters) filters.")
             }
             if draft.filters.isEmpty {
                 VStack(spacing: 10 * interfaceScale) {
@@ -220,7 +220,7 @@ struct FilterEditor: View {
                 Button("Duplicate", systemImage: "plus.square.on.square") {
                     do { try withAuralAnimation { try draft.duplicateFilter(id) }; error = nil }
                     catch { self.error = error.localizedDescription }
-                }.disabled(draft.filters.count >= 32)
+                }.disabled(draft.filters.count >= Profile.maxFilters)
                 Button("Move up", systemImage: "arrow.up") {
                     do { try withAuralAnimation { try draft.moveFilter(id, by: -1) }; error = nil }
                     catch { self.error = error.localizedDescription }

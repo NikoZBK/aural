@@ -90,7 +90,7 @@ struct FilterRack: View {
         Button("Reset EQ") { if finishNumericEdit() { withAuralAnimation { model.resetEQ() } } }
             .buttonStyle(AuralButtonStyle()).help("Set band gains and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
         Button { if finishNumericEdit() { withAuralAnimation { model.addFilter() } } } label: { Image(systemName: "plus") }
-            .buttonStyle(AuralButtonStyle()).disabled(count >= 32).help("Add a parametric filter").accessibilityLabel("Add filter")
+            .buttonStyle(AuralButtonStyle()).disabled(count >= Profile.maxFilters).help("Add a parametric filter").accessibilityLabel("Add filter")
     }
 
     private var selectedInspector: some View {
@@ -251,7 +251,7 @@ private struct FilterRow: View {
                 Self.updateFilter(model: model, index: index) { $0.q = value }
             }.auralFrame(width: 58).overlay(alignment: .topLeading) { numericLabel("Q") }
             Menu {
-                Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.count ?? 0) >= 32)
+                Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.count ?? 0) >= Profile.maxFilters)
                 Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.disabled(model.profile.filters?.count == 1)
             } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 22)
                 .accessibilityLabel("Filter \(number) actions")

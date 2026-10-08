@@ -147,8 +147,9 @@ let deleted = try ProfileTools.deleteFilter(duplicated, at: 1)
 require(deleted == mixed, "Delete removed the wrong filter")
 rejects("delete final filter") { _ = try ProfileTools.deleteFilter(Profile(filters: [peak]), at: 0) }
 rejects("negative filter index") { _ = try ProfileTools.deleteFilter(mixed, at: -1) }
-let full = try ProfileTools.addFilter(graphic31)
-require(full.filters?.count == 32, "Adding the final supported filter failed")
+var full = try ProfileTools.addFilter(graphic31)
+while full.filters!.count < Profile.maxFilters { full = try ProfileTools.addFilter(full) }
+require(full.filters?.count == Profile.maxFilters, "Adding the final supported filter failed")
 rejects("add past capacity") { _ = try ProfileTools.addFilter(full) }
 rejects("duplicate past capacity") { _ = try ProfileTools.duplicateFilter(full, at: 0) }
-print("PASS inline filter editing, gainless types, disabled-state preservation, insertion order, final-filter protection, and 32-filter capacity")
+print("PASS inline filter editing, gainless types, disabled-state preservation, insertion order, final-filter protection, and \(Profile.maxFilters)-filter capacity")

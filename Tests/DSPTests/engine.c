@@ -446,5 +446,5 @@ int main(void) {
         }
         assert(no_faults(eq));eq_destroy(eq);
     }
-    printf("PASS 32-filter extreme-value stress at five rates (CPU %.3fs, sanitizer build)\n",(double)(clock()-begin)/CLOCKS_PER_SEC);
+    printf("PASS %u-filter extreme-value stress at five rates (CPU %.3fs, sanitizer build)\n",(unsigned)EQMaxFilters,(double)(clock()-begin)/CLOCKS_PER_SEC);
 }

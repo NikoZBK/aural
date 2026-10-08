@@ -26,6 +26,7 @@ for kind in ImportedFilter.Kind.allCases {
     require(eq_update_filters(engine, disabled, UInt32(disabled.count), profile.preamp, false), "Bridge output rejected by engine")
     eq_destroy(engine)
 }
+require(Profile.maxFilters == Int(EQMaxFilters), "Swift and engine filter limits differ")
 let fixed = Profile.builtInPresets["Warm"]!
 let at32k = fixed.dspFilters(rate: 32000)
 require(at32k.last?.disabled == true && at32k.dropLast().allSatisfy { !$0.disabled }, "Legacy Nyquist band behavior changed")

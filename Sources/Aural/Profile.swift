@@ -111,6 +111,8 @@ struct AutoEQSource: Codable, Equatable, Sendable {
 }
 
 struct Profile: Codable, Equatable, Sendable {
+    /// Matches the engine's EQMaxFilters; the bridge tests check this.
+    static let maxFilters = 64
     var gains = Array(repeating: 0.0, count: 10)
     var preamp = 0.0
     var filters: [ImportedFilter]?
@@ -131,8 +133,8 @@ struct Profile: Codable, Equatable, Sendable {
             throw AudioFailure(message: "The profile contains invalid gain or preamp values.")
         }
         if let filters {
-            guard (1...32).contains(filters.count) else {
-                throw AudioFailure(message: "A profile must contain 1–32 filters. Disabled filters are retained but do not affect the sound.")
+            guard (1...Self.maxFilters).contains(filters.count) else {
+                throw AudioFailure(message: "A profile must contain 1–\(Self.maxFilters) filters. Disabled filters are retained but do not affect the sound.")
             }
             for filter in filters { try filter.validate() }
         }

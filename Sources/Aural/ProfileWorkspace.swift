@@ -216,7 +216,7 @@ enum ProfileTools {
         guard var filters = result.filters, filters.indices.contains(index) else {
             throw AudioFailure(message: "The filter no longer exists.")
         }
-        guard filters.count < 32 else { throw AudioFailure(message: "At most 32 filters are supported.") }
+        guard filters.count < Profile.maxFilters else { throw AudioFailure(message: "At most \(Profile.maxFilters) filters are supported.") }
         filters.insert(filters[index], at: index + 1)
         result.filters = filters
         return try result.validated()
@@ -235,8 +235,8 @@ enum ProfileTools {
 
     static func addFilter(_ profile: Profile) throws -> Profile {
         var result = try parametric(profile)
-        guard var filters = result.filters, filters.count < 32 else {
-            throw AudioFailure(message: "At most 32 filters are supported.")
+        guard var filters = result.filters, filters.count < Profile.maxFilters else {
+            throw AudioFailure(message: "At most \(Profile.maxFilters) filters are supported.")
         }
         filters.append(ImportedFilter(kind: .peak, frequency: 1000, gain: 0, q: 1.4, enabled: true))
         result.filters = filters

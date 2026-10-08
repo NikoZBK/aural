@@ -6,7 +6,7 @@ func sampledResponse(_ frequencies: [Double], rate: Double, filters: [EQFilter],
     var values = [Double](repeating: 0, count: frequencies.count)
     let accepted = eq_response_filters_channel_samples(frequencies, UInt32(frequencies.count), rate,
                                                        filters, UInt32(filters.count), preamp, channel, &values)
-    precondition(accepted, "Response sampling requires a valid rate/channel/preamp and at most 32 filters.")
+    precondition(accepted, "Response sampling requires a valid rate/channel/preamp and at most \(Profile.maxFilters) filters.")
     return values
 }
 

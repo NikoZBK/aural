@@ -6,8 +6,8 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 
 | Feature | What Aural provides |
 | --- | --- |
-| Configurable graphic/parametric EQ | Ten octave bands, a 31-band third-octave template, and up to 32 editable parametric filters. The 31-band layout is a peaking-filter bank, not APO `GraphicEQ` interpolation. |
-| Channel-specific EQ | Every filter targets stereo, left, or right; curves and processing follow those targets. 32 filters total across the stereo chain. |
+| Configurable graphic/parametric EQ | Ten octave bands, a 31-band third-octave template, and up to 64 editable parametric filters. The 31-band layout is a peaking-filter bank, not APO `GraphicEQ` interpolation. |
+| Channel-specific EQ | Every filter targets stereo, left, or right; curves and processing follow those targets. 64 filters total across the stereo chain, so separate left and right corrections can each use up to 32 (or any split). |
 | Exact control | Edit frequency, gain, Q, type, and enabled state directly in the main window. The filter editor lets you preview a draft before applying it. |
 | Editing tools | Undo/redo, duplicate/delete/add, gain offset, gain scaling/inversion, and frequency shifting. The draft editor also lets you reorder filters. |
 | Comparison | Edit and compare two A/B versions, including their stereo settings and preset names. Their curves appear together when they differ. Optional level matching plays Bypass and the louder version at the same K-weighted loudness estimate. A/B settings reset when changing output or quitting. |

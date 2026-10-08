@@ -70,7 +70,7 @@ enum AutoEQ {
                 filter.channel = channel == .stereo ? nil : channel
                 do { try filter.validate() } catch { throw failure(error.localizedDescription) }
                 filters.append(filter)
-                guard filters.count <= 32 else { throw failure("At most 32 filters are supported.") }
+                guard filters.count <= Profile.maxFilters else { throw failure("At most \(Profile.maxFilters) filters are supported.") }
             } else {
                 throw failure("Unsupported or malformed setting. Expected Preamp, Channel ALL/L/R, or a supported Filter with Fc and Q (and Gain for peaks/shelves). Unsupported commands are not applied.")
             }
