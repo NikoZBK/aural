@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct KeyboardShortcutsView: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 22 * interfaceScale) {
+                VStack(alignment: .leading, spacing: 8 * interfaceScale) {
                     Label("Keyboard shortcuts", systemImage: "keyboard")
                         .auralFont(size: 22, weight: .semibold)
                         .accessibilityAddTraits(.isHeader)
@@ -14,11 +15,11 @@ struct KeyboardShortcutsView: View {
                         .accessibilityLabel("Command, Option, Shift")
                 }
                 ForEach(ShortcutReference.sections) { section in
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 10 * interfaceScale) {
                         Text(section.title).auralFont(size: 13, weight: .semibold).accessibilityAddTraits(.isHeader)
-                        VStack(spacing: 9) {
+                        VStack(spacing: 9 * interfaceScale) {
                             ForEach(section.shortcuts) { shortcut in
-                                HStack(spacing: 20) {
+                                HStack(spacing: 20 * interfaceScale) {
                                     Text(shortcut.title).auralFrame(maxWidth: .infinity, alignment: .leading)
                                     Text(shortcut.keys).auralFont(size: 12, weight: .medium, design: .monospaced)
                                         .fixedSize()
@@ -37,11 +38,11 @@ struct KeyboardShortcutsView: View {
                 Text("Shortcuts work while Aural is active. Closing the main window keeps EQ running; quitting stops it.")
                     .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            }.padding(24)
+            }.auralPadding(24)
         }
         .auralFrame(minWidth: 480, idealWidth: 540, minHeight: 420, idealHeight: 600)
         .background(AuralStyle.background)
-        .auralAppearance(model.theme, style: model.interfaceStyle)
+        .auralAppearance(model.theme)
     }
 }
 

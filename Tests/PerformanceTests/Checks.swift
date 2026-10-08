@@ -32,6 +32,11 @@ import Combine
     }
     require(documentChanges == 0 && meterChanges == 300,
             "Audio peaks must update only the meter, and identical readings must not publish")
+    for reading in [AudioMeterReading(peak: 0.1), AudioMeterReading(peak: 0.1, reductionDB: 6),
+                    AudioMeterReading(peak: 0.1, reductionDB: 6), AudioMeterReading(peak: 0.1, reductionDB: 3),
+                    AudioMeterReading(peak: 0.2, reductionDB: 0)] { model.meter.update(reading) }
+    require(documentChanges == 0 && meterChanges == 304 && model.meter.reductionDB == 0,
+            "Gain reduction must refresh with unchanged peaks, publish a reading once, and leave the document alone")
     for _ in 0..<40 { model.endProfileGesture() }
     require(documentChanges == 0, "Disappearing editors must not invalidate the document when no gesture is active")
     RunLoop.main.run(until: Date().addingTimeInterval(1.2))

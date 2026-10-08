@@ -29,29 +29,16 @@ import Combine
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         flush()
     }
-    let styles: [AuralInterfaceStyle] = AuralInterfaceStyle.liquidGlassSupported ? [.standard, .liquidGlass] : [.standard]
-    for style in styles {
-        model.setInterfaceStyle(style)
-        for size in [NSSize(width: 900, height: 620), NSSize(width: 1500, height: 900)] {
-            window.setContentSize(size)
-            for mode in [InterfaceMode.professional, .easy, .professional] {
-                show(mode)
-                require(descendants(NSSplitView.self, in: host).isEmpty, "Preset selection must not reserve a sidebar or divider")
-                require(host.frame.size == size, "Both appearance styles must fit the supported workspace sizes")
-            }
+    for size in [NSSize(width: 900, height: 620), NSSize(width: 1500, height: 900)] {
+        window.setContentSize(size)
+        for mode in [InterfaceMode.professional, .easy, .professional] {
+            show(mode)
+            require(descendants(NSSplitView.self, in: host).isEmpty, "Preset selection must not reserve a sidebar or divider")
+            require(host.frame.size == size, "The workspace must fit the supported window sizes")
         }
     }
-    let numericEditors = descendants(NSTextField.self, in: host).filter { $0.isEditable }
-    require(!numericEditors.isEmpty, "The native workspace must expose editable numeric fields")
-    let editorIDs = Set(numericEditors.map(ObjectIdentifier.init))
-    for style in styles.reversed() {
-        model.setInterfaceStyle(style)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        flush()
-        let retained = Set(descendants(NSTextField.self, in: host).filter { $0.isEditable }.map(ObjectIdentifier.init))
-        require(editorIDs.isSubset(of: retained), "Switching material must retain numeric editor identity and unsubmitted drafts")
-    }
+    require(!descendants(NSTextField.self, in: host).filter { $0.isEditable }.isEmpty, "The native workspace must expose editable numeric fields")
     require(model.profile == originalProfile && !model.running, "Resizing and disclosure changes must preserve the current sound and playback")
     window.close()
-    print("PASS Standard/Liquid Glass workspace sizes, retained numeric editors, no preset sidebar, and audio-neutral disclosure")
+    print("PASS workspace sizes, native numeric editors, no preset sidebar, and audio-neutral disclosure")
 }

@@ -11,7 +11,7 @@ enum AppIconState: CaseIterable {
     var resourceName: String {
         switch self {
         case .listening: return "AppIcon"
-        case .processing: return "AppIconSleeping"
+        case .processing: return "AppIconActive"
         }
     }
 }

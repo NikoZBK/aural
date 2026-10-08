@@ -10,6 +10,8 @@ struct PerformancePreview: App {
         Window("Aural performance preview", id: "main") {
             if Bundle.main.bundleIdentifier == "local.aural.performance-preview.accent" {
                 NativeAccentPreview()
+            } else if Bundle.main.bundleIdentifier == "local.aural.performance-preview.peak-protection" {
+                PeakProtectionPreview()
             } else {
                 MainView(model: delegate.model, icon: delegate.icon)
                     .frame(width: minimumFixture ? 900 : nil, height: minimumFixture ? 620 : nil)

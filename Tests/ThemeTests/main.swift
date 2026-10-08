@@ -32,11 +32,12 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
 
 @main struct ThemeTests {
     @MainActor static func main() async throws {
-        if ["local.aural.performance-preview", "local.aural.performance-preview.zoom-minimum", "local.aural.performance-preview.accent"].contains(Bundle.main.bundleIdentifier) { PerformancePreview.main(); return }
+        if ["local.aural.performance-preview", "local.aural.performance-preview.zoom-minimum", "local.aural.performance-preview.accent", "local.aural.performance-preview.peak-protection"].contains(Bundle.main.bundleIdentifier) { PerformancePreview.main(); return }
         if CommandLine.arguments.contains("--benchmark-rack") { try runRackBenchmark(); return }
         if CommandLine.arguments.contains("--benchmark-ui") { try runUIBenchmark(); return }
         if CommandLine.arguments.contains("--check-history-shortcuts") { _ = NSApplication.shared; try checkHistoryShortcuts(); return }
         if CommandLine.arguments.contains("--check-interface-zoom") { _ = NSApplication.shared; try checkInterfaceZoom(); return }
+        if CommandLine.arguments.contains("--check-meter-zoom") { _ = NSApplication.shared; checkMeterZoom(); return }
         if CommandLine.arguments.contains("--check-accessibility") { _ = NSApplication.shared; checkAccessibility(); return }
         if CommandLine.arguments.contains("--check-autoeq-live") { try await checkAutoEQLive(); return }
         try checkThemes()
@@ -46,8 +47,6 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
     @MainActor private static func checkThemes() throws {
         let legacy = try JSONDecoder().decode(Settings.self, from: Data(#"{"devices":{},"presets":{},"selectedUID":"headphones"}"#.utf8))
         require(Settings().theme == .dark && legacy.theme == .dark, "New and existing installs must preserve the original dark appearance")
-        require(Settings().interfaceStyle == .standard && legacy.interfaceStyle == .standard,
-                "Liquid Glass must be opt-in for both new and existing installations")
         for theme in AuralTheme.allCases {
             var settings = legacy
             settings.devices["headphones"] = Profile(gains: [1,2,3,4,5,6,7,8,9,10], preamp: -12.3456789)
@@ -65,17 +64,26 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
                 fatalError("Invalid themes must report a decoding error")
             } catch is DecodingError { }
         }
-        for style in AuralInterfaceStyle.allCases {
+        for style in ["standard", "liquidGlass"] {
             for theme in AuralTheme.allCases {
                 var settings = legacy
                 settings.theme = theme
-                settings.interfaceStyle = style
                 settings.devices["headphones"] = Profile(gains: [1,2,3,4,5,6,7,8,9,10], preamp: -12.3456789)
+                settings.presets["Listening"] = settings.devices["headphones"]
+                settings.selectedPresets = ["headphones": "Listening"]
                 settings.startEQAutomatically = false
-                let restored = try JSONDecoder().decode(Settings.self, from: JSONEncoder().encode(settings))
-                require(restored.interfaceStyle == style && restored.theme == theme && restored.devices == settings.devices
-                        && restored.selectedUID == settings.selectedUID && restored.startEQAutomatically == false,
-                        "Material and color scheme must persist independently without changing saved audio settings")
+                guard var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any] else {
+                    fatalError("Settings must encode as a JSON object")
+                }
+                json["interfaceStyle"] = style
+                let restored = try JSONDecoder().decode(Settings.self, from: JSONSerialization.data(withJSONObject: json))
+                require(restored.theme == theme && restored.devices == settings.devices && restored.presets == settings.presets
+                        && restored.selectedPresets == settings.selectedPresets && restored.selectedUID == settings.selectedUID
+                        && restored.startEQAutomatically == false, "Retiring either style preference must preserve all listening settings")
+                guard let saved = try JSONSerialization.jsonObject(with: JSONEncoder().encode(restored)) as? [String: Any] else {
+                    fatalError("Migrated settings must encode as a JSON object")
+                }
+                require(saved["interfaceStyle"] == nil, "The retired style toggle must not be saved again")
             }
         }
         for invalid in [#""unknown""#, "12", "{}"] {
@@ -85,15 +93,6 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
                 fatalError("Invalid appearance styles must report a decoding error")
             } catch is DecodingError { }
         }
-        require(AuralInterfaceStyle.liquidGlass.usesLiquidGlass(supported: true, reduceTransparency: false, increasedContrast: false),
-                "Liquid Glass must be available on a supported system when explicitly selected")
-        for style in AuralInterfaceStyle.allCases {
-            require(!style.usesLiquidGlass(supported: false, reduceTransparency: false, increasedContrast: false), "Older macOS must use solid surfaces")
-            require(!style.usesLiquidGlass(supported: true, reduceTransparency: true, increasedContrast: false), "Reduce Transparency must use solid surfaces")
-            require(!style.usesLiquidGlass(supported: true, reduceTransparency: false, increasedContrast: true), "Increase Contrast must use solid surfaces")
-        }
-        require(!AuralInterfaceStyle.standard.usesLiquidGlass(supported: true, reduceTransparency: false, increasedContrast: false),
-                "Standard must retain solid surfaces on macOS 26")
 
         for scheme in [ColorScheme.light, .dark] {
             for background in [AuralStyle.background, AuralStyle.surface, AuralStyle.elevated] {
@@ -104,10 +103,13 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
             }
             var environment = EnvironmentValues()
             environment.colorScheme = scheme
-            require(resolved(AuralStyle.accent, scheme: scheme) == resolved(Color(nsColor: .controlAccentColor), scheme: scheme),
-                    "Accent must match the user's macOS accent in each appearance")
+            let accent = resolved(AuralStyle.accent, scheme: scheme), tint = resolved(AuralStyle.staticAccent(for: scheme), scheme: scheme)
+            require(abs(accent.red - tint.red) < 0.002 && abs(accent.green - tint.green) < 0.002 && abs(accent.blue - tint.blue) < 0.002,
+                    "Native control tint must match the fixed instrument accent in each appearance")
+            require(accent.blue > accent.red && accent.green > accent.red, "The instrument accent must stay cyan, distinct from the amber warning")
+            require(contrast(AuralStyle.accent, AuralStyle.surface, scheme: scheme) >= 3, "The accent curve and meter must stand out from their surface")
             require(contrast(AuralStyle.accentForeground(in: environment), AuralStyle.accent, scheme: scheme) >= 4.5,
-                    "Prominent button labels must remain readable with the system accent")
+                    "Prominent button labels must remain readable on the accent")
             for trace in AuralStyle.plotColors.dropFirst() {
                 require(contrast(trace, AuralStyle.surface, scheme: scheme) >= 3, "Each filter/channel trace must remain visible")
             }
@@ -146,31 +148,6 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         require(restarted.theme == .dark, "The model must restore the saved theme on launch")
         subscription.cancel()
 
-        var publishedStyles: [AuralInterfaceStyle] = []
-        let styles = model.$interfaceStyle.dropFirst().sink { style in
-            let saved = try! JSONDecoder().decode(Settings.self, from: Data(contentsOf: settingsFile))
-            require(saved.interfaceStyle == style, "An appearance style must be saved before it is published")
-            publishedStyles.append(style)
-        }
-        if AuralInterfaceStyle.liquidGlassSupported {
-            model.bypass = true
-            for style in [AuralInterfaceStyle.liquidGlass, .standard, .liquidGlass] {
-                model.setInterfaceStyle(style)
-                require(model.interfaceStyle == style && model.theme == .dark && model.error == nil, "Style must change independently of theme")
-                require(model.profile == originalProfile && model.editRevision == originalRevision && model.selectedUID == originalOutput
-                        && model.comparisonSlot == originalComparison && model.bypass && !model.running && !model.route.hasResources,
-                        "Appearance style changes must preserve EQ, edits, output, comparison, bypass, and playback")
-            }
-            model.setInterfaceStyle(.liquidGlass)
-            require(publishedStyles == [.liquidGlass, .standard, .liquidGlass], "Re-selecting a style must not publish another change")
-            require(Model(settingsFile: settingsFile).interfaceStyle == .liquidGlass, "Liquid Glass must survive relaunch")
-        } else {
-            model.setInterfaceStyle(.liquidGlass)
-            require(model.interfaceStyle == .standard && model.error == "Liquid Glass requires macOS 26 or later." && publishedStyles.isEmpty,
-                    "Unsupported style selections must report the required macOS version without changing settings")
-        }
-        styles.cancel()
-
         let blockedParent = directory.appendingPathComponent("file-as-directory")
         try Data("fixture".utf8).write(to: blockedParent)
         let blocked = Model(settingsFile: blockedParent.appendingPathComponent("settings.json"))
@@ -178,12 +155,6 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         require(blocked.theme == .dark && blocked.error?.contains("Could not save theme:") == true,
                 "A failed save must keep the accepted theme and report the failure")
         require(!blocked.running && !blocked.route.hasResources, "A failed theme save must leave audio stopped")
-        if AuralInterfaceStyle.liquidGlassSupported {
-            blocked.setInterfaceStyle(.liquidGlass)
-            require(blocked.interfaceStyle == .standard && blocked.error?.contains("Could not save appearance style:") == true,
-                    "A failed style save must retain the previous style and report the failure")
-            require(!blocked.running && !blocked.route.hasResources, "A failed style save must not start audio")
-        }
 
         let application = NSApplication.shared
         let originalAppearance = application.appearance
@@ -205,17 +176,20 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
             }
         }
         checkPanelHosting()
-        checkGlassPresentationPolicy()
         try checkResizablePanes()
         try runRackBenchmark()
         try checkEQBars()
         try checkCurveEditing()
         checkAccessibility()
         try checkAudioFormatsAndSettings()
+        try checkPeakProtectionSettings()
+        try checkOutputFollowingAndLevelMatching()
         try checkHistoryShortcuts()
         try checkInterfaceZoom()
+        checkMeterZoom()
+        try checkFilterPanelPosition()
         try checkPerformanceIsolation()
         try checkAnalysisWorker()
-        print("PASS theme migration, persistence, save failure, audio neutrality, system accent, palette contrast, graph ink, and native appearance switching")
+        print("PASS theme migration, persistence, save failure, audio neutrality, fixed instrument accent, palette contrast, graph ink, and native appearance switching")
     }
 }

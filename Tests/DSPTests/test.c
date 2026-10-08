@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <float.h>
 
 #define N 48000
 static float source[N*4], dest[N*2];
@@ -19,7 +20,165 @@ static double rms(float *a, int start, int end) {
 static void tone(float scale, float right) {
     for(int i=0;i<N;i++) {source[2*i]=scale*sin(2*M_PI*1000*i/48000);source[2*i+1]=source[2*i]*right;}
 }
+static void check_peak_protection(void) {
+    double rates[]={32000,44100,48000,96000,192000};
+    for(unsigned r=0;r<5;r++) {
+        EQ *eq=eq_create(rates[r],0); assert(eq);
+        float input[256]={.5f,-.25f}, output[256];
+        AudioBufferList in={1,{{2,sizeof(input),input}}}, out={1,{{2,sizeof(output),output}}};
+        eq_process(eq,&in,&out);
+        assert(memcmp(input,output,sizeof(input))==0);
+        EQMeter meter=eq_read_meter(eq);
+        assert(meter.peak==.5f && meter.reductionDB==0);
+        meter=eq_read_meter(eq); assert(meter.peak==0 && meter.reductionDB==0);
+
+        // An isolated transient must survive many silent callbacks before UI polling.
+        input[0]=4; input[1]=-1;
+        eq_process(eq,&in,&out);
+        assert(fabs(output[0]-.98)<1e-7 && fabs(output[1]+.245)<1e-7);
+        memset(input,0,sizeof(input));
+        for(unsigned b=0;b<(unsigned)ceil(rates[r]*1.5/128);b++) eq_process(eq,&in,&out);
+        assert(eq_peak(eq)==0);
+        meter=eq_read_meter(eq);
+        assert(fabs(meter.peak-.98)<1e-7 && fabs(meter.reductionDB-20*log10(4/.98))<1e-4);
+        meter=eq_read_meter(eq); assert(meter.peak==0 && meter.reductionDB==0);
+        input[0]=.5f; input[1]=-.25f;
+        eq_process(eq,&in,&out);
+        assert(memcmp(input,output,sizeof(input))==0); // Release restores neutral audio.
+        input[0]=.2f; input[1]=-8;
+        eq_process(eq,&in,&out);
+        assert(fabs(output[1]+.98)<1e-7 && fabs(output[0]/output[1]+.025)<1e-7);
+        meter=eq_read_meter(eq);
+        assert(fabs(meter.reductionDB-20*log10(8/.98))<1e-4 && eq_faults(eq)==0);
+        eq_destroy(eq);
+
+        for(unsigned mode=0;mode<3;mode++) {
+            eq=eq_create(rates[r],0); assert(eq);
+            EQFilter filter={1000,30,1.4,EQFilterPeak,mode!=1,EQChannelStereo};
+            EQStereo stereo=eq_stereo_default();
+            if(mode==1) { stereo.leftTrimDB=12; stereo.rightTrimDB=-12; stereo.width=2; stereo.leftDelayMS=30; }
+            if(mode==2) { stereo.leftTrimDB=stereo.rightTrimDB=12; stereo.width=2; }
+            assert(eq_update_filters_stereo(eq,&filter,1,mode==2 ? 0 : 24,mode==1,&stereo));
+            for(unsigned i=0;i<N;i++) { source[2*i]=4; source[2*i+1]=-1; }
+            for(unsigned b=0;b<2;b++) {
+                process(eq,2);
+                for(unsigned i=0;i<N*2;i++) assert(isfinite(dest[i]) && fabs(dest[i])<=.980001);
+            }
+            double ratio=mode==2 ? -7.0/13 : -.25;
+            assert(fabs(dest[N*2-1]/dest[N*2-2]-ratio)<1e-6);
+            meter=eq_read_meter(eq);
+            assert(fabs(meter.peak-.98)<1e-7 && meter.reductionDB>12 && eq_faults(eq)==0);
+            AudioBufferList bad={1,{{2,sizeof(dest),NULL}}};
+            AudioBufferList good={1,{{2,sizeof(source)/2,source}}};
+            eq_process(eq,&good,&bad);
+            meter=eq_read_meter(eq);
+            assert(meter.peak==0 && meter.reductionDB==0 && eq_faults(eq)==1);
+            eq_destroy(eq);
+        }
+    }
+    puts("PASS peak protection, linked stereo, bypass, disabled filters, stereo gain, release, and interval metering at five rates");
+}
+static void check_peak_protection_switch(void) {
+    double rates[]={32000,44100,48000,96000,192000};
+    for(unsigned r=0;r<5;r++) {
+        EQ *eq=eq_create(rates[r],0); assert(eq);
+        float input[256]={4,-1}, output[256];
+        AudioBufferList in={1,{{2,sizeof(input),input}}}, out={1,{{2,sizeof(output),output}}};
+        eq_process(eq,&in,&out); // Do not read the previous reduction before switching.
+        eq_set_peak_protection(eq,false);
+        assert(eq_read_meter(eq).reductionDB==0);
+        eq_process(eq,&in,&out);
+        assert(memcmp(input,output,sizeof(input))==0 && eq_peak(eq)==4);
+        EQMeter meter=eq_read_meter(eq);
+        assert(meter.peak==4 && meter.reductionDB==0);
+        input[0]=.5f; input[1]=-.25f;
+        eq_process(eq,&in,&out);
+        assert(memcmp(input,output,sizeof(input))==0); // Off must remove release attenuation.
+        eq_set_peak_protection(eq,true);
+        eq_process(eq,&in,&out);
+        assert(memcmp(input,output,sizeof(input))==0); // Re-enable without stale gain.
+        for(unsigned toggle=0;toggle<200;toggle++) {
+            bool enabled=toggle%2!=0;
+            eq_set_peak_protection(eq,enabled);
+            input[0]=.2f; input[1]=-8;
+            eq_process(eq,&in,&out);
+            meter=eq_read_meter(eq);
+            if(enabled) {
+                assert(fabs(output[1]+.98)<1e-7 && fabs(output[0]/output[1]+.025)<1e-7);
+                assert(meter.reductionDB>18);
+            } else {
+                assert(memcmp(input,output,sizeof(input))==0 && meter.peak==8 && meter.reductionDB==0);
+            }
+        }
+        assert(eq_faults(eq)==0);
+        eq_destroy(eq);
+
+        for(unsigned mode=0;mode<3;mode++) {
+            eq=eq_create(rates[r],0); assert(eq);
+            eq_set_peak_protection(eq,false); // Saved Off must apply before the first callback.
+            EQFilter filter={1000,30,1.4,EQFilterPeak,mode!=1,EQChannelStereo};
+            EQStereo stereo=eq_stereo_default();
+            if(mode==1) { stereo.leftTrimDB=12; stereo.width=2; stereo.leftDelayMS=30; }
+            if(mode==2) { stereo.leftTrimDB=stereo.rightTrimDB=12; stereo.width=2; }
+            assert(eq_update_filters_stereo(eq,&filter,1,mode==2 ? 0 : 24,mode==1,&stereo));
+            for(unsigned i=0;i<N;i++) { source[2*i]=4; source[2*i+1]=-1; }
+            process(eq,2); process(eq,2);
+            double left=mode==0 ? 4*pow(10,24.0/20) : mode==1 ? 4 : 6.5*pow(10,12.0/20);
+            double ratio=mode==2 ? -7.0/13 : -.25;
+            assert(fabs(dest[N*2-2]-left)<1e-5 && fabs(dest[N*2-1]/dest[N*2-2]-ratio)<1e-6);
+            meter=eq_read_meter(eq); assert(meter.peak>1 && meter.reductionDB==0);
+            eq_set_peak_protection(eq,true);
+            process(eq,2);
+            for(unsigned i=0;i<N*2;i++) assert(isfinite(dest[i]) && fabs(dest[i])<=.980001);
+            assert(eq_read_meter(eq).reductionDB>12 && eq_faults(eq)==0);
+            eq_destroy(eq);
+        }
+        eq=eq_create(rates[r],0); assert(eq);
+        eq_set_peak_protection(eq,false);
+        input[0]=NAN; input[1]=.5f;
+        eq_process(eq,&in,&out);
+        assert(output[0]==0 && output[1]==.5f && eq_faults(eq)==1);
+        EQFilter disabled={1000,0,1,EQFilterPeak,true,EQChannelStereo};
+        assert(eq_update_filters(eq,&disabled,1,24,false));
+        memset(source,0,sizeof(source)); process(eq,2); // Complete the settings crossfade.
+        source[0]=FLT_MAX; source[1]=.5f;
+        process(eq,2);
+        assert(dest[0]==0 && dest[1]==0 && eq_faults(eq)==2);
+        for(unsigned i=0;i<N*2;i++) assert(isfinite(dest[i]));
+        eq_destroy(eq);
+    }
+    puts("PASS protection On/Off, unattenuated output, rapid switching, startup, bypass and stereo independence, and fault containment at five rates");
+}
+static void check_matched_bypass(void) {
+    EQ *eq=eq_create(48000,0); assert(eq);
+    EQFilter peak={1000,6,.707,EQFilterPeak,false,EQChannelStereo};
+    EQStereo stereo=eq_stereo_default();
+    tone(.1,1);
+    // 0 dB keeps the original Bypass; a gain-only change must still take effect.
+    assert(eq_update_filters_matched(eq,&peak,1,-6,true,&stereo,0)); process(eq,2); process(eq,2);
+    assert(fabs(rms(dest,N,N*2)-rms(source,N,N*2))<.0001);
+    assert(eq_update_filters_matched(eq,&peak,1,-6,true,&stereo,-4.5)); process(eq,2);
+    assert(fabs(20*log10(rms(dest,N,N*2)/rms(source,N,N*2))+4.5)<.001);
+    // The stereo-effects path bypasses trim and width but applies the same gain.
+    stereo.width=.5; stereo.leftTrimDB=-3;
+    assert(eq_update_filters_matched(eq,&peak,1,-6,true,&stereo,2)); process(eq,2);
+    for(int i=N/2;i<N;i++) for(int c=0;c<2;c++) assert(fabs(dest[2*i+c]-source[2*i+c]*pow(10,.1))<1e-6);
+    // The gain belongs to Bypass only; the EQ path is unchanged.
+    stereo=eq_stereo_default();
+    assert(eq_update_filters_matched(eq,&peak,1,-6,false,&stereo,-20)); process(eq,2); process(eq,2);
+    assert(fabs(20*log10(rms(dest,N,N*2)/rms(source,N,N*2)))<.02);
+    assert(eq_update_filters_matched(eq,&peak,1,0,true,&stereo,-24));
+    assert(eq_update_filters_matched(eq,&peak,1,0,true,&stereo,12));
+    assert(!eq_update_filters_matched(eq,&peak,1,0,true,&stereo,NAN));
+    assert(!eq_update_filters_matched(eq,&peak,1,0,true,&stereo,-24.01));
+    assert(!eq_update_filters_matched(eq,&peak,1,0,true,&stereo,12.01));
+    assert(eq_faults(eq)==0); eq_destroy(eq);
+    puts("PASS level-matched bypass gain, stereo path, EQ path independence, and validation");
+}
 int main(void) {
+    check_peak_protection();
+    check_peak_protection_switch();
+    check_matched_bypass();
     double gains[10]={0};
     EQ *eq=eq_create(48000,0); assert(eq);
     tone(.1,0); process(eq,2);
@@ -122,5 +281,5 @@ int main(void) {
     }
     eq_destroy(eq);
     puts("PASS live preset layout changes on one engine with realistic audio buffers");
-    puts("All 9 DSP test groups passed.");
+    puts("All 11 DSP test groups passed.");
 }

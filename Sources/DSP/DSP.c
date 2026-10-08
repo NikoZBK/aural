@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 const double EQFrequencies[EQBands] = {31.5,63,125,250,500,1000,2000,4000,8000,16000};
 typedef struct { double b0,b1,b2,a1,a2; } Coeff;
@@ -11,7 +12,7 @@ typedef struct {
     EQFilter filters[EQMaxFilters];
     Coeff coefficients[EQMaxFilters];
     unsigned count;
-    double preamp, amplitude;
+    double preamp, amplitude, bypassGainDB, bypassAmplitude;
     bool bypass;
     EQStereo stereo;
     double channelGain[2], delayFraction[2], crossfeedCoefficient, crossfeedDirect, crossfeedOpposite;
@@ -30,7 +31,8 @@ struct EQ {
     unsigned offset;
     Settings queue[64], target;
     _Atomic unsigned read, write, faults;
-    _Atomic float peak;
+    _Atomic unsigned protectionEnabled;
+    _Atomic float peak, meterPeak, meterReduction;
     Chain chains[2];
     unsigned active, transitionFrame, transitionLength, warmupRemaining;
     bool transitioning, pending;
@@ -71,18 +73,25 @@ EQ *eq_create(double rate, unsigned offset) {
     EQ *eq=calloc(1,sizeof(EQ));
     if (!eq) return NULL;
     eq->rate=rate; eq->offset=offset; eq->limiter=1;
+    atomic_init(&eq->protectionEnabled,1);
     eq->release=1-exp(-1/(rate*.08));
     eq->transitionLength=(unsigned)ceil(rate*.02);
     eq->chains[0].settings.amplitude=eq->chains[1].settings.amplitude=1;
+    eq->chains[0].settings.bypassAmplitude=eq->chains[1].settings.bypassAmplitude=1;
     for (unsigned bank=0;bank<2;bank++) {
         eq->chains[bank].settings.stereo=eq_stereo_default();
         eq->chains[bank].settings.channelGain[0]=eq->chains[bank].settings.channelGain[1]=1;
         eq->chains[bank].settings.crossfeedCoefficient=1-exp(-2*M_PI*700/rate);
     }
-    if (!atomic_is_lock_free(&eq->peak)) { free(eq); return NULL; }
+    if (!atomic_is_lock_free(&eq->peak) || !atomic_is_lock_free(&eq->meterPeak) ||
+        !atomic_is_lock_free(&eq->meterReduction)) { free(eq); return NULL; }
     return eq;
 }
 void eq_destroy(EQ *eq) { free(eq); }
+void eq_set_peak_protection(EQ *eq, bool enabled) {
+    atomic_store_explicit(&eq->protectionEnabled,enabled,memory_order_relaxed);
+    atomic_store_explicit(&eq->meterReduction,0,memory_order_relaxed);
+}
 EQStereo eq_stereo_default(void) { return (EQStereo){.width=1}; }
 static bool valid_stereo(const EQStereo *s) {
     return isfinite(s->leftTrimDB) && s->leftTrimDB>=-24 && s->leftTrimDB<=12 &&
@@ -92,8 +101,9 @@ static bool valid_stereo(const EQStereo *s) {
            isfinite(s->leftDelayMS) && s->leftDelayMS>=0 && s->leftDelayMS<=30 &&
            isfinite(s->rightDelayMS) && s->rightDelayMS>=0 && s->rightDelayMS<=30;
 }
-bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass, const EQStereo *stereo) {
-    if (!valid_stereo(stereo)) return false;
+bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass,
+    const EQStereo *stereo, double bypassGainDB) {
+    if (!valid_stereo(stereo) || !isfinite(bypassGainDB) || bypassGainDB < -24 || bypassGainDB > 12) return false;
     if (!count || count>EQMaxFilters || !isfinite(preamp) || preamp < -60 || preamp > 24) return false;
     for (unsigned i=0;i<count;i++) {
         EQFilter f=filters[i];
@@ -105,6 +115,8 @@ bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, d
     memcpy(eq->queue[w].filters,filters,sizeof(EQFilter)*count);
     eq->queue[w].count=count; eq->queue[w].preamp=preamp; eq->queue[w].bypass=bypass;
     eq->queue[w].amplitude=pow(10,preamp/20);
+    eq->queue[w].bypassGainDB=bypassGainDB;
+    eq->queue[w].bypassAmplitude=pow(10,bypassGainDB/20);
     eq->queue[w].stereo=*stereo;
     eq->queue[w].channelGain[0]=pow(10,stereo->leftTrimDB/20)*(1-fmax(0,stereo->balance))*(stereo->invertLeft ? -1 : 1);
     eq->queue[w].channelGain[1]=pow(10,stereo->rightTrimDB/20)*(1+fmin(0,stereo->balance))*(stereo->invertRight ? -1 : 1);
@@ -126,6 +138,9 @@ bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, d
     for (unsigned i=0;i<count;i++) eq->queue[w].coefficients[i]=coeff(filters[i],filters[i].gain,eq->rate);
     atomic_store_explicit(&eq->write,next,memory_order_release);
     return true;
+}
+bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass, const EQStereo *stereo) {
+    return eq_update_filters_matched(eq,filters,count,preamp,bypass,stereo,0);
 }
 bool eq_update_filters(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass) {
     EQStereo stereo=eq_stereo_default();
@@ -167,7 +182,7 @@ static bool same_coefficients(Coeff a, Coeff b) {
     return a.b0==b.b0 && a.b1==b.b1 && a.b2==b.b2 && a.a1==b.a1 && a.a2==b.a2;
 }
 static bool same_settings(const Settings *a, const Settings *b) {
-    if (a->count!=b->count || a->preamp!=b->preamp || a->bypass!=b->bypass) return false;
+    if (a->count!=b->count || a->preamp!=b->preamp || a->bypass!=b->bypass || a->bypassGainDB!=b->bypassGainDB) return false;
     EQStereo x=a->stereo,y=b->stereo;
     if (x.leftTrimDB!=y.leftTrimDB || x.rightTrimDB!=y.rightTrimDB || x.balance!=y.balance ||
         x.width!=y.width || x.crossfeed!=y.crossfeed || x.leftDelayMS!=y.leftDelayMS ||
@@ -228,7 +243,7 @@ static void run_chain(Chain *chain, const double dry[2], double result[2]) {
     const EQStereo *stereo=&settings->stereo;
     double wet[2]={run_filters(chain,0,dry[0]),run_filters(chain,1,dry[1])};
     if (!settings->hasStereoEffects) {
-        for (unsigned c=0;c<2;c++) result[c]=settings->bypass ? dry[c] : wet[c];
+        for (unsigned c=0;c<2;c++) result[c]=settings->bypass ? dry[c]*settings->bypassAmplitude : wet[c];
         return;
     }
     if (stereo->crossfeed>0) {
@@ -253,11 +268,18 @@ static void run_chain(Chain *chain, const double dry[2], double result[2]) {
             double older=frames+1<chain->delayValid ? chain->delay[c][previous] : 0;
             value=value*(1-fraction)+older*fraction;
         }
-        // Keep the entire wet chain warm in bypass; the linked safety limiter
-        // remains after this switch, as it does for filter-only bypass.
-        result[c]=settings->bypass ? dry[c] : value;
+        // Keep the entire wet chain warm in bypass. Optional linked peak
+        // protection follows this switch, as it does for filter-only bypass.
+        result[c]=settings->bypass ? dry[c]*settings->bypassAmplitude : value;
     }
     chain->delayIndex=(chain->delayIndex+1)%EQDelayCapacity;
+}
+static void hold_maximum(_Atomic float *held, float value) {
+    float previous=atomic_load_explicit(held,memory_order_relaxed);
+    // A UI read can reset the hold concurrently. Retry against that reset so
+    // a short peak is reported in one of the two adjacent polling intervals.
+    while (value>previous && !atomic_compare_exchange_weak_explicit(held,&previous,value,
+            memory_order_relaxed,memory_order_relaxed)) { }
 }
 void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
     for (unsigned b=0;b<output->mNumberBuffers;b++)
@@ -276,7 +298,10 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         atomic_fetch_add_explicit(&eq->faults,1,memory_order_relaxed); return;
     }
     if (eq->pending && !eq->transitioning) begin_transition(eq);
+    bool protectionEnabled=atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed)!=0;
+    if (!protectionEnabled) eq->limiter=1;
     float peak=0;
+    double minimumGain=1;
     for (unsigned f=0;f<outf[0];f++) {
         double samples[2], dry[2];
         // Convex, sample-counted crossfade: no coefficient interpolation and no
@@ -292,9 +317,11 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
             run_chain(&eq->chains[1-eq->active],dry,next);
             for (unsigned c=0;c<2;c++) samples[c]=samples[c]*(1-mix)+next[c]*mix;
         }
-        if (!isfinite(samples[0]) || !isfinite(samples[1])) {
+        if (!isfinite(samples[0]) || !isfinite(samples[1]) || (!protectionEnabled &&
+                (fabs(samples[0])>FLT_MAX || fabs(samples[1])>FLT_MAX))) {
                 // Latch a fault for the control thread and recover state without
-                // allowing NaNs to reach the device or poison the limiter.
+                // allowing NaNs or float overflow to reach the device, even
+                // when peak protection is off.
             for (unsigned bank=0;bank<2;bank++) reset_history(&eq->chains[bank]);
             samples[0]=samples[1]=0;
             atomic_fetch_add_explicit(&eq->faults,1,memory_order_relaxed);
@@ -305,10 +332,13 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
                 eq->active=1-eq->active; eq->transitioning=false;
             }
         }
-        double p=fmax(fabs(samples[0]),fabs(samples[1]));
-        double target=p>.98 ? .98/p : 1;
-        if (target<eq->limiter) eq->limiter=target;
-        else eq->limiter+=(target-eq->limiter)*eq->release;
+        if (protectionEnabled) {
+            double p=fmax(fabs(samples[0]),fabs(samples[1]));
+            double target=p>.98 ? .98/p : 1;
+            if (target<eq->limiter) eq->limiter=target;
+            else eq->limiter+=(target-eq->limiter)*eq->release;
+        }
+        minimumGain=fmin(minimumGain,eq->limiter);
         for (unsigned c=0;c<2;c++) {
             double y=samples[c]*eq->limiter;
             out[c][f*os[c]]=(float)y;
@@ -316,12 +346,20 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         }
     }
     atomic_store_explicit(&eq->peak,peak,memory_order_relaxed);
+    // Publish once per buffer; no per-sample atomics, allocations, or UI work.
+    hold_maximum(&eq->meterPeak,peak);
+    hold_maximum(&eq->meterReduction,minimumGain<1 ? (float)(-20*log10(minimumGain)) : 0);
 }
 OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp *now, const AudioBufferList *input,
     const AudioTimeStamp *inputTime, AudioBufferList *output, const AudioTimeStamp *outputTime, void *context) {
     eq_process(context,input,output); return noErr;
 }
 float eq_peak(EQ *eq) { return atomic_load_explicit(&eq->peak,memory_order_relaxed); }
+EQMeter eq_read_meter(EQ *eq) {
+    float peak=atomic_exchange_explicit(&eq->meterPeak,0,memory_order_relaxed);
+    float reduction=atomic_exchange_explicit(&eq->meterReduction,0,memory_order_relaxed);
+    return (EQMeter){peak,atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed) ? reduction : 0};
+}
 unsigned eq_faults(EQ *eq) { return atomic_load_explicit(&eq->faults,memory_order_relaxed); }
 OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID proc, unsigned count) {
     if (!count) return kAudioHardwareIllegalOperationError;

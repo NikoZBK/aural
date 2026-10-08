@@ -34,7 +34,7 @@ struct EQBars: View {
                     ForEach(bands, id: \.index) { value in
                         band(value, height: barHeight).frame(width: max(48 * interfaceScale, geometry.size.width / Double(bands.count)))
                     }
-                }.frame(minWidth: geometry.size.width).padding(.vertical, 8)
+                }.frame(minWidth: geometry.size.width).auralPadding(.vertical, 8)
             }.scrollIndicators(.visible)
         }.auralFrame(minHeight: compact ? 130 : 170).onDisappear { model.endProfileGesture() }
     }
@@ -45,7 +45,7 @@ struct EQBars: View {
         let frequency = value.frequency
         let gain = value.gain
         let adjustable = filter?.kind.usesGain ?? true
-        VStack(spacing: 7) {
+        VStack(spacing: 7 * interfaceScale) {
             Text(adjustable ? String(format: "%+.1f", gain) : "—")
                 .auralFont(size: 11, design: .monospaced).foregroundStyle(Color.primary)
             EQGainBar(value: gain, range: range, adjustable: adjustable, label: String(format: "Band %d, %.0f hertz gain", index + 1, frequency),
@@ -60,7 +60,7 @@ struct EQBars: View {
                 .auralFont(size: 10, design: .monospaced).foregroundStyle(AuralStyle.secondary)
                 .lineLimit(1).help(String(format: "%.0f Hz", frequency))
             if let filter {
-                HStack(spacing: 3) {
+                HStack(spacing: 3 * interfaceScale) {
                     Toggle("Band \(index + 1) enabled", isOn: Binding(get: {
                         guard let current = model.profile.filters, current.indices.contains(index) else { return filter.enabled }
                         return current[index].enabled

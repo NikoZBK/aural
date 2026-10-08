@@ -96,6 +96,13 @@ private struct AuralFrame: ViewModifier {
     }
 }
 
+private struct AuralPadding: ViewModifier {
+    let edges: Edge.Set
+    let length: CGFloat
+    @Environment(\.auralInterfaceScale) private var scale
+    func body(content: Content) -> some View { content.padding(edges, length * scale) }
+}
+
 private struct AuralControlSize: ViewModifier {
     let base: ControlSize
     @Environment(\.auralInterfaceScale) private var scale
@@ -117,5 +124,8 @@ extension View {
         modifier(AuralFrame(minWidth: minWidth, idealWidth: idealWidth, maxWidth: maxWidth,
                             minHeight: minHeight, idealHeight: idealHeight, maxHeight: maxHeight, alignment: alignment))
     }
+    /// Padding grows with interface zoom so margins keep their proportion to text and controls.
+    func auralPadding(_ length: CGFloat) -> some View { modifier(AuralPadding(edges: .all, length: length)) }
+    func auralPadding(_ edges: Edge.Set, _ length: CGFloat) -> some View { modifier(AuralPadding(edges: edges, length: length)) }
     func auralControlSize(_ base: ControlSize) -> some View { modifier(AuralControlSize(base: base)) }
 }

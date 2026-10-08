@@ -164,23 +164,6 @@ enum AuralTheme: String, Codable, CaseIterable {
     }
 }
 
-enum AuralInterfaceStyle: String, Codable, CaseIterable {
-    case standard, liquidGlass
-    var label: String {
-        switch self {
-        case .standard: return "Standard"
-        case .liquidGlass: return "Liquid Glass"
-        }
-    }
-    static var liquidGlassSupported: Bool {
-        if #available(macOS 26.0, *) { return true }
-        return false
-    }
-    func usesLiquidGlass(supported: Bool = liquidGlassSupported, reduceTransparency: Bool, increasedContrast: Bool) -> Bool {
-        self == .liquidGlass && supported && !reduceTransparency && !increasedContrast
-    }
-}
-
 enum AuralInterfaceZoom: Int, Codable, CaseIterable, Sendable {
     case smallest = 80, small = 90, actualSize = 100, large = 110, larger = 120, extraLarge = 130, largest = 140
 
@@ -189,38 +172,58 @@ enum AuralInterfaceZoom: Int, Codable, CaseIterable, Sendable {
     var decreased: Self { Self(rawValue: rawValue - 10) ?? self }
 }
 
+enum FilterPanelPosition: String, Codable, CaseIterable {
+    case below, right
+    var label: String { self == .below ? "Below graph" : "Right of graph" }
+    var symbol: String { self == .below ? "rectangle.bottomthird.inset.filled" : "sidebar.right" }
+}
+
 struct Settings: Codable {
     var devices: [String: Profile] = [:]
     var presets: [String: Profile] = [:]
     var selectedUID = ""
     var startEQAutomatically: Bool?
+    var peakProtectionEnabled = true
     var favoritePresets: Set<String>?
     var selectedPresets: [String: String]?
     var interfaceMode: InterfaceMode = .easy
     var theme: AuralTheme = .dark
-    var interfaceStyle: AuralInterfaceStyle = .standard
     var interfaceZoom: AuralInterfaceZoom = .actualSize
+    var filterPanelPosition: FilterPanelPosition = .below
+    var followSystemOutput = false
+    var matchLevels = false
 
     private enum CodingKeys: String, CodingKey {
-        case devices, presets, selectedUID, startEQAutomatically, favoritePresets, selectedPresets, interfaceMode, theme, interfaceStyle, interfaceZoom
+        case devices, presets, selectedUID, startEQAutomatically, peakProtectionEnabled, favoritePresets, selectedPresets, interfaceMode, theme, interfaceZoom, filterPanelPosition, followSystemOutput, matchLevels
     }
 }
 
 extension Settings {
+    private enum LegacyKeys: String, CodingKey { case interfaceStyle }
+    private enum LegacyStyle: String, Decodable { case standard, liquidGlass }
+
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         devices = try values.decode([String: Profile].self, forKey: .devices)
         presets = try values.decode([String: Profile].self, forKey: .presets)
         selectedUID = try values.decode(String.self, forKey: .selectedUID)
         startEQAutomatically = try values.decodeIfPresent(Bool.self, forKey: .startEQAutomatically)
+        peakProtectionEnabled = try values.decodeIfPresent(Bool.self, forKey: .peakProtectionEnabled) ?? true
         favoritePresets = try values.decodeIfPresent(Set<String>.self, forKey: .favoritePresets)
         selectedPresets = try values.decodeIfPresent([String: String].self, forKey: .selectedPresets)
         // Keep the full controls visible for people upgrading an existing install.
         interfaceMode = try values.decodeIfPresent(InterfaceMode.self, forKey: .interfaceMode) ?? .professional
         // Preserve Aural's original appearance until a theme is explicitly chosen.
         theme = try values.decodeIfPresent(AuralTheme.self, forKey: .theme) ?? .dark
-        interfaceStyle = try values.decodeIfPresent(AuralInterfaceStyle.self, forKey: .interfaceStyle) ?? .standard
+        // Validate the interface style older versions saved, then drop it: every
+        // install now uses the same solid surfaces.
+        // The retired key is deliberately omitted when settings are next saved.
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        _ = try legacy.decodeIfPresent(LegacyStyle.self, forKey: .interfaceStyle)
         interfaceZoom = try values.decodeIfPresent(AuralInterfaceZoom.self, forKey: .interfaceZoom) ?? .actualSize
+        filterPanelPosition = try values.decodeIfPresent(FilterPanelPosition.self, forKey: .filterPanelPosition) ?? .below
+        followSystemOutput = try values.decodeIfPresent(Bool.self, forKey: .followSystemOutput) ?? false
+        matchLevels = try values.decodeIfPresent(Bool.self, forKey: .matchLevels) ?? false
     }
 }
 

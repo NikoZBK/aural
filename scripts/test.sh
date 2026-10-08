@@ -32,7 +32,7 @@ xcrun swiftc -parse-as-library Sources/Aural/PrecisionInput.swift Tests/Precisio
 xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/AutoEQ.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQCatalog.swift Sources/Aural/HarmanReference.swift Sources/Aural/ResponseAnalysis.swift Tests/ResponseTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/response-tests
 .build/response-tests
 
-xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Headroom.swift Tests/HeadroomTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/headroom-tests
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Headroom.swift Sources/Aural/LevelMatch.swift Tests/HeadroomTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/headroom-tests
 .build/headroom-tests
 
 # Exercise the actual window lifecycle controller without launching audio or showing UI.

@@ -60,10 +60,15 @@ print("PASS synthetic precision preservation")
 
 let oldSettings = try JSONDecoder().decode(Settings.self, from: Data(#"{"devices":{},"presets":{},"selectedUID":"headphones"}"#.utf8))
 require(oldSettings.startEQAutomatically == nil, "Legacy settings must not silently enable auto-start")
+require(!oldSettings.followSystemOutput && !oldSettings.matchLevels && !Settings().followSystemOutput && !Settings().matchLevels,
+        "Output following and level matching must stay off unless chosen")
 var enabledSettings = oldSettings
 enabledSettings.startEQAutomatically = true
+enabledSettings.followSystemOutput = true
+enabledSettings.matchLevels = true
 let restoredSettings = try JSONDecoder().decode(Settings.self, from: JSONEncoder().encode(enabledSettings))
 require(restoredSettings.startEQAutomatically == true && restoredSettings.selectedUID == "headphones", "Startup preference did not persist")
+require(restoredSettings.followSystemOutput && restoredSettings.matchLevels, "Following and level matching must persist")
 require(Settings().interfaceMode == .easy, "New installs should start in Simple mode")
 require(oldSettings.interfaceMode == .professional, "Existing installs should retain the full controls")
 for mode in InterfaceMode.allCases {
@@ -91,7 +96,34 @@ require(startup.decision(availableUIDs: ["speakers"], now: now) == .wait, "Must 
 require(startup.decision(availableUIDs: ["headphones"], now: now) == .start, "Saved output should start")
 require(startup.decision(availableUIDs: [], now: now.addingTimeInterval(60)) == .unavailable, "Missing output must time out")
 require(StartupPlan(outputUID: "", deadline: now).decision(availableUIDs: ["speakers"], now: now) == .missingOutput, "Empty target should not start")
-print("PASS startup settings migration/persistence and saved-output selection, arrival, and timeout")
+let launch = StartupPlan.launch(outputUID: "headphones", now: now)
+require(!launch.resumes && launch.decision(availableUIDs: [], now: now.addingTimeInterval(60)) == .unavailable, "Launch keeps its 60-second limit")
+require(launch.retry(now: now) == nil, "A launch start must report failures instead of retrying")
+let resume = StartupPlan.resume(outputUID: "headphones", outputName: "Headphones", after: 2, now: now)
+require(resume.resumes && resume.outputName == "Headphones", "Resume must remember its output")
+require(resume.decision(availableUIDs: [], now: now.addingTimeInterval(86400)) == .wait, "Resume must wait for its output without a deadline")
+require(resume.decision(availableUIDs: ["speakers"], now: now.addingTimeInterval(86400)) == .wait, "Resume must not substitute another output")
+require(resume.decision(availableUIDs: ["headphones"], now: now.addingTimeInterval(1.9)) == .wait, "Resume must let the output settle first")
+require(resume.decision(availableUIDs: ["headphones"], now: now.addingTimeInterval(2)) == .start, "Resume should start once the output settles")
+var retried = resume
+for attempt in 1...3 {
+    guard let next = retried.retry(now: now) else { fatalError("Resume should retry a failed start") }
+    retried = next
+    require(retried.attempts == attempt && retried.notBefore == now.addingTimeInterval(2) && retried.resumes,
+            "Each resume retry waits two seconds and keeps waiting without a deadline")
+}
+require(retried.retry(now: now) == nil, "Resume retries must stop after three attempts")
+var follower = SystemOutputFollower(current: "speakers")
+require(follower.change(to: "speakers") == nil, "An unchanged macOS output is not a switch")
+require(follower.change(to: nil) == nil && follower.lastUID == "speakers", "An unreadable macOS output must not count as a switch")
+require(follower.change(to: "headphones") == "headphones" && follower.change(to: "headphones") == nil, "Each macOS switch is followed once")
+var newFollower = SystemOutputFollower()
+require(newFollower.change(to: "speakers") == "speakers", "A new follower adopts the current macOS output")
+var recovery = RouteRecovery()
+require(recovery.allowRestart(now: now), "The first route change restarts EQ")
+require(!recovery.allowRestart(now: now.addingTimeInterval(29)), "Repeated route failures must stop instead of looping")
+require(recovery.allowRestart(now: now.addingTimeInterval(30)), "A later route change restarts EQ again")
+print("PASS startup settings migration/persistence and saved-output selection, arrival, timeout, resume waits, retries, output following, and restart limits")
 
 for (name, preset) in Profile.builtInPresets {
     _ = try preset.validated()
