@@ -4,8 +4,8 @@
 //   swift scripts/draw-icon.swift [output directory]   # default: Resources
 //   bash scripts/make-icon.sh                          # then package the ICNS files
 //
-// The response is flat at 0 dB with one tall boost: its sides are the legs of the A, and
-// the crossbar lies on the +6 dB grid line. AppIcon is the idle icon and the Finder icon;
+// The response is flat at 0 dB with one tall boost whose sides are the legs of an A without
+// a crossbar, so the letter is the response alone. AppIcon is the idle icon and the Finder icon;
 // AppIconActive shows while EQ is processing: the same A, lit inside. (A node marker at the
 // apex would read as Å.)
 import CoreGraphics
@@ -21,13 +21,11 @@ let zeroDecibels: CGFloat = 290
 let pixelsPerDecibel: CGFloat = 170 / 6
 func level(_ decibels: CGFloat) -> CGFloat { zeroDecibels + decibels * pixelsPerDecibel }
 
-// The letter: feet on the 0 dB line, apex at +16.6 dB, crossbar at +6 dB.
+// The letter: feet on the 0 dB line, apex at +16.6 dB.
 let apex = CGPoint(x: canvas / 2, y: 760)
 let footSpread: CGFloat = 215
 let leftFoot = CGPoint(x: apex.x - footSpread, y: level(0))
 let rightFoot = CGPoint(x: apex.x + footSpread, y: level(0))
-let crossbarY = level(6)
-let crossbarHalfWidth = footSpread * (apex.y - crossbarY) / (apex.y - level(0))
 let strokeWidth: CGFloat = 48
 
 let space = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -107,9 +105,6 @@ func draw(active: Bool) -> CGImage {
     context.setLineJoin(.round)
     context.addPath(curve)
     context.strokePath()
-    // The crossbar is the +6 dB grid line, drawn in the curve's color between the legs.
-    context.strokeLineSegments(between: [CGPoint(x: apex.x - crossbarHalfWidth, y: crossbarY),
-                                         CGPoint(x: apex.x + crossbarHalfWidth, y: crossbarY)])
     context.restoreGState()
 
     // A hairline edge keeps the tile's outline on dark Dock backgrounds.
