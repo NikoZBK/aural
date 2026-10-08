@@ -145,7 +145,7 @@ struct AutoEQSource: Codable, Equatable, Sendable {
 }
 
 struct Profile: Codable, Equatable, Sendable {
-    /// Matches the engine's EQMaxFilters; the bridge tests check this.
+    /// The engine's EQMaxFilters also holds loudness compensation; the bridge tests check this.
     static let maxFilters = 64
     var gains = Array(repeating: 0.0, count: 10)
     var preamp = 0.0
@@ -275,9 +275,28 @@ struct Settings: Codable {
     var filterPanelPosition: FilterPanelPosition = .below
     var followSystemOutput = false
     var matchLevels = false
+    var loudness = LoudnessSettings()
 
     private enum CodingKeys: String, CodingKey {
-        case devices, presets, selectedUID, startEQAutomatically, peakProtectionEnabled, favoritePresets, selectedPresets, interfaceMode, theme, interfaceZoom, filterPanelPosition, followSystemOutput, matchLevels
+        case devices, presets, selectedUID, startEQAutomatically, peakProtectionEnabled, favoritePresets, selectedPresets, interfaceMode, theme, interfaceZoom, filterPanelPosition, followSystemOutput, matchLevels, loudness
+    }
+}
+
+/// Loudness compensation follows each output's volume from the reference set for it.
+struct LoudnessSettings: Codable, Equatable {
+    var enabled = false
+    /// The listening level in phon at the reference volume.
+    var referenceLevel = 80.0
+    /// Output UID → the volume in dB at which music plays at `referenceLevel`.
+    var referenceVolumes: [String: Double] = [:]
+
+    init() {}
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try values.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        let level = try values.decodeIfPresent(Double.self, forKey: .referenceLevel) ?? 80
+        referenceLevel = (70...90).contains(level) ? level : 80
+        referenceVolumes = try (values.decodeIfPresent([String: Double].self, forKey: .referenceVolumes) ?? [:]).filter { $0.value.isFinite }
     }
 }
 
@@ -307,6 +326,7 @@ extension Settings {
         filterPanelPosition = try values.decodeIfPresent(FilterPanelPosition.self, forKey: .filterPanelPosition) ?? .below
         followSystemOutput = try values.decodeIfPresent(Bool.self, forKey: .followSystemOutput) ?? false
         matchLevels = try values.decodeIfPresent(Bool.self, forKey: .matchLevels) ?? false
+        loudness = try values.decodeIfPresent(LoudnessSettings.self, forKey: .loudness) ?? LoudnessSettings()
     }
 }
 

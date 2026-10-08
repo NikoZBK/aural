@@ -22,7 +22,7 @@ xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/A
 
 # Exercise the app's actual Swift-to-C bridge, not a test-only reimplementation.
 xcrun clang -std=c11 -I Sources/DSP/include -c Sources/DSP/DSP.c -o .build/dsp-bridge.o
-xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileDSP.swift Tests/BridgeTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/bridge-tests
+xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Loudness.swift Tests/BridgeTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/bridge-tests
 .build/bridge-tests
 
 xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileWorkspace.swift Tests/WorkflowTests/main.swift -o .build/workflow-tests

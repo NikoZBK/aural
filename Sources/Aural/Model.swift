@@ -22,6 +22,9 @@ import ServiceManagement
     @Published private(set) var followSystemOutput = false
     @Published private(set) var matchLevels = false
     @Published private(set) var levelMatch = LevelMatch.none
+    @Published private(set) var loudness = LoudnessSettings()
+    /// The selected output's volume in dB while loudness compensation is on; nil when it has no volume control.
+    @Published private(set) var outputVolume: Double?
     @Published private(set) var interfaceMode: InterfaceMode = .easy
     @Published private(set) var theme: AuralTheme = .dark
     @Published private(set) var interfaceZoom: AuralInterfaceZoom = .actualSize
@@ -55,6 +58,7 @@ import ServiceManagement
     private var loginStatusRefresh: Task<Void, Never>?
     private let readLoginStatus: @Sendable () -> SMAppService.Status
     private var headroomTask: Task<Void, Never>?
+    private var appliedLoudnessLevel: Double?
     private let file: URL
     var selected: OutputDevice? { devices.first { $0.uid == selectedUID } }
     var responseRate: Double { running ? route.sampleRate : 48000 }
@@ -84,6 +88,7 @@ import ServiceManagement
             peakProtectionEnabled = settings.peakProtectionEnabled
             followSystemOutput = settings.followSystemOutput
             matchLevels = settings.matchLevels
+            loudness = settings.loudness
             settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
@@ -105,6 +110,7 @@ import ServiceManagement
         } catch { pendingStartup = nil; startupNotice = nil; self.error = error.localizedDescription }
         committedProfile = ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName)
         levelMatch = levelMatch(for: profile, in: workspace)
+        refreshLoudness()
         refreshLoginStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.poll() }
@@ -212,6 +218,68 @@ import ServiceManagement
         } catch { self.error = "Could not save level matching: " + error.localizedDescription }
     }
 
+    /// The listening level for loudness compensation in phon, or nil while it is off or
+    /// the output has no volume control.
+    var loudnessLevel: Double? {
+        guard loudness.enabled, let outputVolume, let reference = loudness.referenceVolumes[selectedUID] else { return nil }
+        return Loudness.listeningLevel(volume: outputVolume, referenceVolume: reference, referenceLevel: loudness.referenceLevel)
+    }
+    func setLoudnessEnabled(_ enabled: Bool) {
+        guard loudness.enabled != enabled else { return }
+        var next = loudness
+        next.enabled = enabled
+        saveLoudness(next)
+    }
+    func setLoudnessReferenceLevel(_ level: Double) {
+        guard loudness.referenceLevel != level, Loudness.referenceLevels.contains(level) else { return }
+        var next = loudness
+        next.referenceLevel = level
+        saveLoudness(next)
+    }
+    /// The selected output's current volume becomes its reference: EQ plays as set there,
+    /// and quieter volumes are compensated.
+    func setLoudnessReference() {
+        guard let selected, let volume = AudioRoute.volume(of: selected.id) else {
+            error = "\(selected?.name ?? "This output") has no volume control in macOS, so loudness compensation has no volume to follow."
+            return
+        }
+        var next = loudness
+        next.referenceVolumes[selected.uid] = volume
+        saveLoudness(next)
+    }
+    private func saveLoudness(_ next: LoudnessSettings) {
+        var candidate = settings
+        candidate.loudness = next
+        do {
+            try writeSettings(candidate)
+            settings = candidate
+            loudness = next
+            refreshLoudness()
+        } catch { self.error = "Could not save loudness compensation: " + error.localizedDescription }
+    }
+    /// Follows the selected output's volume. The first reading on an output without a
+    /// reference becomes its reference, so turning compensation on never changes the sound at once.
+    private func refreshLoudness() {
+        let volume = loudness.enabled ? selected.flatMap { AudioRoute.volume(of: $0.id) } : nil
+        if volume != outputVolume { outputVolume = volume }
+        if let volume, !selectedUID.isEmpty, loudness.referenceVolumes[selectedUID] == nil {
+            // Kept even if saving fails, so a failed write is reported once.
+            settings.loudness.referenceVolumes[selectedUID] = volume
+            loudness = settings.loudness
+            do { try writeSettings(settings) }
+            catch { self.error = "Could not save the loudness reference: " + error.localizedDescription }
+        }
+        let level = loudnessLevel
+        guard running, level != appliedLoudnessLevel else { return }
+        appliedLoudnessLevel = level
+        route.loudness = loudnessFilters(level)
+        do { try route.update(committedProfile.profile, bypass: bypass, levelMatch: levelMatch) }
+        catch { self.error = error.localizedDescription }
+    }
+    private func loudnessFilters(_ level: Double?) -> [EQFilter] {
+        level.map { Loudness.filters(level: $0, reference: loudness.referenceLevel) } ?? []
+    }
+
     func setFollowSystemOutput(_ enabled: Bool) {
         guard followSystemOutput != enabled else { return }
         var next = settings
@@ -250,6 +318,7 @@ import ServiceManagement
         bypass = false
         levelMatch = levelMatch(for: profile, in: workspace)
         persist()
+        refreshLoudness()
     }
     func change() {
         // Legacy SwiftUI bindings may already have changed the visible value. The
@@ -672,6 +741,9 @@ import ServiceManagement
         // Core Audio may synchronously consult the app while registering its IO callback.
         DispatchQueue.main.async { [self] in
             guard generation == startGeneration else { return }
+            refreshLoudness()
+            appliedLoudnessLevel = loudnessLevel
+            route.loudness = loudnessFilters(appliedLoudnessLevel)
             do {
                 try route.start(selected, profile: profile, bypass: bypass, peakProtectionEnabled: peakProtectionEnabled, levelMatch: match)
                 running = true; levelMatch = match; error = nil; importNotice = nil; startupNotice = nil
@@ -700,6 +772,8 @@ import ServiceManagement
     private func poll() {
         meter.update(route.readMeter())
         ticks += 1
+        // Follow volume changes quickly while EQ plays, and keep the controls current otherwise.
+        if loudness.enabled, running || ticks % 10 == 0 { refreshLoudness() }
         guard ticks % 10 == 0 else { return }
         do {
             let current = try AudioRoute.devices()

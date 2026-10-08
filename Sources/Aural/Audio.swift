@@ -55,6 +55,8 @@ struct OutputDevice: Identifiable, Equatable {
     private var inputOffset: UInt32 = 0
     private(set) var device: OutputDevice?
     private(set) var sampleRate = 48000.0
+    /// Loudness compensation, after the profile's filters. The next update or start applies it.
+    var loudness: [EQFilter] = []
     var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil }
     func readMeter() -> AudioMeterReading {
         guard let dsp else { return AudioMeterReading() }
@@ -92,6 +94,19 @@ struct OutputDevice: Identifiable, Equatable {
         let id = try defaultOutput()
         guard id != AudioObjectID(kAudioObjectUnknown) else { return nil }
         return OutputDevice(id: id, uid: try audioString(id, kAudioDevicePropertyDeviceUID), name: try audioString(id, kAudioObjectPropertyName))
+    }
+    /// The output's volume in dB: its main control, or the average of its two channels.
+    /// Nil when macOS cannot change the output's volume, as with many HDMI outputs.
+    static func volume(of id: AudioObjectID) -> Double? {
+        func read(_ element: AudioObjectPropertyElement) -> Double? {
+            var a = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeDecibels, mScope: kAudioObjectPropertyScopeOutput, mElement: element)
+            var value: Float32 = 0, size = UInt32(MemoryLayout<Float32>.size)
+            guard AudioObjectHasProperty(id, &a), AudioObjectGetPropertyData(id, &a, 0, nil, &size, &value) == noErr, !value.isNaN else { return nil }
+            return Double(value)
+        }
+        if let main = read(kAudioObjectPropertyElementMain) { return main }
+        let channels = [1, 2].compactMap { read(AudioObjectPropertyElement($0)) }
+        return channels.isEmpty ? nil : channels.reduce(0, +) / Double(channels.count)
     }
     static func validateStereoFormat(_ format: AudioStreamBasicDescription, rate: Double? = nil) throws {
         let planar = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
@@ -177,7 +192,7 @@ struct OutputDevice: Identifiable, Equatable {
         if dsp != nil, let filters = profile.filters, filters.contains(where: { $0.enabled && $0.frequency >= sampleRate * 0.49 }) {
             throw AudioFailure(message: "An imported filter is too close to this output's Nyquist frequency. Choose a higher sample rate in Audio MIDI Setup before using this profile.")
         }
-        let filters = profile.dspFilters(rate: sampleRate)
+        let filters = profile.dspFilters(rate: sampleRate) + loudness
         var stereo = profile.dspStereo
         // A/B matching lowers playback only; the saved preamp is unchanged.
         let preamp = max(-60, profile.preamp + levelMatch.eqOffsetDB)

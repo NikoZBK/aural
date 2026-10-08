@@ -26,7 +26,7 @@ for kind in ImportedFilter.Kind.allCases {
     require(eq_update_filters(engine, disabled, UInt32(disabled.count), profile.preamp, false), "Bridge output rejected by engine")
     eq_destroy(engine)
 }
-require(Profile.maxFilters == Int(EQMaxFilters), "Swift and engine filter limits differ")
+require(Profile.maxFilters + Loudness.filterCount <= Int(EQMaxFilters), "The engine must hold a full profile and loudness compensation")
 let fixed = Profile.builtInPresets["Warm"]!
 let at32k = fixed.dspFilters(rate: 32000)
 require(at32k.last?.disabled == true && at32k.dropLast().allSatisfy { !$0.disabled }, "Legacy Nyquist band behavior changed")
@@ -114,3 +114,53 @@ for rate in [32000.0, 44100, 48000, 88200, 96000, 176400, 192000] {
     }
 }
 print("PASS the engine's response at each graphic band centre equals its slider at seven sample rates")
+
+// ISO 226:2003 itself: 40 phon is 99.85 dB at 20 Hz, and each contour meets its level at 1 kHz.
+require(abs(Loudness.pressure(at: 0, phon: 40) - 99.85) < 0.01, "ISO 226 contour differs from the standard")
+for phon in stride(from: 20.0, through: 90, by: 10) {
+    require(abs(Loudness.pressure(at: Loudness.frequencies.firstIndex(of: 1000)!, phon: phon) - phon) < 0.02, "ISO 226 contour misses 1 kHz")
+}
+require(Loudness.listeningLevel(volume: -20, referenceVolume: -6, referenceLevel: 80) == 66, "Volume reduction must lower the listening level")
+require(Loudness.listeningLevel(volume: 0, referenceVolume: -6, referenceLevel: 80) == 80, "Louder than the reference must play as set")
+require(Loudness.listeningLevel(volume: -.infinity, referenceVolume: -6, referenceLevel: 80) == 40 &&
+        Loudness.listeningLevel(volume: .nan, referenceVolume: -6, referenceLevel: 80) == 80, "Listening level must stay in range")
+require(Loudness.listeningLevel(volume: -12.34, referenceVolume: 0, referenceLevel: 75) == 62.7, "Listening level must use 0.1 phon steps")
+require(Loudness.filters(level: 80, reference: 80).isEmpty && Loudness.filters(level: 85, reference: 80).isEmpty, "The reference level must play as set")
+require(Loudness.curve(level: 80, reference: 80).allSatisfy { abs($0) < 1e-12 }, "The reference contour must be flat")
+var worstLoudness = 0.0
+for reference in Loudness.referenceLevels {
+    for level in stride(from: reference - Loudness.maximumDepth, to: reference, by: 5) {
+        let filters = Loudness.filters(level: level, reference: reference)
+        let curve = Loudness.curve(level: level, reference: reference)
+        require(filters.count == Loudness.filterCount && filters.allSatisfy { abs($0.gain) <= 30 && $0.frequency < 32000 * 0.49 },
+                "Loudness filters must suit every rate the engine accepts")
+        require(curve[0] > 0 && curve[0] == curve.max(), "Quieter listening must raise the bass most")
+        for rate in [44100.0, 48000, 96000] {
+            for step in 0...55 {
+                let frequency = 20 * pow(2, Double(step) / 6)
+                let error = abs(eq_response_filters(frequency, rate, filters, UInt32(filters.count), 0) - Loudness.compensation(at: frequency, curve: curve))
+                worstLoudness = max(worstLoudness, error)
+            }
+            require(abs(eq_response_filters(1000, rate, filters, UInt32(filters.count), 0)) < 0.3, "Loudness must keep 1 kHz at the volume set")
+            require(eq_response_filters(10, rate, filters, UInt32(filters.count), 0) <= curve[0], "Loudness must not boost subsonic content")
+        }
+    }
+}
+require(worstLoudness < 1.5, "Loudness filters miss ISO 226 by \(worstLoudness) dB")
+let fullProfile = Profile(filters: Array(repeating: ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true), count: Profile.maxFilters))
+let withLoudness = fullProfile.dspFilters(rate: 48000) + Loudness.filters(level: 40, reference: 80)
+guard let loudEngine = eq_create(48000, 0) else { fatalError("Engine allocation failed") }
+require(eq_update_filters(loudEngine, withLoudness, UInt32(withLoudness.count), -12, false), "The engine must hold a full profile with loudness")
+eq_destroy(loudEngine)
+let oldSettings = try JSONDecoder().decode(Settings.self, from: Data(#"{"devices":{},"presets":{},"selectedUID":""}"#.utf8))
+require(oldSettings.loudness == LoudnessSettings(), "Earlier settings must leave loudness off")
+var loudSettings = Settings()
+loudSettings.loudness = LoudnessSettings()
+loudSettings.loudness.enabled = true
+loudSettings.loudness.referenceLevel = 85
+loudSettings.loudness.referenceVolumes = ["speakers": -12.5]
+let savedLoudness = try JSONDecoder().decode(Settings.self, from: JSONEncoder().encode(loudSettings))
+require(savedLoudness.loudness == loudSettings.loudness, "Loudness settings lost in persistence")
+let invalidLoudness = try JSONDecoder().decode(LoudnessSettings.self, from: Data(#"{"enabled":true,"referenceLevel":200}"#.utf8))
+require(invalidLoudness.enabled && invalidLoudness.referenceLevel == 80 && invalidLoudness.referenceVolumes.isEmpty, "Invalid loudness reference must fall back")
+print(String(format: "PASS ISO 226:2003 contours, listening level, loudness filters within %.2f dB at three rates, capacity and persistence", worstLoudness))

@@ -91,6 +91,7 @@ struct AuralCommands: Commands {
             Button("Bypass EQ") { withAuralAnimation { model.setBypass(!model.bypass) } }.keyboardShortcut("b", modifiers: [.command, .option])
             Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
             Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
+            Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled))
             Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput))
             Divider()
             Group {
@@ -141,6 +142,7 @@ struct MenuBarControls: View {
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
         Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
         Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
+        Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled))
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }
         Button("Preset library…") { openWindow.showAuralWindow("presets") }
         Button("Search AutoEQ profiles…") { openWindow.showAuralWindow("autoeq") }
@@ -206,6 +208,10 @@ struct StartupSettings: View {
             Toggle("Match levels for Bypass and A/B", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
             Text("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled))
+            Text("Restores bass and treble as you turn the volume down, following the ISO 226 equal-loudness contours. At the reference volume, EQ plays as set.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if model.loudness.enabled { LoudnessReference(model: model).transition(.opacity) }
             Divider()
             Text("Startup").font(.headline)
             Toggle("Launch at login", isOn: Binding(get: { model.launchAtLoginRequested }, set: model.setLaunchAtLogin))
@@ -233,3 +239,25 @@ struct StartupSettings: View {
 }
 
 private struct StartupMotion: Equatable { let status: Int?; let error: String? }
+
+struct LoudnessReference: View {
+    @ObservedObject var model: Model
+    var body: some View {
+        Picker("Reference level", selection: Binding(get: { model.loudness.referenceLevel }, set: model.setLoudnessReferenceLevel)) {
+            ForEach(Loudness.referenceLevels, id: \.self) { level in Text("\(Int(level)) phon").tag(level) }
+        }.help("How loud music is at the reference volume. 80 phon suits a comfortable, full listening level.")
+        Button("Use current volume as reference") { model.setLoudnessReference() }
+            .disabled(model.outputVolume == nil)
+            .help("Set the reference where the EQ sounds right at your usual listening level. Lower volumes are compensated.")
+        Text(status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+    private var status: String {
+        let name = model.selected?.name ?? "The selected output"
+        guard let volume = model.outputVolume else { return "\(name) has no volume control in macOS, so there is nothing to compensate." }
+        guard let level = model.loudnessLevel, let reference = model.loudness.referenceVolumes[model.selectedUID] else { return "Reading the volume of \(name)…" }
+        guard level < model.loudness.referenceLevel else { return "\(name) is at or above its reference volume, so EQ plays as set." }
+        let curve = Loudness.curve(level: level, reference: model.loudness.referenceLevel)
+        return String(format: "%.1f dB below the reference: listening at %.0f phon, so bass rises %.1f dB at 50 Hz and treble %.1f dB at 12.5 kHz.",
+                      reference - volume, level, Loudness.compensation(at: 50, curve: curve), Loudness.compensation(at: 12500, curve: curve))
+    }
+}

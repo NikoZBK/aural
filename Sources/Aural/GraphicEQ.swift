@@ -64,7 +64,7 @@ enum GraphicEQ {
     }
 
     /// Solves matrix × x = vector in place by Gaussian elimination with partial pivoting.
-    private static func eliminate(_ matrix: inout [[Double]], _ vector: inout [Double]) {
+    static func eliminate(_ matrix: inout [[Double]], _ vector: inout [Double]) {
         let count = vector.count
         for column in 0..<count {
             let pivot = (column..<count).max { abs(matrix[$0][column]) < abs(matrix[$1][column]) }!
