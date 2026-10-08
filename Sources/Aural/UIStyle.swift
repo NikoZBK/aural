@@ -29,7 +29,26 @@ enum AuralStyle {
             }
         })
     }
-    static let accent = Color(nsColor: .controlAccentColor)
+    // A fixed instrument color, identical on every Mac, instead of the system accent.
+    // It marks active state and data: the curve, selection, Start EQ, and the meter.
+    private static let accentLight = (red: 0.04, green: 0.47, blue: 0.60)
+    private static let accentDark = (red: 0.30, green: 0.74, blue: 0.86)
+    private static let accentHighContrastLight = (red: 0.0, green: 0.36, blue: 0.47)
+    private static let accentHighContrastDark = (red: 0.50, green: 0.85, blue: 0.95)
+    static let accent = adaptive(light: NSColor(srgbRed: accentLight.red, green: accentLight.green, blue: accentLight.blue, alpha: 1),
+                                 dark: NSColor(srgbRed: accentDark.red, green: accentDark.green, blue: accentDark.blue, alpha: 1),
+                                 highContrastLight: NSColor(srgbRed: accentHighContrastLight.red, green: accentHighContrastLight.green, blue: accentHighContrastLight.blue, alpha: 1),
+                                 highContrastDark: NSColor(srgbRed: accentHighContrastDark.red, green: accentHighContrastDark.green, blue: accentHighContrastDark.blue, alpha: 1))
+    /// The accent as a plain SwiftUI color for native control tints; see `AuralAppearance`.
+    static func staticAccent(for scheme: ColorScheme, increasedContrast: Bool = false) -> Color {
+        let components = switch (scheme, increasedContrast) {
+        case (.dark, false): accentDark
+        case (.dark, true): accentHighContrastDark
+        case (_, false): accentLight
+        case (_, true): accentHighContrastLight
+        }
+        return Color(.sRGB, red: components.red, green: components.green, blue: components.blue)
+    }
     static func accentForeground(in environment: EnvironmentValues) -> Color {
         let resolved = accent.resolve(in: environment)
         func linear(_ component: Float) -> Double {
@@ -55,13 +74,12 @@ enum AuralStyle {
                                   dark: NSColor(srgbRed: 1, green: 0.73, blue: 0.40, alpha: 1))
     static let plotBackground = adaptive(light: .white.withAlphaComponent(0.60), dark: .black.withAlphaComponent(0.16))
     static let grid = adaptive(light: .black, dark: .white)
+    // Every trace stays distinct from the accent: right channel, Harman reference, then filters.
     static let plotColors: [Color] = [accent,
-        adaptive(light: NSColor(srgbRed: 0.23, green: 0.43, blue: 0.80, alpha: 1),
-                 dark: NSColor(srgbRed: 0.48, green: 0.68, blue: 1, alpha: 1)),
-        adaptive(light: NSColor(srgbRed: 0.55, green: 0.30, blue: 0.75, alpha: 1),
-                 dark: NSColor(srgbRed: 0.77, green: 0.59, blue: 1, alpha: 1)), warning,
         adaptive(light: NSColor(srgbRed: 0.73, green: 0.26, blue: 0.38, alpha: 1),
                  dark: NSColor(srgbRed: 0.98, green: 0.51, blue: 0.61, alpha: 1)),
+        adaptive(light: NSColor(srgbRed: 0.55, green: 0.30, blue: 0.75, alpha: 1),
+                 dark: NSColor(srgbRed: 0.77, green: 0.59, blue: 1, alpha: 1)), warning,
         adaptive(light: NSColor(srgbRed: 0.35, green: 0.46, blue: 0.10, alpha: 1),
                  dark: NSColor(srgbRed: 0.69, green: 0.82, blue: 0.46, alpha: 1))]
 }
@@ -75,126 +93,51 @@ private struct AuralMenuStyle: MenuStyle {
     }
 }
 
-private struct AuralUsesLiquidGlassKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-private struct AuralGlassChromeKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    var auralUsesLiquidGlass: Bool {
-        get { self[AuralUsesLiquidGlassKey.self] }
-        set { self[AuralUsesLiquidGlassKey.self] = newValue }
-    }
-    var auralGlassChrome: Bool {
-        get { self[AuralGlassChromeKey.self] }
-        set { self[AuralGlassChromeKey.self] = newValue }
-    }
-}
-
-private struct AuralGlassContainer: ViewModifier {
-    func body(content: Content) -> some View {
-        // Keep the same container in both styles so switching material doesn't
-        // replace the workspace, retained numeric editors, or their drafts.
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer(spacing: 4) { content }
-        } else {
-            content
-        }
-    }
-}
-
-private struct AuralGlassEffect: ViewModifier {
-    let enabled: Bool
-    let cornerRadius: CGFloat
-    var interactive = false
-    func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            // Apply to the complete control so its label sits above the material.
-            // Identity removes the effect without replacing the hosted content.
-            content.glassEffect(enabled ? .regular.interactive(interactive) : .identity,
-                                in: RoundedRectangle(cornerRadius: cornerRadius))
-        } else {
-            content
-        }
-    }
-}
-
-private struct AuralGlassButtonEffect: ViewModifier {
-    let enabled: Bool
-    let interactive: Bool
-    func body(content: Content) -> some View {
-        if enabled, #available(macOS 26.0, *) {
-            content.glassEffect(.regular.interactive(interactive), in: RoundedRectangle(cornerRadius: 5))
-        } else {
-            // Even identity glass lifts its label into the effect container.
-            // Retained hidden controls need an ordinary, unregistered button.
-            content
-        }
-    }
-}
-
 private struct AuralAppearance: ViewModifier {
     let theme: AuralTheme
-    let style: AuralInterfaceStyle
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
     func body(content: Content) -> some View {
-        content.modifier(AuralGlassContainer())
-            // Forward an explicit theme in the same update as the material.
-            // Native glass otherwise retains its previous resolved appearance.
-            .environment(\.colorScheme, theme.colorScheme ?? colorScheme)
-            .environment(\.auralUsesLiquidGlass, style.usesLiquidGlass(reduceTransparency: reduceTransparency, increasedContrast: contrast == .increased))
+        let scheme = theme.colorScheme ?? colorScheme
+        // Forward an explicit theme in the same update as the surfaces, so
+        // dynamic colors never resolve against the previous appearance.
+        content.environment(\.colorScheme, scheme)
             .background(AuralStyle.background).menuStyle(AuralMenuStyle())
             // Native popup indicators can resolve a bridged dynamic NSColor as
-            // red in the older SDK compatibility path. Keep their tint semantic;
-            // the AppKit accent remains available for custom drawing above.
-            .preferredColorScheme(theme.colorScheme).tint(.accentColor)
+            // red in the older SDK compatibility path. Tint with a static color
+            // for the current scheme; custom drawing uses the adaptive accent.
+            .preferredColorScheme(theme.colorScheme).tint(AuralStyle.staticAccent(for: scheme, increasedContrast: contrast == .increased))
     }
 }
 
-private struct AuralChrome: ViewModifier {
-    @Environment(\.auralUsesLiquidGlass) private var usesGlass
+private struct AuralWorkspaceSurface: ViewModifier {
+    let padding: CGFloat
+    @Environment(\.auralInterfaceScale) private var scale
     func body(content: Content) -> some View {
-        // A single glass surface carries the controls; avoid glass on glass.
-        content.environment(\.auralGlassChrome, true)
-            .modifier(AuralGlassEffect(enabled: usesGlass, cornerRadius: 12))
-            .padding(.horizontal, usesGlass ? 8 : 0)
-            .padding(.vertical, usesGlass ? 6 : 0)
-    }
-}
-
-private struct AuralGlassVisibility: ViewModifier {
-    let visible: Bool
-    @Environment(\.auralUsesLiquidGlass) private var usesGlass
-    func body(content: Content) -> some View {
-        // The glass container renders effects separately from parent opacity
-        // and clipping. Hidden retained editors must remove their effects too.
-        content.environment(\.auralUsesLiquidGlass, usesGlass && visible)
+        content.padding(padding * scale)
+            .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6 * scale))
+            .overlay(RoundedRectangle(cornerRadius: 6 * scale).strokeBorder(AuralStyle.border))
     }
 }
 
 extension View {
-    func auralAppearance(_ theme: AuralTheme, style: AuralInterfaceStyle = .standard) -> some View {
-        modifier(AuralAppearance(theme: theme, style: style))
+    func auralAppearance(_ theme: AuralTheme) -> some View {
+        modifier(AuralAppearance(theme: theme))
     }
-    func auralChrome() -> some View { modifier(AuralChrome()) }
-    func auralGlassVisibility(_ visible: Bool) -> some View { modifier(AuralGlassVisibility(visible: visible)) }
+    func auralWorkspaceSurface(padding: CGFloat = 12) -> some View { modifier(AuralWorkspaceSurface(padding: padding)) }
     func auralPanel(padding: CGFloat = 18) -> some View {
-        self.padding(padding)
-            .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(AuralStyle.border))
+        self.auralPadding(padding)
+            .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
     }
 }
 
 struct AuralSectionLabel: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     let title: String
     var systemImage: String? = nil
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 7 * interfaceScale) {
             if let systemImage { Image(systemName: systemImage).accessibilityHidden(true) }
             Text(title)
         }.auralFont(size: 11, weight: .medium).foregroundStyle(AuralStyle.secondary)
@@ -202,18 +145,19 @@ struct AuralSectionLabel: View {
 }
 
 struct AuralNotice: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     let message: String
     var isError = false
     var body: some View {
-        HStack(alignment: .top, spacing: 9) {
+        HStack(alignment: .top, spacing: 9 * interfaceScale) {
             Image(systemName: isError ? "exclamationmark.triangle.fill" : "info.circle")
                 .foregroundStyle(isError ? AuralStyle.warning : AuralStyle.accent)
                 .accessibilityHidden(true)
             Text(message).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                 .auralFrame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityLabel(isError ? "Error: \(message)" : message)
-        }.auralFont(size: 12).padding(12)
-            .background((isError ? AuralStyle.warning : AuralStyle.accent).opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+        }.auralFont(size: 12).auralPadding(12)
+            .background((isError ? AuralStyle.warning : AuralStyle.accent).opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -222,20 +166,20 @@ struct AuralButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.isFocused) private var isFocused
     @Environment(\.self) private var environment
-    @Environment(\.auralUsesLiquidGlass) private var usesGlass
-    @Environment(\.auralGlassChrome) private var insideChrome
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.auralInterfaceScale) private var scale
-    private var glassEnabled: Bool { usesGlass && !insideChrome && !prominent }
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .auralFont(size: 12, weight: .medium)
             .padding(.horizontal, 10 * scale).padding(.vertical, 7 * scale)
             .foregroundStyle(prominent ? AuralStyle.accentForeground(in: environment) : Color.primary)
-            .background(prominent ? AuralStyle.accent : (glassEnabled ? .clear : AuralStyle.elevated), in: RoundedRectangle(cornerRadius: 5))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(isFocused ? Color.primary : (prominent ? .clear : AuralStyle.controlBorder), lineWidth: isFocused ? 2 : 1))
-            .modifier(AuralGlassButtonEffect(enabled: glassEnabled, interactive: isEnabled && !reduceMotion))
-            .opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
+            .background(prominent ? AuralStyle.accent : AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 5))
+            // Scoped animations keep press and focus feedback from retiming the label.
+            .animation(AuralMotion.quick) { content in
+                content.overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(isFocused ? Color.primary : (prominent ? .clear : AuralStyle.controlBorder), lineWidth: isFocused ? 2 : 1))
+            }
+            .animation(AuralMotion.instant) { content in
+                content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
+            }
     }
 }
 
@@ -258,9 +202,11 @@ struct PrecisionField: View {
         TextField(label, text: Binding(get: { draft.text }, set: { draft.edit($0); invalid = false }))
             .textFieldStyle(.plain).multilineTextAlignment(.trailing)
             .auralFont(size: 12, design: .monospaced).monospacedDigit()
-            .padding(.horizontal, 7).auralFrame(height: 27)
+            .auralPadding(.horizontal, 7).auralFrame(height: 27)
             .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 4))
-            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
+            .animation(AuralMotion.quick) { content in
+                content.overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
+            }
             .focused($focused).onSubmit { _ = submit() }
             .onChange(of: focused) { wasFocused, isFocused in
                 if isFocused { registerSubmission() }

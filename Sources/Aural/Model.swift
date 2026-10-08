@@ -18,10 +18,14 @@ import ServiceManagement
     @Published private(set) var deletedPreset: (name: String, profile: Profile, favorite: Bool)?
     @Published private(set) var favoritePresets: Set<String> = []
     @Published private(set) var startEQAutomatically = false
+    @Published private(set) var peakProtectionEnabled = true
+    @Published private(set) var followSystemOutput = false
+    @Published private(set) var matchLevels = false
+    @Published private(set) var levelMatch = LevelMatch.none
     @Published private(set) var interfaceMode: InterfaceMode = .easy
     @Published private(set) var theme: AuralTheme = .dark
-    @Published private(set) var interfaceStyle: AuralInterfaceStyle = .standard
     @Published private(set) var interfaceZoom: AuralInterfaceZoom = .actualSize
+    @Published private(set) var filterPanelPosition: FilterPanelPosition = .below
     @Published private(set) var loginStatus: SMAppService.Status?
     @Published private(set) var startupNotice: String?
     @Published private(set) var editRevision = 0
@@ -41,6 +45,8 @@ import ServiceManagement
     }
     private var pendingStartup: StartupPlan?
     private var startGeneration = 0
+    private var systemOutputFollower = SystemOutputFollower()
+    private var routeRecovery = RouteRecovery()
     let route = AudioRoute()
     private var settings = Settings()
     private var timer: Timer?
@@ -73,16 +79,23 @@ import ServiceManagement
             }
             interfaceMode = settings.interfaceMode
             theme = settings.theme
-            interfaceStyle = settings.interfaceStyle
             interfaceZoom = settings.interfaceZoom
+            filterPanelPosition = settings.filterPanelPosition
+            peakProtectionEnabled = settings.peakProtectionEnabled
+            followSystemOutput = settings.followSystemOutput
+            matchLevels = settings.matchLevels
             settings.migratePresetSelections()
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
+            let systemOutput = devices.first(where: { $0.id == defaultID })
+            systemOutputFollower = SystemOutputFollower(current: try? AudioRoute.systemOutput()?.uid)
             startEQAutomatically = settings.startEQAutomatically ?? false
-            selectedUID = devices.first(where: { $0.uid == settings.selectedUID })?.uid ?? devices.first(where: { $0.id == defaultID })?.uid ?? devices.first?.uid ?? ""
+            let followed = followSystemOutput ? systemOutput?.uid : nil
+            selectedUID = followed ?? devices.first(where: { $0.uid == settings.selectedUID })?.uid ?? systemOutput?.uid ?? devices.first?.uid ?? ""
             if startEQAutomatically {
-                selectedUID = settings.selectedUID
-                pendingStartup = StartupPlan(outputUID: selectedUID, deadline: Date().addingTimeInterval(60))
+                // Following starts on the current macOS output with its own saved EQ.
+                selectedUID = followed ?? settings.selectedUID
+                pendingStartup = .launch(outputUID: selectedUID)
                 startupNotice = "Waiting for the saved output to start EQ…"
             }
             profile = settings.devices[selectedUID] ?? Profile()
@@ -91,12 +104,17 @@ import ServiceManagement
             favoritePresets = settings.favoritePresets ?? []
         } catch { pendingStartup = nil; startupNotice = nil; self.error = error.localizedDescription }
         committedProfile = ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName)
+        levelMatch = levelMatch(for: profile, in: workspace)
         refreshLoginStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.poll() }
         }
-        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.stop() }
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        observers.append(workspaceCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.pauseForSleep() }
+        })
+        observers.append(workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.resumeAfterWake() }
         })
     }
     var launchAtLoginRequested: Bool { loginStatus == .enabled || loginStatus == .requiresApproval }
@@ -144,21 +162,6 @@ import ServiceManagement
             error = nil
         } catch { self.error = "Could not save theme: " + error.localizedDescription }
     }
-    func setInterfaceStyle(_ style: AuralInterfaceStyle) {
-        guard interfaceStyle != style else { return }
-        guard style != .liquidGlass || AuralInterfaceStyle.liquidGlassSupported else {
-            error = "Liquid Glass requires macOS 26 or later."
-            return
-        }
-        var next = settings
-        next.interfaceStyle = style
-        do {
-            try writeSettings(next)
-            settings = next
-            interfaceStyle = style
-            error = nil
-        } catch { self.error = "Could not save appearance style: " + error.localizedDescription }
-    }
     func setInterfaceZoom(_ zoom: AuralInterfaceZoom) {
         guard interfaceZoom != zoom else { return }
         var next = settings
@@ -173,13 +176,66 @@ import ServiceManagement
     func zoomOut() { setInterfaceZoom(interfaceZoom.decreased) }
     func resetZoom() { setInterfaceZoom(.actualSize) }
 
+    func setFilterPanelPosition(_ position: FilterPanelPosition) {
+        guard filterPanelPosition != position else { return }
+        var next = settings
+        next.filterPanelPosition = position
+        do {
+            try writeSettings(next)
+            settings = next
+            filterPanelPosition = position
+        } catch { self.error = "Could not save filter panel position: " + error.localizedDescription }
+    }
+
+    func setPeakProtection(_ enabled: Bool) {
+        guard peakProtectionEnabled != enabled else { return }
+        var next = settings
+        next.peakProtectionEnabled = enabled
+        do {
+            try writeSettings(next)
+            settings = next
+            route.setPeakProtection(enabled)
+            if !enabled { meter.update(meter.peak) }
+            peakProtectionEnabled = enabled
+        } catch { self.error = "Could not save peak protection: " + error.localizedDescription }
+    }
+
+    func setMatchLevels(_ enabled: Bool) {
+        guard matchLevels != enabled else { return }
+        var next = settings
+        next.matchLevels = enabled
+        do {
+            try writeSettings(next)
+            settings = next
+            matchLevels = enabled
+            refreshLevelMatch()
+        } catch { self.error = "Could not save level matching: " + error.localizedDescription }
+    }
+
+    func setFollowSystemOutput(_ enabled: Bool) {
+        guard followSystemOutput != enabled else { return }
+        var next = settings
+        next.followSystemOutput = enabled
+        do {
+            try writeSettings(next)
+            settings = next
+            followSystemOutput = enabled
+            // Turning following on moves to the current macOS output right away.
+            systemOutputFollower = SystemOutputFollower()
+            if enabled, let output = try? AudioRoute.systemOutput(), systemOutputFollower.change(to: output.uid) != nil {
+                follow(output)
+            }
+        } catch { self.error = "Could not save output following: " + error.localizedDescription }
+    }
+
     func setStartAutomatically(_ enabled: Bool) {
         if enabled, selected == nil { error = "Select a connected output before enabling automatic EQ."; return }
         let previous = startEQAutomatically
         settings.startEQAutomatically = enabled
         if persist() { startEQAutomatically = enabled }
         else { settings.startEQAutomatically = previous }
-        if !startEQAutomatically { startGeneration += 1; pendingStartup = nil; startupNotice = nil }
+        // Only the launch wait belongs to this setting; resuming after sleep or a disconnect continues.
+        if !startEQAutomatically, let plan = pendingStartup, !plan.resumes { startGeneration += 1; pendingStartup = nil; startupNotice = nil }
     }
     func select(_ uid: String) {
         stop()
@@ -192,6 +248,7 @@ import ServiceManagement
         committedProfile = ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName)
         editRevision += 1
         bypass = false
+        levelMatch = levelMatch(for: profile, in: workspace)
         persist()
     }
     func change() {
@@ -201,9 +258,26 @@ import ServiceManagement
     }
     func setBypass(_ value: Bool) {
         do {
-            try route.update(profile, bypass: value)
+            let match = levelMatch(for: profile, in: workspace)
+            try route.update(profile, bypass: value, levelMatch: match)
             bypass = value
+            levelMatch = match
             error = nil
+        } catch { self.error = error.localizedDescription }
+    }
+    /// Level matching depends on the playing version and, while comparing, the
+    /// other A/B version. Off returns the original, unmatched playback.
+    private func levelMatch(for profile: Profile, in workspace: ProfileWorkspace) -> LevelMatch {
+        guard matchLevels else { return .none }
+        let other = workspace.comparisonAvailable ? workspace.otherComparison?.profile : nil
+        return LevelMatch(current: profile, comparedWith: other)
+    }
+    private func refreshLevelMatch() {
+        let match = levelMatch(for: committedProfile.profile, in: workspace)
+        guard match != levelMatch else { return }
+        do {
+            try route.update(committedProfile.profile, bypass: bypass, levelMatch: match)
+            levelMatch = match
         } catch { self.error = error.localizedDescription }
     }
     func apply(_ name: String) {
@@ -270,6 +344,7 @@ import ServiceManagement
         editRevision += 1
         workspace.endGesture()
         workspace.record(before: previous, after: committedProfile, label: "Import EQ")
+        levelMatch = levelMatch(for: imported, in: workspace)
         customPresets = settings.presets.keys.sorted()
         error = nil
         if persist() {
@@ -299,7 +374,8 @@ import ServiceManagement
                 candidate.devices[selectedUID] = snapshot.profile
                 try candidate.setSelectedPreset(snapshot.selectedPresetName, forOutput: selectedUID)
             }
-            try route.update(snapshot.profile, bypass: nextBypass ?? bypass)
+            let match = levelMatch(for: snapshot.profile, in: nextWorkspace ?? workspace)
+            try route.update(snapshot.profile, bypass: nextBypass ?? bypass, levelMatch: match)
             // Focus can submit an unchanged number after another editor opens.
             // Only a different document or comparison target invalidates its draft.
             let documentChanged = snapshot != committedProfile ||
@@ -312,6 +388,7 @@ import ServiceManagement
             if documentChanged { editRevision += 1 }
             workspace.updateComparison(snapshot)
             if let nextBypass { bypass = nextBypass }
+            levelMatch = match
             settings = candidate
             importNotice = nil
             error = nil
@@ -347,6 +424,7 @@ import ServiceManagement
     func comparisonTitle(for slot: ComparisonSlot) -> String { workspace.comparisonTitle(for: slot) }
     func captureComparison() {
         workspace.captureComparison(committedProfile)
+        refreshLevelMatch()
         importNotice = "A and B captured. Edit either version, then switch to compare."
     }
     func selectComparison(_ slot: ComparisonSlot) {
@@ -362,6 +440,7 @@ import ServiceManagement
     func copyComparisonToOther() {
         do {
             try workspace.copyComparisonToOther(committedProfile)
+            refreshLevelMatch()
             importNotice = "Copied \(comparisonSlot.rawValue) to \(comparisonSlot.other.rawValue)."
         } catch { self.error = error.localizedDescription }
     }
@@ -571,23 +650,36 @@ import ServiceManagement
             self.editProfile("Calculate headroom") { var next = $0; next.preamp = preamp; return next }
         }
     }
+    /// EQ is waiting for an output at launch, after sleep, or after a disconnect.
+    /// Every wait shows a notice, which also covers a resumed start in progress.
+    var waitingForOutput: Bool { startupNotice != nil }
     func toggleProcessing(submitPendingInput: () -> Bool = { true }) {
         // Stopping releases the connection even when a numeric draft is invalid.
         // Only starting needs to accept pending edits before changing the sound.
-        if running { stop() }
+        // Stop also ends a wait, so EQ never resumes after the person turned it off.
+        if running || waitingForOutput { stop() }
         else if submitPendingInput() { start() }
     }
-    func start() {
-        pendingStartup = nil; startupNotice = nil
-        guard let selected else { error = "Connect and select a stereo audio output."; return }
+    /// A resumed start keeps Bypass and its waiting notice until audio is back.
+    func start(resuming plan: StartupPlan? = nil) {
+        pendingStartup = nil
+        if plan == nil { startupNotice = nil }
+        guard let selected else { startupNotice = nil; error = "Connect and select a stereo audio output."; return }
         startGeneration += 1
         let generation = startGeneration
+        let match = levelMatch(for: profile, in: workspace)
         // Leave SwiftUI's synchronous accessibility action before entering HAL.
         // Core Audio may synchronously consult the app while registering its IO callback.
         DispatchQueue.main.async { [self] in
             guard generation == startGeneration else { return }
-            do { try route.start(selected, profile: profile, bypass: bypass); running = true; error = nil; importNotice = nil }
-            catch { running = false; self.error = error.localizedDescription }
+            do {
+                try route.start(selected, profile: profile, bypass: bypass, peakProtectionEnabled: peakProtectionEnabled, levelMatch: match)
+                running = true; levelMatch = match; error = nil; importNotice = nil; startupNotice = nil
+            } catch {
+                running = false
+                if let retry = plan?.retry() { pendingStartup = retry }
+                else { startupNotice = nil; self.error = error.localizedDescription }
+            }
         }
     }
     func stop() {
@@ -606,27 +698,83 @@ import ServiceManagement
         catch { self.error = reason + " Cleanup: " + error.localizedDescription + " Quit Aural to release its route." }
     }
     private func poll() {
-        meter.update(route.peak)
+        meter.update(route.readMeter())
         ticks += 1
         guard ticks % 10 == 0 else { return }
         do {
-            if running { try route.verify() }
             let current = try AudioRoute.devices()
             if current != devices { devices = current }
+            // A failed read keeps the current output; it must never stop EQ.
+            if followSystemOutput, let output = try? AudioRoute.systemOutput(),
+               systemOutputFollower.change(to: output.uid) != nil {
+                follow(output)
+            }
+            if running, selected == nil { try waitForOutput() }
+            else if running {
+                do { try route.verify() }
+                catch {
+                    guard routeRecovery.allowRestart() else { throw error }
+                    try waitForOutput(restarting: true)
+                }
+            }
             if let plan = pendingStartup {
                 switch plan.decision(availableUIDs: current.map(\.uid), now: Date()) {
                 case .wait: break
                 case .start:
-                    pendingStartup = nil
-                    bypass = false
-                    start()
+                    if plan.resumes { start(resuming: plan) }
+                    else {
+                        pendingStartup = nil
+                        bypass = false
+                        start()
+                    }
                 case .unavailable, .missingOutput:
                     pendingStartup = nil; startupNotice = nil
                     error = "Automatic EQ could not find the saved output within 60 seconds. Connect it, select it, and click Start EQ."
                 }
             }
-            if running, selected == nil { throw AudioFailure(message: "The selected device disconnected. Choose an output and start again.") }
         } catch { fail(error) }
+    }
+    /// Release the route and resume on this exact output when it is available.
+    /// A disconnect waits for the device to return; a format change or reconnection
+    /// restarts on the same device. Cancel or Stop ends the wait.
+    private func waitForOutput(restarting: Bool = false) throws {
+        let name = route.device?.name ?? selected?.name ?? "The output"
+        let plan = StartupPlan.resume(outputUID: selectedUID, outputName: name, after: 1)
+        startGeneration += 1
+        try route.stop(); running = false; meter.update(0)
+        pendingStartup = plan
+        startupNotice = restarting ? "The audio route to \(name) changed. Restarting EQ…"
+                                   : "\(name) disconnected. EQ resumes when it reconnects."
+    }
+    /// Sleep releases the route. EQ that was running, or waiting for its output,
+    /// resumes on the same output after wake.
+    private func pauseForSleep() {
+        let target = running ? selectedUID : pendingStartup?.outputUID
+        let name = selected?.name ?? pendingStartup?.outputName
+        stop()
+        guard let target, !target.isEmpty, !route.hasResources else { return }
+        // Wake sets the real resume time. The fallback covers a wake notice that never arrives.
+        pendingStartup = .resume(outputUID: target, outputName: name, after: 30)
+        startupNotice = "EQ paused for sleep. It resumes on \(name ?? "the saved output") after wake."
+    }
+    private func resumeAfterWake() {
+        guard var plan = pendingStartup, plan.resumes else { return }
+        plan.notBefore = Date().addingTimeInterval(2)
+        pendingStartup = plan
+        startupNotice = "Resuming EQ on \(plan.outputName ?? "the saved output")…"
+    }
+    /// macOS switched its output. Move there with that output's saved EQ, and keep
+    /// EQ on if it was running or waiting to resume. Aural never changes the default.
+    private func follow(_ output: OutputDevice) {
+        guard output.uid != selectedUID else { return }
+        guard devices.contains(where: { $0.uid == output.uid }) else {
+            importNotice = "macOS switched to \(output.name), which Aural cannot equalize. Aural supports outputs with one stereo stream, so it stays on \(selected?.name ?? "the selected output")."
+            return
+        }
+        let resume = running || waitingForOutput
+        select(output.uid)
+        guard selectedUID == output.uid else { return }
+        if resume { start() }
     }
     @discardableResult private func persist() -> Bool {
         settings.selectedUID = selectedUID

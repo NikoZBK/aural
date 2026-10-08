@@ -1,15 +1,19 @@
-# Dog with headphones
+# App icon
 
-`Resources/AppIcon.png` is Aural's happy pixel-art dog wearing lime headphones on a charcoal tile with transparent outer corners. `Resources/AppIconSleeping.png` is its sleeping counterpart. Each has an ICNS containing all macOS icon sizes. Regenerate both with `bash scripts/make-icon.sh`, or one with `bash scripts/make-icon.sh AppIconSleeping`.
+Aural's icon is an EQ response on a graphite tile: a low shelf, a flat midrange, a presence dip, and an air bell, drawn in Aural's instrument cyan over a faint log-frequency and dB grid. It follows the macOS icon grid: an 824 pt rounded tile with a 100 pt transparent margin on a 1024 pt canvas.
 
-Generated with OpenAI's built-in image-generation tool, then resized and packaged with macOS `sips` and `iconutil`. The main window, About window, and running app's Dock icon show the dog with its eyes closed while EQ is processing, and the original open-eyed dog simply listening when stopped or bypassed. The existing `AppIconSleeping` resource name is retained for the closed-eyes artwork; its current meaning is active processing. Finder retains the happy dog as the bundle's static icon. The menu bar uses a compact native headphones symbol.
+- `Resources/AppIcon.png` — the idle icon: the curve alone. Finder and the stopped or bypassed app use it.
+- `Resources/AppIconActive.png` — shown in the Dock, main window, and About window while EQ is processing: the same curve, lit underneath, with one node per band.
 
-## Final prompt
+The menu bar uses a compact native headphones symbol.
 
-Use case: logo-brand. Asset type: production macOS app icon for Aural, an audio equalizer with a charcoal and pale lime-green interface. Create a friendly dog wearing over-ear headphones in authentic 8-bit pixel art. One centered, front-facing tan-and-cream dog head with floppy ears, a dark square nose, bright simple eyes, and a relaxed happy expression. The lime-green headphone headband arches clearly over the head with large recognizable earcups on both sides. Strong readable silhouette at small Dock sizes. Crisp square pixel clusters on a consistent coarse 64-by-64 logical grid, flat limited palette, hard stepped edges, carefully placed one-pixel highlights, retro game sprite craftsmanship. Place the dog on a dark charcoal macOS icon tile with gently stepped rounded corners, occupying about 88 percent of the square canvas; leave the outer margin and outside corners genuinely transparent. Dog and headphones fill most of the tile with balanced breathing room. Deliver one square 1024-by-1024 icon. No text, letters, watermark, paw symbol, equalizer bars, musical notes, scenery, photorealism, 3D render, blur, soft gradients, or mockup.
+## Regenerating
 
-## Sleeping variant prompt
+The artwork is drawn in code, so there are no source files to keep beyond the script.
 
-Edited from `Resources/AppIcon.png` with the built-in tool and transparency enabled; the happy source remains unchanged.
+```sh
+swift scripts/draw-icon.swift      # writes both PNGs to Resources/
+bash scripts/make-icon.sh          # packages Resources/AppIcon.icns and AppIconActive.icns
+```
 
-Use case: precise-object-edit. Asset type: alternate inactive-state macOS app icon for Aural. Input image 1 is the edit target and exact character/style/layout reference. Create a sleeping variant of this SAME dog-with-headphones icon, preserving its tan-and-cream fur pattern, floppy ears, black nose, lime-green over-ear headphones, charcoal stepped rounded-square tile, outer transparent margin, crop, framing, scale, and crisp 8-bit pixel-art style. Change only the facial expression: both eyes gently and unmistakably closed as clean dark stepped eyelid curves, relaxed eyebrows, and the open smiling mouth/tongue replaced with a small calm closed sleeping mouth. Keep the head upright and front-facing in the identical position; no new body or scene. The result should read instantly as the same dog peacefully asleep when an equalizer is off, and match the original happy icon when toggled. Preserve the headphone colors and silhouette and all tile/background geometry as closely as possible. Hard pixel clusters, no blur, no texture, no extra glow. No letters, Z symbols, text, sound waves, musical notes, badges, or watermark. Deliver one square icon with true alpha outside the charcoal tile, matching the input composition.
+`make-icon.sh` resizes each PNG with `sips` and packages every macOS icon size with `iconutil`. Pass a name to package one icon, for example `bash scripts/make-icon.sh AppIconActive`.

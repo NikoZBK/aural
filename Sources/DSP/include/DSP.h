@@ -18,6 +18,10 @@ typedef struct {
 } EQStereo;
 EQStereo eq_stereo_default(void);
 bool eq_update_filters_stereo(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass, const EQStereo *stereo);
+// Level-matched Bypass: the dry signal plays at bypassGainDB (-24...+12 dB).
+// 0 dB is the unmatched Bypass used by eq_update_filters_stereo.
+bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass,
+    const EQStereo *stereo, double bypassGainDB);
 bool eq_update_filters(EQ *eq, const EQFilter *filters, unsigned count, double preamp, bool bypass);
 double eq_response_filters(double frequency, double rate, const EQFilter *filters, unsigned count, double preamp);
 // Stereo returns the larger L/R response for conservative automatic headroom.
@@ -29,6 +33,9 @@ bool eq_response_filters_channel_samples(const double *frequencies, unsigned fre
 extern const double EQFrequencies[EQBands];
 EQ * _Nullable eq_create(double sampleRate, unsigned inputOffset);
 void eq_destroy(EQ *eq);
+// Enabled by default. A control-thread change takes effect at the next buffer,
+// independently of filter updates and Bypass. Off removes all limiter attenuation.
+void eq_set_peak_protection(EQ *eq, bool enabled);
 // Single control-thread producer; the audio callback is the sole consumer.
 bool eq_update(EQ *eq, const double *gains, double preamp, bool bypass);
 void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output);
@@ -37,6 +44,10 @@ OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp * _Nonnull now,
     AudioBufferList * _Nonnull output, const AudioTimeStamp * _Nonnull outputTime, void * _Nullable context);
 OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID _Nonnull proc, unsigned streamCount);
 float eq_peak(EQ *eq);
+typedef struct { float peak, reductionDB; } EQMeter;
+// Single control-thread reader: maxima since the previous read, then reset.
+// Output level and gain reduction are independent interval measurements.
+EQMeter eq_read_meter(EQ *eq);
 unsigned eq_faults(EQ *eq);
 double eq_response(double frequency, double sampleRate, const double *gains, double preamp);
 

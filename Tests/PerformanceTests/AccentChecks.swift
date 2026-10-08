@@ -19,7 +19,7 @@ struct NativeAccentPreview: View {
                 controls
             }.padding(12).auralAppearance(theme)
             Button("Switch light / dark") { theme = theme == .dark ? .light : .dark }
-            Text("Both rows should use the same macOS accent. Check the popup arrows before and after switching appearance. This fixture never starts audio.")
+            Text("The Aural row uses its fixed cyan instrument color; the system row keeps the macOS accent. Popup arrows must never turn red, before or after switching appearance. This fixture never starts audio.")
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
         }.padding(24).frame(width: 580, height: 340)
             .preferredColorScheme(theme.colorScheme)

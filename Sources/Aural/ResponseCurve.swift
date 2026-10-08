@@ -15,6 +15,7 @@ struct ResponseCurve: View, Equatable {
     let rate: Double
     let bypass: Bool
     let running: Bool
+    var levelMatch = LevelMatch.none
     var comparisonProfile: Profile? = nil
     var selectedBand: Int? = nil
     var selectBand: ((Int) -> Void)? = nil
@@ -27,12 +28,12 @@ struct ResponseCurve: View, Equatable {
     // in the child so changing controls cannot be suppressed by this comparison.
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.profile == rhs.profile && lhs.rate == rhs.rate && lhs.bypass == rhs.bypass &&
-            lhs.running == rhs.running && lhs.comparisonProfile == rhs.comparisonProfile &&
+            lhs.running == rhs.running && lhs.levelMatch == rhs.levelMatch && lhs.comparisonProfile == rhs.comparisonProfile &&
             lhs.selectedBand == rhs.selectedBand && lhs.minimumPlotHeight == rhs.minimumPlotHeight &&
             (lhs.selectBand == nil) == (rhs.selectBand == nil) && (lhs.beginDrag == nil) == (rhs.beginDrag == nil)
     }
     var body: some View {
-        InteractiveResponseCurve(profile: profile, rate: rate, bypass: bypass, running: running,
+        InteractiveResponseCurve(profile: profile, rate: rate, bypass: bypass, running: running, levelMatch: levelMatch,
                                  comparisonProfile: comparisonProfile, selectedBand: selectedBand, selectBand: selectBand,
                                  beginDrag: beginDrag, changeDrag: changeDrag, endDrag: endDrag, minimumPlotHeight: minimumPlotHeight)
     }
@@ -43,6 +44,7 @@ private struct InteractiveResponseCurve: View {
     let rate: Double
     let bypass: Bool
     let running: Bool
+    let levelMatch: LevelMatch
     let comparisonProfile: Profile?
     let selectedBand: Int?
     let selectBand: ((Int) -> Void)?
@@ -65,6 +67,9 @@ private struct InteractiveResponseCurve: View {
     @State private var chosenHarmanTarget: HarmanTarget?
     @State private var harmanReference: HarmanReference?
     @State private var harmanError: String?
+    @State private var holdLiveInput = false
+    @State private var inputClock = InputClock()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var harmanTarget: HarmanTarget { chosenHarmanTarget ?? HarmanTarget.suggested(for: profile) }
     private var reference: HarmanReference? { showHarman && harmanReference?.target == harmanTarget ? harmanReference : nil }
@@ -82,10 +87,29 @@ private struct InteractiveResponseCurve: View {
         let analysis: ResponseAnalysis
     }
     private var input: Input { Input(profile: profile, rate: rate, bypass: bypass, comparison: comparisonProfile) }
-    // During a drag retain the last completed trace and the original scale so
-    // background analysis cannot detach the active pointer gesture. Points use
-    // current values; the worker replaces the trace as results become available.
-    private var analysis: ResponseAnalysis? { result?.input == input || drag != nil ? result?.analysis : nil }
+    // Keep the last completed trace while the worker analyzes a change, so the plot
+    // never blanks between edits. During a drag the original scale is retained too,
+    // so background analysis cannot detach the active pointer gesture.
+    private var analysis: ResponseAnalysis? { result?.analysis }
+    /// Points sit on the plotted trace, so they follow the analysis and move with the
+    /// curve. During a drag, and until its final analysis arrives, they track the live EQ.
+    private var plotted: Input { drag != nil || holdLiveInput ? input : (result?.input ?? input) }
+    private func plottedResponse(at frequency: Double, channel: ImportedFilter.Channel) -> Double {
+        plotted.bypass ? 0 : plotted.profile.response(frequency, rate: plotted.rate, channel: channel)
+    }
+    private var inspecting: Bool { hoverFraction != nil || inspection.fraction != nil }
+    /// The curve stays the EQ shape; level matching is a playback gain shown here.
+    private var statusReadout: String {
+        if bypass {
+            return abs(levelMatch.bypassGainDB) < 0.05 ? "Bypassed · 0 dB" : String(format: "Bypassed · matched %+.1f dB", levelMatch.bypassGainDB)
+        }
+        let base = String(format: "%g kHz · %@", rate / 1000, running ? "Processing" : "Preview")
+        return abs(levelMatch.eqOffsetDB) < 0.05 ? base : base + String(format: " · matched %+.1f dB", levelMatch.eqOffsetDB)
+    }
+    private var motion: CurveMotion {
+        CurveMotion(showFilters: showFilters, channel: channel, showHarman: showHarman, reference: reference?.target,
+                    channelFilters: hasChannelFilters, comparison: comparisonProfile != nil)
+    }
     private var hasChannelFilters: Bool {
         ((profile.filters ?? []) + (comparisonProfile?.filters ?? [])).contains {
             $0.enabled && $0.effectiveChannel != .stereo
@@ -122,56 +146,62 @@ private struct InteractiveResponseCurve: View {
         return String(format: "%.0f hertz, ", frequency) + gains + (bypass ? ", bypassed" : (running ? ", processing" : ", preview")) + targetValue
     }
 
-    private func header(compact: Bool) -> some View {
-        HStack(spacing: compact ? 8 : 12) {
-            AuralSectionLabel(title: "EQ curve", systemImage: "waveform.path").fixedSize()
-            if hasChannelFilters {
-                Picker("Response channel", selection: $channel) {
-                    ForEach(ResponseChannel.allCases, id: \.self) { channel in
-                        Text(channel.label).tag(channel)
-                    }
-                }.pickerStyle(.segmented).labelsHidden().auralControlSize(.small)
-                    .auralFrame(width: 116, height: 22)
-                    .help("Inspect left and right independently. Left uses your accent color; right is dotted blue. Peak/headroom always covers both channels.")
-            }
-            Spacer(minLength: 8)
-            if comparisonProfile != nil {
-                Group {
-                    if compact { Image(systemName: "line.diagonal").accessibilityLabel("A/B comparison curve") }
-                    else { Label("A/B", systemImage: "line.diagonal") }
-                }.fixedSize().foregroundStyle(AuralStyle.secondary)
-                    .help("Dashed line: the captured comparison EQ, including its preamp.")
-            }
-            Menu {
-                Toggle("Show Harman reference", isOn: $showHarman)
-                Divider()
-                Picker("Harman target", selection: $chosenHarmanTarget) {
-                    Text("Automatic (\(HarmanTarget.suggested(for: profile).label))").tag(Optional<HarmanTarget>.none)
-                    ForEach(HarmanTarget.allCases, id: \.self) { target in Text(target.label).tag(Optional(target)) }
+    private func header(compact: Bool, stacked: Bool = false) -> some View {
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8 * interfaceScale)) : AnyLayout(HStackLayout(spacing: (compact ? 8 : 12) * interfaceScale))
+        return layout {
+            HStack(spacing: 8 * interfaceScale) {
+                AuralSectionLabel(title: "EQ curve", systemImage: "waveform.path").fixedSize()
+                if hasChannelFilters {
+                    Picker("Response channel", selection: $channel) {
+                        ForEach(ResponseChannel.allCases, id: \.self) { channel in
+                            Text(channel.label).tag(channel)
+                        }
+                    }.pickerStyle(.segmented).labelsHidden().auralControlSize(.small)
+                        .auralFrame(width: 116, height: 22)
+                        .help("Inspect left and right independently. Left is the solid accent trace; right is dotted rose. Peak/headroom always covers both channels.")
                 }
-                Divider()
-                Link("View published target data", destination: harmanTarget.sourceURL)
-            } label: {
-                Text("Harman").foregroundStyle(showHarman ? AuralStyle.plotColors[2] : AuralStyle.secondary)
-            }.menuStyle(.borderlessButton).fixedSize().disabled(drag != nil)
-                .accessibilityLabel("Harman acoustic reference")
-                .help("Display a Harman acoustic target normalized to 0 dB at 1 kHz. It is a visual reference; the solid EQ curve shows gain, not a measured headphone response. The reference never changes audio.")
-            Toggle(isOn: $showFilters) {
-                if compact { Image(systemName: "line.3.horizontal.decrease") }
-                else { Text("Filter curves") }
             }
-            .toggleStyle(.button).auralControlSize(.small).fixedSize()
-            .accessibilityLabel("Filter curves")
-            .disabled(bypass)
-            .help("Overlay each enabled filter without preamp. Disabled filters are excluded.")
+            HStack(spacing: 8 * interfaceScale) {
+                Spacer(minLength: 0)
+                if comparisonProfile != nil {
+                    Group {
+                        if compact { Image(systemName: "line.diagonal").accessibilityLabel("A/B comparison curve") }
+                        else { Label("A/B", systemImage: "line.diagonal") }
+                    }.fixedSize().foregroundStyle(AuralStyle.secondary)
+                        .help("Dashed line: the captured comparison EQ, including its preamp.")
+                }
+                Menu {
+                    Toggle("Show Harman reference", isOn: $showHarman)
+                    Divider()
+                    Picker("Harman target", selection: $chosenHarmanTarget) {
+                        Text("Automatic (\(HarmanTarget.suggested(for: profile).label))").tag(Optional<HarmanTarget>.none)
+                        ForEach(HarmanTarget.allCases, id: \.self) { target in Text(target.label).tag(Optional(target)) }
+                    }
+                    Divider()
+                    Link("View published target data", destination: harmanTarget.sourceURL)
+                } label: {
+                    Text("Harman").foregroundStyle(showHarman ? AuralStyle.plotColors[2] : AuralStyle.secondary)
+                }.menuStyle(.borderlessButton).tint(.primary).fixedSize().disabled(drag != nil)
+                    .accessibilityLabel("Harman acoustic reference")
+                    .help("Display a Harman acoustic target normalized to 0 dB at 1 kHz. It is a visual reference; the solid EQ curve shows gain, not a measured headphone response. The reference never changes audio.")
+                Toggle(isOn: $showFilters) {
+                    if compact { Image(systemName: "line.3.horizontal.decrease") }
+                    else { Text("Filter curves") }
+                }
+                .toggleStyle(.button).auralControlSize(.small).fixedSize()
+                .accessibilityLabel("Filter curves")
+                .disabled(bypass)
+                .help("Overlay each enabled filter without preamp. Disabled filters are excluded.")
+            }
         }.auralFont(size: 11, weight: .medium)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10 * interfaceScale) {
             ViewThatFits(in: .horizontal) {
                 header(compact: false)
                 header(compact: true)
+                header(compact: true, stacked: true)
             }.auralFrame(minHeight: 24).fixedSize(horizontal: false, vertical: true)
             // Canvas and curve gestures share one logical coordinate system.
             // Only this pure SwiftUI drawing scales geometrically; AppKit-backed
@@ -216,13 +246,17 @@ private struct InteractiveResponseCurve: View {
                             }
                             .accessibilitySortPriority(Double((profile.filters?.count ?? profile.gains.count) + 1))
                             if let selectBand {
-                                ForEach(EQBarBand.bands(in: profile), id: \.index) { band in
+                                ForEach(EQBarBand.bands(in: plotted.profile), id: \.index) { band in
                                     if (20...maximumFrequency).contains(band.frequency), channel.includes(band.filter?.effectiveChannel ?? .stereo) {
                                         filterPoint(band, selectBand: selectBand, scale: scale, size: geometry.size)
                                     }
                                 }
                             }
-                        }.coordinateSpace(name: "response-plot").clipped()
+                        }
+                        // One rasterized pass keeps the curve and its points in the same frame
+                        // while the plot resizes; separately drawn layers can lag each other.
+                        .drawingGroup()
+                        .coordinateSpace(name: "response-plot").clipped()
                             .accessibilityElement(children: .contain).accessibilityLabel("EQ curve")
                     } else {
                         Text("Updating curve…").font(.caption).foregroundStyle(AuralStyle.secondary)
@@ -243,15 +277,18 @@ private struct InteractiveResponseCurve: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 14) {
-                if hoverFraction != nil || inspection.fraction != nil {
-                    Text(hoverReadout)
-                        .foregroundStyle(Color.primary)
-                } else {
-                    Text(bypass ? "Bypassed · 0 dB" : String(format: "%g kHz · %@", rate / 1000, running ? "Processing" : "Preview"))
-                        .foregroundStyle(AuralStyle.secondary)
-                }
-                Spacer(minLength: 4)
+            HStack(spacing: 14 * interfaceScale) {
+                // Overlapping the two readouts lets them crossfade without the row reflowing.
+                ZStack(alignment: .leading) {
+                    if inspecting {
+                        Text(hoverReadout)
+                            .foregroundStyle(Color.primary)
+                    } else {
+                        Text(statusReadout)
+                            .foregroundStyle(AuralStyle.secondary)
+                    }
+                }.auralAnimation(AuralMotion.fade, value: inspecting)
+                Spacer(minLength: 4 * interfaceScale)
                 if let analysis {
                     ViewThatFits(in: .horizontal) {
                         Text(analysis.peak > 0.05
@@ -265,6 +302,7 @@ private struct InteractiveResponseCurve: View {
             }.auralFont(size: 10, weight: .medium, design: .monospaced).lineLimit(1)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .auralAnimation(value: motion)
         .onDisappear { finishDrag() }
         .auralAnnouncement(harmanError)
         .task(id: referenceRequest) {
@@ -283,28 +321,48 @@ private struct InteractiveResponseCurve: View {
         }
         .task(id: input) {
             let input = input
+            // A single change morphs the trace. Continuous edits from faders, sliders,
+            // held keys, and drags follow the control directly.
+            let now = ContinuousClock.now
+            let continuous = inputClock.last.map { now - $0 < .milliseconds(250) } ?? false
+            inputClock.last = now
             let updated = await EQAnalysisWorker.shared.calculate {
                 ResponseAnalysis(profile: input.profile, rate: input.rate, bypass: input.bypass, comparisonProfile: input.comparison)
             }
             guard !Task.isCancelled, let updated else { return }
-            result = AnalysisResult(input: input, analysis: updated)
+            let next = AnalysisResult(input: input, analysis: updated)
+            if continuous || drag != nil || reduceMotion {
+                result = next
+                holdLiveInput = false
+            } else {
+                withAnimation(AuralMotion.standard) {
+                    result = next
+                    holdLiveInput = false
+                }
+            }
         }
 
     }
 
     private func filterPoint(_ band: EQBarBand, selectBand: @escaping (Int) -> Void, scale: ResponseScale, size: CGSize) -> some View {
         let responseChannel: ImportedFilter.Channel = band.filter?.effectiveChannel == .right || channel == .right ? .right : .left
-        let gain = response(at: band.frequency, channel: responseChannel)
+        let gain = plottedResponse(at: band.frequency, channel: responseChannel)
         let selected = selectedBand == band.index
         let states: [String?] = [selected ? "Selected" : nil, band.filter?.enabled == false ? "Bypassed" : nil]
         let help = band.filter == nil ? "Click to edit. Drag vertically to change gain." : band.filter?.kind.usesGain == false ? "Click to edit. Drag horizontally to change frequency." : "Click to edit. Drag horizontally for frequency and vertically for gain."
         return Button { selectBand(band.index) } label: {
             Text("\(band.index + 1)").font(.system(size: 10, weight: .medium)).monospacedDigit()
                 .frame(width: 22, height: 22)
-                .background(selected ? AuralStyle.accent : AuralStyle.surface, in: Circle())
+                // Selection fills the point in place. Scoping the animation to its colors
+                // leaves the point's position on the curve's timing, so the number and
+                // its circle never separate while the plot moves.
+                .animation(AuralMotion.quick) { content in
+                    content
+                        .foregroundStyle(selected ? AuralStyle.accentForeground(in: environment) : Color.primary)
+                        .background(selected ? AuralStyle.accent : AuralStyle.surface, in: Circle())
+                }
                 .overlay(Circle().strokeBorder(AuralStyle.accent, style: StrokeStyle(lineWidth: 1, dash: band.filter?.enabled == false ? [2, 2] : [])))
         }.buttonStyle(.plain)
-            .foregroundStyle(selected ? AuralStyle.accentForeground(in: environment) : Color.primary)
             .position(x: 44 + log10(band.frequency / 20) / frequencySpan * max(1, size.width - 62),
                       y: 14 + min(1, max(0, scale.fraction(gain))) * max(1, size.height - 41))
             .zIndex(selected ? 1 : 0)
@@ -334,23 +392,78 @@ private struct InteractiveResponseCurve: View {
 
     private func finishDrag() {
         let index = drag?.band.index
-        drag = nil
+        // Releasing the point settles the plot onto its own scale again.
+        withAnimation(reduceMotion || drag == nil ? nil : AuralMotion.standard) {
+            holdLiveInput = drag != nil && result?.input != input
+            drag = nil
+        }
         dragRejected = false
         if let index { endDrag?(index) }
     }
 
 }
 
+private struct CurveMotion: Equatable {
+    let showFilters: Bool
+    let channel: ResponseChannel
+    let showHarman: Bool
+    let reference: HarmanTarget?
+    let channelFilters: Bool
+    let comparison: Bool
+}
+
+private final class InputClock {
+    var last: ContinuousClock.Instant?
+}
+
 /// Canvas receives one immutable render value. Its closure never reaches back into
 /// a View's State storage, which can otherwise leave its retained drawing one edit behind.
-private struct ResponseCanvas: View {
+private struct ResponseCanvas: View, Animatable {
     let drawing: ResponsePlotDrawing
+    private let target: PlotVector
+    var animatableData: PlotVector
     @Environment(\.colorScheme) private var colorScheme
+
+    init(drawing: ResponsePlotDrawing) {
+        self.drawing = drawing
+        target = drawing.morphTarget
+        animatableData = target
+    }
+
     var body: some View {
+        // Between analyses SwiftUI interpolates the sampled traces. At rest the exact
+        // samples, including filter centers, are drawn.
+        let morph = animatableData == target ? nil : animatableData
         // An unchanged EQ still needs to redraw when the inherited appearance changes.
-        Canvas { [drawing] context, size in
-            drawing.draw(context: context, size: size)
+        Canvas { [drawing, morph] context, size in
+            drawing.draw(context: context, size: size, morph: morph)
         }.environment(\.colorScheme, colorScheme)
+    }
+}
+
+/// Trace samples SwiftUI can interpolate. Lengths only differ against `zero`,
+/// whose missing samples count as zeros.
+private struct PlotVector: VectorArithmetic {
+    var values: [Double]
+    static var zero: Self { Self(values: []) }
+    static func + (lhs: Self, rhs: Self) -> Self { combine(lhs, rhs, +) }
+    static func - (lhs: Self, rhs: Self) -> Self { combine(lhs, rhs, -) }
+    mutating func scale(by rhs: Double) { values = values.map { $0 * rhs } }
+    var magnitudeSquared: Double { values.reduce(0) { $0 + $1 * $1 } }
+    private static func combine(_ lhs: Self, _ rhs: Self, _ operation: (Double, Double) -> Double) -> Self {
+        if lhs.values.count == rhs.values.count { return Self(values: zip(lhs.values, rhs.values).map(operation)) }
+        let count = max(lhs.values.count, rhs.values.count)
+        return Self(values: (0..<count).map {
+            operation($0 < lhs.values.count ? lhs.values[$0] : 0, $0 < rhs.values.count ? rhs.values[$0] : 0)
+        })
+    }
+}
+
+private extension ResponseScale {
+    init(lower: Double, upper: Double, interval: Double) {
+        self.lower = lower
+        self.upper = upper
+        self.interval = interval
     }
 }
 
@@ -380,7 +493,22 @@ private struct ResponsePlotDrawing {
         channel == .right && !bypass ? AuralStyle.plotColors[1] : color
     }
 
-    func draw(context: GraphicsContext, size: CGSize) {
+    /// Left, right, and comparison traces at the fixed grid as plot fractions, then
+    /// the scale bounds. Fractions keep the trace in the same space as the filter
+    /// points, which SwiftUI moves with the same timing. A missing comparison
+    /// matches its channel, so a new one separates from the EQ curve.
+    var morphTarget: PlotVector {
+        let indices = analysis.gridIndices
+        func fractions(_ values: [Double]) -> [Double] { indices.map { scale.fraction(values[$0]) } }
+        let left = fractions(analysis.left), right = fractions(analysis.right)
+        return PlotVector(values: left + right + (analysis.comparisonLeft.map(fractions) ?? left)
+                          + (analysis.comparisonRight.map(fractions) ?? right) + [scale.lower, scale.upper])
+    }
+
+    func draw(context: GraphicsContext, size: CGSize, morph: PlotVector? = nil) {
+        let count = analysis.gridIndices.count
+        let morph = morph.flatMap { $0.values.count == count * 4 + 2 ? $0.values : nil }
+        let scale = morph.map { ResponseScale(lower: $0[count * 4], upper: $0[count * 4 + 1], interval: self.scale.interval) } ?? self.scale
         let left = 44.0, right = size.width - 18, top = 14.0, bottom = size.height - 27
         let width = max(1, right - left), height = max(1, bottom - top)
         func x(_ frequency: Double) -> Double { left + log10(frequency / 20) / frequencySpan * width }
@@ -396,8 +524,18 @@ private struct ResponsePlotDrawing {
             }
             return path
         }
+        let gridX = morph == nil ? [] : analysis.gridIndices.map { x(analysis.frequencies[$0]) }
+        func trace(_ fractions: ArraySlice<Double>) -> Path {
+            var path = Path()
+            for (index, point) in zip(gridX, fractions).enumerated() {
+                let position = CGPoint(x: point.0, y: top + point.1 * height)
+                if index == 0 { path.move(to: position) } else { path.addLine(to: position) }
+            }
+            return path
+        }
 
-        for db in scale.ticks {
+        // While the scale moves, keep the destination's round values and show those in range.
+        for db in self.scale.ticks where db >= scale.lower - 0.01 && db <= scale.upper + 0.01 {
             context.stroke(line(from: CGPoint(x: left, y: y(db)), to: CGPoint(x: right, y: y(db))),
                            with: .color(AuralStyle.grid.opacity(db == 0 ? (highContrast ? 0.6 : 0.22) : (highContrast ? 0.2 : 0.06))), lineWidth: 1)
             context.draw(Text(db == 0 ? "0" : String(format: "%+.0f", db))
@@ -426,13 +564,23 @@ private struct ResponsePlotDrawing {
         }
         for channel in displayedChannels {
             let traceColor = color(for: channel)
-            let values = channel == .right ? analysis.right : analysis.left
-            let reference = channel == .right ? analysis.comparisonRight : analysis.comparisonLeft
-            if let reference {
-                context.stroke(curve(reference), with: .color(traceColor),
+            let combined: Path, referencePath: Path?
+            if let morph {
+                let start = channel == .right ? count : 0
+                let values = morph[start..<start + count]
+                let reference = morph[start + 2 * count..<start + 3 * count]
+                // A comparison that is going away merges into the EQ curve before it disappears.
+                let separate = analysis.comparisonLeft != nil || zip(values, reference).contains { abs($0 - $1) > 0.0005 }
+                combined = trace(values)
+                referencePath = separate ? trace(reference) : nil
+            } else {
+                combined = curve(channel == .right ? analysis.right : analysis.left)
+                referencePath = (channel == .right ? analysis.comparisonRight : analysis.comparisonLeft).map { curve($0) }
+            }
+            if let referencePath {
+                context.stroke(referencePath, with: .color(traceColor),
                                style: StrokeStyle(lineWidth: 1.2, dash: [5, 4]))
             }
-            let combined = curve(values)
             var fill = combined
             fill.addLine(to: CGPoint(x: right, y: y(0)))
             fill.addLine(to: CGPoint(x: left, y: y(0)))

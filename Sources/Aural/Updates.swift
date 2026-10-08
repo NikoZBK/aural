@@ -46,10 +46,11 @@ import Sparkle
 }
 
 struct UpdatesView: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     @ObservedObject private var checker = UpdateChecker.shared
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14 * interfaceScale) {
             Text("Software updates").font(.title2.weight(.semibold))
             Text("Installed: Aural \(checker.installed)").foregroundStyle(.secondary)
             Text("Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets are preserved.")
@@ -61,6 +62,7 @@ struct UpdatesView: View {
                 .auralFont(size: 11).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if let error = checker.error {
                 Text(error).foregroundStyle(AuralStyle.warning).fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
             }
             HStack {
                 Link("Releases page", destination: UpdateChecker.releasesURL)
@@ -69,8 +71,9 @@ struct UpdatesView: View {
                     .disabled(!checker.canCheckForUpdates && checker.error == nil)
                     .buttonStyle(.borderedProminent)
             }
-        }.auralFont(size: 12).padding(22).auralFrame(width: 530)
-            .auralAppearance(model.theme, style: model.interfaceStyle)
+        }.auralAnimation(AuralMotion.quick, value: checker.error)
+            .auralFont(size: 12).auralPadding(22).auralFrame(width: 530)
+            .auralAppearance(model.theme)
             .auralAnnouncement(checker.error ?? "")
             .task { checker.check() }
     }

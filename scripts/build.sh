@@ -22,7 +22,7 @@ ditto --norsrc "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 xcrun lipo -create "$BUILD_STAGE/Aural-arm64" "$BUILD_STAGE/Aural-x86_64" -output "$APP/Contents/MacOS/Aural"
 xcrun strip -S "$APP/Contents/MacOS/Aural"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-cp Resources/AppIconSleeping.icns "$APP/Contents/Resources/AppIconSleeping.icns"
+cp Resources/AppIconActive.icns "$APP/Contents/Resources/AppIconActive.icns"
 cp -R Sources/Aural/Resources/Targets "$APP/Contents/Resources/Targets"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

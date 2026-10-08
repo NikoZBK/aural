@@ -25,6 +25,9 @@ struct ResponseAnalysis: Sendable {
     }
 
     let frequencies: [Double]
+    /// Positions of the fixed logarithmic samples in `frequencies`. They line up
+    /// between analyses at the same rate, so one trace can morph into the next.
+    let gridIndices: [Int]
     let left: [Double]
     let right: [Double]
     let combined: [Double]
@@ -42,13 +45,15 @@ struct ResponseAnalysis: Sendable {
         let maximumFrequency = min(20000, rate * 0.49)
         self.maximumFrequency = maximumFrequency
         let span = log10(maximumFrequency / 20)
-        var frequencies = (0...768).map { 20 * pow(10, Double($0) / 768 * span) }
+        let grid = (0...768).map { 20 * pow(10, Double($0) / 768 * span) }
         // Include exact centers so narrow peaks/notches cannot disappear between log samples.
-        frequencies += (activeFilters + referenceFilters).filter {
+        let frequencies = grid + (activeFilters + referenceFilters).filter {
             !$0.disabled && (20...maximumFrequency).contains($0.frequency)
         }.map(\.frequency)
         let sampledFrequencies = Array(Set(frequencies)).sorted()
         self.frequencies = sampledFrequencies
+        let positions = Dictionary(sampledFrequencies.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: { first, _ in first })
+        gridIndices = grid.compactMap { positions[$0] }
         hasChannelFilters = (activeFilters + referenceFilters).contains { !$0.disabled && $0.channel != UInt32(EQChannelStereo) }
 
         func sample(_ filters: [EQFilter], preamp: Double, channel: UInt32) -> [Double] {

@@ -1,14 +1,15 @@
 import SwiftUI
 
 struct EasyModeView: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 20 * interfaceScale) {
             HStack(alignment: .top) {
                 currentPreset
-                Spacer(minLength: 12)
+                Spacer(minLength: 12 * interfaceScale)
                 Button { if submitPendingInput() { model.undoProfile() } } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
                     .buttonStyle(AuralButtonStyle()).disabled(!model.canUndo).help(model.undoLabel)
                 Button { if submitPendingInput() { model.redoProfile() } } label: { Label("Redo", systemImage: "arrow.uturn.forward") }
@@ -23,39 +24,40 @@ struct EasyModeView: View {
                     GeometryReader { controls in
                         let columns = Array(repeating: GridItem(.flexible(), alignment: .top), count: controls.size.width >= 700 ? 2 : 1)
                         ScrollView {
-                            VStack(alignment: .leading, spacing: 18) {
+                            VStack(alignment: .leading, spacing: 18 * interfaceScale) {
                                 equalizer
-                                LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
+                                LazyVGrid(columns: columns, alignment: .leading, spacing: 18 * interfaceScale) {
                                     OutputSelection(model: model, submissions: submissions, comfortable: true)
                                         .frame(maxWidth: .infinity, alignment: .leading).auralPanel(padding: 20)
                                     PreampControls(model: model, submissions: submissions)
                                         .frame(maxWidth: .infinity, alignment: .leading).auralPanel(padding: 20)
                                     SimpleListeningControls(model: model, submissions: submissions)
                                         .frame(maxWidth: .infinity, alignment: .leading).auralPanel(padding: 20)
-                                    VStack(alignment: .leading, spacing: 18) {
-                                        StudioMeter(meter: model.meter, running: model.running)
+                                    VStack(alignment: .leading, spacing: 18 * interfaceScale) {
+                                        StudioMeter(meter: model.meter, running: model.running,
+                                                    protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
                                         Divider().overlay(AuralStyle.border)
                                         Text(model.running ? "Listening on \(model.selected?.name ?? "the selected output")." : "Start EQ to hear your adjustments and see the output level.")
                                             .font(.system(size: 13)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
-                                        HStack(alignment: .top, spacing: 10) {
+                                        HStack(alignment: .top, spacing: 10 * interfaceScale) {
                                             Image(systemName: "gearshape").accessibilityHidden(true)
                                             Text("Use Settings above to start EQ automatically or open Aural when you log in.")
                                                 .fixedSize(horizontal: false, vertical: true)
                                         }.font(.system(size: 12)).foregroundStyle(AuralStyle.secondary)
                                     }.frame(maxWidth: .infinity, alignment: .leading).auralPanel(padding: 20)
                                 }
-                            }.padding(.bottom, 4)
+                            }.auralPadding(.bottom, 4)
                         }.frame(maxWidth: .infinity, maxHeight: .infinity).scrollIndicators(.visible)
-                    }.padding(.leading, 12)
+                    }.auralPadding(.leading, 12)
                         .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
                 }
             }
-        }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.auralPadding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
             .onDisappear { model.endProfileGesture() }
     }
 
     private var equalizer: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12 * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "Equalizer · \(model.profile.filters?.count ?? model.profile.gains.count) bands", systemImage: "slider.vertical.3")
                 Spacer()
@@ -67,9 +69,9 @@ struct EasyModeView: View {
     }
 
     private var currentPreset: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8 * interfaceScale) {
             AuralSectionLabel(title: "Current preset")
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 12 * interfaceScale) {
                 Text(model.selectedPresetName ?? "Custom EQ")
                     .font(.system(size: 28, weight: .semibold)).lineLimit(2)
                 if model.isPresetModified {

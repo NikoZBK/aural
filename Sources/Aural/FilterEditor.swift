@@ -3,12 +3,15 @@ import SwiftUI
 struct FilterEditor: View {
     @ObservedObject var model: Model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var draft: ParametricDraft
     @State private var error: String?
     @State private var history = EditHistory<ParametricDraft>()
     @State private var restoringHistory = false
     @State private var sourceRevision: Int
     private var sourceChanged: Bool { sourceRevision != model.editRevision }
+    // This view applies zoom to its own body, so the environment above it still reads 1.
+    private var interfaceScale: CGFloat { model.interfaceZoom.scale }
     private var sourceChangeNotice: String? { sourceChanged ? "The active EQ changed while this draft was open. Your draft is retained; reload the current EQ before applying edits." : nil }
 
     init(model: Model) {
@@ -18,10 +21,10 @@ struct FilterEditor: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16 * interfaceScale) {
             header
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 16 * interfaceScale) {
                     preamp
                     preview
                     filterList
@@ -29,23 +32,26 @@ struct FilterEditor: View {
                 }
             }.scrollIndicators(.visible)
             if let sourceChangeNotice {
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 12 * interfaceScale) {
                     AuralNotice(message: sourceChangeNotice, isError: true)
-                    Button("Reload current EQ") { reloadCurrent() }.buttonStyle(AuralButtonStyle())
+                    Button("Reload current EQ") { withAuralAnimation { reloadCurrent() } }.buttonStyle(AuralButtonStyle())
                         .help("Replace this editor's draft with the current EQ and clear its local undo history")
                 }
+                .transition(.auralReveal(.bottom, reduceMotion: reduceMotion))
             }
             if let error {
                 AuralNotice(message: error, isError: true)
+                    .transition(.auralReveal(.bottom, reduceMotion: reduceMotion))
             }
             footer
         }
+        .auralAnimation(value: [error, sourceChangeNotice])
         .auralFont(size: 13)
         .textFieldStyle(.roundedBorder)
-        .padding(24)
+        .auralPadding(24)
         .auralFrame(minWidth: 900, idealWidth: 930, minHeight: 520, idealHeight: 750)
         .auralZoom(model)
-        .auralAppearance(model.theme, style: model.interfaceStyle)
+        .auralAppearance(model.theme)
         .background(HistoryKeyboardShortcuts(canUndo: history.canUndo, canRedo: history.canRedo,
                                             undo: undoDraft, redo: redoDraft))
         .auralAnnouncement(error ?? sourceChangeNotice)
@@ -56,21 +62,22 @@ struct FilterEditor: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: 14 * interfaceScale) {
             Image(systemName: "slider.horizontal.3")
                 .auralFont(size: 22, weight: .medium)
-                .foregroundStyle(AuralStyle.accent)
+                .foregroundStyle(AuralStyle.secondary)
                 .auralFrame(width: 46, height: 46)
-                .background(AuralStyle.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
+                .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 6))
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 5 * interfaceScale) {
                 Text("Filter editor").auralFont(size: 24, weight: .semibold)
                 Text("Check your changes before applying them.")
                     .foregroundStyle(AuralStyle.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 5) {
+            VStack(alignment: .trailing, spacing: 5 * interfaceScale) {
                 Text("\(draft.filters.count) / 32")
+                    .contentTransition(.numericText(value: Double(draft.filters.count)))
                     .auralFont(size: 16, weight: .medium, design: .monospaced)
                     .foregroundStyle(Color.primary)
                 Text("filters").foregroundStyle(AuralStyle.secondary)
@@ -91,12 +98,13 @@ struct FilterEditor: View {
             }
         }
         // Partial numeric input must not make the form jump while a field is focused.
-        .frame(height: 268, alignment: .top)
+        // The fixed height is the curve plus its zoomed panel padding.
+        .frame(height: 240 + 2 * 14 * interfaceScale, alignment: .top)
     }
 
     private var preamp: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 16 * interfaceScale) {
+            VStack(alignment: .leading, spacing: 4 * interfaceScale) {
                 Text("Preamp").fontWeight(.semibold)
                 Text("Overall level before the filters")
                     .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
@@ -117,31 +125,33 @@ struct FilterEditor: View {
     }
 
     private var filterList: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14 * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "Filters", systemImage: "line.3.horizontal.decrease")
                 Spacer()
-                Button("Add filter", systemImage: "plus") { draft.filters.append(FilterDraft()) }
+                Button("Add filter", systemImage: "plus") { withAuralAnimation { draft.filters.append(FilterDraft()) } }
                     .buttonStyle(AuralButtonStyle())
                     .disabled(draft.filters.count >= 32)
                     .help("Add a peak filter. You can use up to 32 filters.")
             }
             if draft.filters.isEmpty {
-                VStack(spacing: 10) {
+                VStack(spacing: 10 * interfaceScale) {
                     Image(systemName: "waveform.path")
-                        .auralFont(size: 28).foregroundStyle(AuralStyle.accent)
+                        .auralFont(size: 28).foregroundStyle(AuralStyle.secondary)
                         .accessibilityHidden(true)
                     Text("No filters added yet").fontWeight(.medium)
                     Text("Add at least one filter before applying your EQ.")
                         .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
                 }
                 .auralFrame(maxWidth: .infinity, minHeight: 140)
+                .transition(.opacity)
             } else {
                 columnHeadings
-                VStack(spacing: 4) {
+                VStack(spacing: 4 * interfaceScale) {
                     ForEach($draft.filters) { $filter in
                         if let index = draft.filters.firstIndex(where: { $0.id == filter.id }) {
                             filterRow($filter, number: index + 1)
+                                .transition(.auralReveal(reduceMotion: reduceMotion))
                         }
                     }
                 }
@@ -151,7 +161,7 @@ struct FilterEditor: View {
     }
 
     private var columnHeadings: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 8 * interfaceScale) {
             Text("#").auralFrame(width: 24)
             Text("On").auralFrame(width: 28)
             Text("Type").auralFrame(width: 166, alignment: .leading)
@@ -168,7 +178,7 @@ struct FilterEditor: View {
 
     private func filterRow(_ filter: Binding<FilterDraft>, number: Int) -> some View {
         let id = filter.wrappedValue.id
-        return HStack(spacing: 8) {
+        return HStack(spacing: 8 * interfaceScale) {
             Text(String(format: "%02d", number))
                 .auralFont(size: 11, weight: .medium, design: .monospaced)
                 .foregroundStyle(AuralStyle.secondary)
@@ -208,25 +218,25 @@ struct FilterEditor: View {
                 .accessibilityHint("Enter a number from 0.05 to 50")
             Menu {
                 Button("Duplicate", systemImage: "plus.square.on.square") {
-                    do { try draft.duplicateFilter(id); error = nil }
+                    do { try withAuralAnimation { try draft.duplicateFilter(id) }; error = nil }
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.filters.count >= 32)
                 Button("Move up", systemImage: "arrow.up") {
-                    do { try draft.moveFilter(id, by: -1); error = nil }
+                    do { try withAuralAnimation { try draft.moveFilter(id, by: -1) }; error = nil }
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.filters.first?.id == id)
                 Button("Move down", systemImage: "arrow.down") {
-                    do { try draft.moveFilter(id, by: 1); error = nil }
+                    do { try withAuralAnimation { try draft.moveFilter(id, by: 1) }; error = nil }
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.filters.last?.id == id)
             } label: {
                 Image(systemName: "ellipsis.circle").auralFont(size: 15)
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).auralFrame(width: 24)
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 24)
             .help("Duplicate or reorder filter \(number)")
             .accessibilityLabel("Filter \(number) actions")
             Button {
-                draft.filters.removeAll { $0.id == id }
+                withAuralAnimation { draft.filters.removeAll { $0.id == id } }
             } label: {
                 Image(systemName: "minus.circle").auralFont(size: 15).auralFrame(width: 24, height: 28)
             }
@@ -239,13 +249,13 @@ struct FilterEditor: View {
         .monospacedDigit()
         .auralFrame(minHeight: 44)
         .background(number.isMultiple(of: 2) ? AuralStyle.elevated.opacity(0.6) : .clear,
-                    in: RoundedRectangle(cornerRadius: 7))
+                    in: RoundedRectangle(cornerRadius: 5))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Filter \(number)")
     }
 
     private var guidance: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 5 * interfaceScale) {
             Text("10–22,000 Hz  ·  Gain −30 to +30 dB  ·  Q 0.05–50")
             Text("Pass and notch filters use frequency and Q. All-pass changes phase, so its magnitude graph is flat.")
                 .fixedSize(horizontal: false, vertical: true)
@@ -268,9 +278,9 @@ struct FilterEditor: View {
     }
 
     private var footer: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 14 * interfaceScale) {
             Divider().overlay(AuralStyle.border)
-            HStack(spacing: 8) {
+            HStack(spacing: 8 * interfaceScale) {
                 Button("Undo", systemImage: "arrow.uturn.backward", action: undoDraft)
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canUndo)
                 .keyboardShortcut("z", modifiers: [.command])
@@ -311,11 +321,11 @@ struct FilterEditor: View {
     }
 
     private func undoDraft() {
-        do { let previous = try history.undo(draft); restoreDraft(previous); error = nil }
+        do { let previous = try history.undo(draft); withAuralAnimation { restoreDraft(previous) }; error = nil }
         catch { self.error = error.localizedDescription }
     }
     private func redoDraft() {
-        do { let next = try history.redo(draft); restoreDraft(next); error = nil }
+        do { let next = try history.redo(draft); withAuralAnimation { restoreDraft(next) }; error = nil }
         catch { self.error = error.localizedDescription }
     }
 }

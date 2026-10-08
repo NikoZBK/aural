@@ -1,26 +1,32 @@
 import SwiftUI
 
+/// The workspace animates the space notices take; each notice also eases in from
+/// the toolbar edge so it reads as attached to the window rather than popping in.
 struct SessionNotices: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var model: Model
     var body: some View {
         if model.startupNotice != nil || model.error != nil || model.importNotice != nil {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 8 * interfaceScale) {
                 if let notice = model.startupNotice {
                     HStack { AuralNotice(message: notice); Button("Cancel") { model.stop() }.buttonStyle(AuralButtonStyle()) }
+                        .transition(.auralReveal(reduceMotion: reduceMotion))
                 }
                 if let message = model.error ?? model.importNotice {
-                    HStack(alignment: .top, spacing: 4) {
+                    HStack(alignment: .top, spacing: 4 * interfaceScale) {
                         AuralNotice(message: message, isError: model.error != nil)
                         Button { model.error = nil; model.importNotice = nil } label: { Image(systemName: "xmark") }
-                            .buttonStyle(.plain).padding(8).accessibilityLabel("Dismiss notice")
-                    }
+                            .buttonStyle(.plain).auralPadding(8).accessibilityLabel("Dismiss notice")
+                    }.transition(.auralReveal(reduceMotion: reduceMotion))
                 }
-            }
+            }.transition(.auralReveal(reduceMotion: reduceMotion))
         }
     }
 }
 
 struct PresetBrowser: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     var submissions: PrecisionSubmissionCoordinator? = nil
     @Environment(\.openWindow) private var openWindow
@@ -28,7 +34,7 @@ struct PresetBrowser: View {
     var comfortable = false
     private func matches(_ name: String) -> Bool { search.isEmpty || name.localizedCaseInsensitiveContains(search) }
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 15 * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "Presets")
                 Spacer()
@@ -39,17 +45,17 @@ struct PresetBrowser: View {
                     .buttonStyle(.plain).foregroundStyle(AuralStyle.secondary).accessibilityLabel("Manage preset library")
                     .help("Search, organize, and back up presets (⇧⌘P)")
             }
-            HStack(spacing: 6) {
+            HStack(spacing: 6 * interfaceScale) {
                 Image(systemName: "magnifyingglass").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
                 TextField("Find a preset", text: $search).textFieldStyle(.plain).accessibilityLabel("Find a preset")
-            }.auralFont(size: comfortable ? 14 : 11).padding(comfortable ? 11 : 8).background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 5))
+            }.auralFont(size: comfortable ? 14 : 11).auralPadding(comfortable ? 11 : 8).background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 5))
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4 * interfaceScale) {
                     group("Favorites", names: model.favoritePresets.sorted())
                     group("My presets", names: model.customPresets.filter { !model.favoritePresets.contains($0) })
                     group("Factory", names: model.factory.keys.sorted().filter { !model.favoritePresets.contains($0) })
                     if (Array(model.factory.keys) + model.customPresets).filter(matches).isEmpty {
-                        Text("No matching presets").auralFont(size: comfortable ? 14 : 11).foregroundStyle(AuralStyle.secondary).padding(.vertical, 12)
+                        Text("No matching presets").auralFont(size: comfortable ? 14 : 11).foregroundStyle(AuralStyle.secondary).auralPadding(.vertical, 12)
                     }
                 }
             }.auralFrame(maxHeight: .infinity)
@@ -59,23 +65,23 @@ struct PresetBrowser: View {
         let visible = names.filter(matches)
         if !visible.isEmpty {
             Text(title).auralFont(size: 11, weight: .medium)
-                .foregroundStyle(AuralStyle.secondary).padding(.top, 9).padding(.bottom, 4)
+                .foregroundStyle(AuralStyle.secondary).auralPadding(.top, 9).auralPadding(.bottom, 4)
             ForEach(visible, id: \.self) { name in
                 Button {
                     switch submissions?.submitActive() ?? .unchanged {
                     case .rejected: return
                     case .submitted where model.error != nil: return
-                    default: model.apply(name)
+                    default: withAuralAnimation { model.apply(name) }
                     }
                 } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: 7 * interfaceScale) {
                         RoundedRectangle(cornerRadius: 1).fill(model.selectedPresetName == name ? AuralStyle.accent : .clear)
                             .auralFrame(width: 2, height: 18)
                         Text(name).auralFont(size: comfortable ? 15 : 12, weight: model.selectedPresetName == name ? .semibold : .regular)
                             .lineLimit(1).auralFrame(maxWidth: .infinity, alignment: .leading)
                         if model.favoritePresets.contains(name) { Image(systemName: "star.fill").auralFont(size: 8) }
                     }.foregroundStyle(Color.primary)
-                        .padding(.horizontal, comfortable ? 11 : 7).auralFrame(height: comfortable ? 42 : 32)
+                        .auralPadding(.horizontal, comfortable ? 11 : 7).auralFrame(height: comfortable ? 42 : 32)
                         .background(model.selectedPresetName == name ? AuralStyle.elevated.opacity(0.7) : .clear, in: RoundedRectangle(cornerRadius: 4))
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).help(name).accessibilityLabel("Apply preset \(name)")
@@ -108,14 +114,14 @@ struct PresetSelection: View {
         }
         .menuStyle(.borderlessButton)
         .tint(.primary)
-        .padding(.horizontal, 10)
+        .auralPadding(.horizontal, 10)
         .auralFrame(minWidth: 200, idealWidth: 300, maxWidth: 360)
         .auralFrame(height: 34)
-        .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.secondary.opacity(0.4)).allowsHitTesting(false))
+        .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 5))
+        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(AuralStyle.secondary.opacity(0.4)).allowsHitTesting(false))
         .accessibilityLabel("Preset")
         .accessibilityValue(model.currentPresetTitle)
-        .help("Choose a preset, or manage your preset library")
+        .help("\(model.currentPresetTitle)\nChoose a preset, or manage your preset library")
     }
 
     @ViewBuilder private func group(_ title: String, names: [String]) -> some View {
@@ -126,7 +132,7 @@ struct PresetSelection: View {
                         switch submissions.submitActive() {
                         case .rejected: return
                         case .submitted where model.error != nil: return
-                        default: model.apply(name)
+                        default: withAuralAnimation { model.apply(name) }
                         }
                     } label: {
                         if model.selectedPresetName == name {
@@ -148,7 +154,7 @@ struct EQFileMenu: View {
             Button("Search AutoEQ profiles…") { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } }
             Button("Import AutoEQ text…") { if submitPendingInput() { model.importAutoEQ() } }
             Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }
-            Button("Paste EQ") { if submitPendingInput() { model.pasteEQ() } }
+            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }
             Button("Export EQ text…") { if submitPendingInput() { model.exportEQ() } }
             Divider()
             Button("Back up presets…") { model.backupPresets() }
@@ -169,6 +175,7 @@ struct EQFileMenu: View {
 }
 
 struct SavePresetButton: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     @State private var saving = false
@@ -181,62 +188,65 @@ struct SavePresetButton: View {
             }
         }.buttonStyle(AuralButtonStyle()).accessibilityLabel("Save preset")
             .popover(isPresented: $saving) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12 * interfaceScale) {
                     Text("Save preset").auralFont(size: 13, weight: .semibold)
                     TextField("Preset name", text: $model.presetName).textFieldStyle(.roundedBorder)
                         .onSubmit { save() }
                     Button("Save") { save() }.buttonStyle(AuralButtonStyle(prominent: true))
                         .disabled(model.presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let error = model.error { AuralNotice(message: error, isError: true) }
-                }.padding(18).auralFrame(width: 280).auralZoom(model)
+                }.auralPadding(18).auralFrame(width: 280).auralZoom(model)
             }
     }
     private func save() { model.savePreset(); if model.error == nil { saving = false } }
 }
 
 struct MonitorPanel: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 21) {
+            VStack(alignment: .leading, spacing: 21 * interfaceScale) {
                 OutputSelection(model: model, submissions: submissions)
                 Divider().overlay(AuralStyle.border)
                 PreampControls(model: model, submissions: submissions)
                 Divider().overlay(AuralStyle.border)
-                StudioMeter(meter: model.meter, running: model.running)
+                StudioMeter(meter: model.meter, running: model.running,
+                            protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
                 Divider().overlay(AuralStyle.border)
-                VStack(alignment: .leading, spacing: 9) {
+                VStack(alignment: .leading, spacing: 9 * interfaceScale) {
                     AuralSectionLabel(title: "Audio processing")
                     stage("01", "Preamp & filters", detail: "\(model.profile.dspFilters(rate: model.responseRate).filter { !$0.disabled }.count) active bands")
                     stage("02", "Stereo & delay", detail: model.profile.stereoSettings == StereoSettings() ? "Neutral" : "Custom processing")
-                    stage("03", "Peak protection", detail: "Both channels · always on")
+                    stage("03", "Peak protection", detail: model.peakProtectionEnabled ? "Both channels · on" : "Off")
                 }
                 Text("Bypass pauses EQ and stereo effects. Stop turns off audio processing.")
                     .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
-            }.padding(16)
+            }.auralPadding(16)
         }.background(AuralStyle.surface)
             .onDisappear { model.endProfileGesture() }
     }
     private func stage(_ number: String, _ title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(number).auralFont(size: 9, design: .monospaced).foregroundStyle(AuralStyle.secondary).padding(.top, 2)
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .top, spacing: 10 * interfaceScale) {
+            Text(number).auralFont(size: 9, design: .monospaced).foregroundStyle(AuralStyle.secondary).auralPadding(.top, 2)
+            VStack(alignment: .leading, spacing: 3 * interfaceScale) {
                 Text(title).auralFont(size: 11, weight: .medium)
                 Text(detail).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
             }
-        }.padding(.vertical, 4)
+        }.auralPadding(.vertical, 4)
     }
 
 }
 
 struct PreampControls: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     var compact = false
     @ViewBuilder var body: some View {
         if compact {
-            HStack(spacing: 7) {
+            HStack(spacing: 7 * interfaceScale) {
                 Text("Preamp").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
                 PrecisionField(value: model.profile.preamp, range: model.profile.preampRange, label: "Exact preamp in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
                     model.endProfileGesture(); model.setPreamp(value)
@@ -249,9 +259,9 @@ struct PreampControls: View {
         } else { expanded }
     }
     private var expanded: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12 * interfaceScale) {
             AuralSectionLabel(title: "Preamp")
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 5 * interfaceScale) {
                 Text(String(format: "%+.2f", model.profile.preamp)).auralFont(size: 30, weight: .light, design: .monospaced).monospacedDigit()
                 Text("dB").auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
@@ -280,6 +290,7 @@ struct PreampControls: View {
 }
 
 struct OutputSelection: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     @State private var selectionRevision = 0
@@ -287,11 +298,11 @@ struct OutputSelection: View {
     var compact = false
     @ViewBuilder var body: some View {
         if compact {
-            HStack(spacing: 7) {
-                Image(systemName: "headphones").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
+            HStack(spacing: 7 * interfaceScale) {
+                Text("Output").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
                 devicePicker
-                Button { model.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.plain).accessibilityLabel("Refresh outputs")
+                Button { model.refresh() } label: { Image(systemName: "arrow.clockwise").auralFrame(width: 24, height: 24).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).accessibilityLabel("Refresh outputs").help("Refresh audio devices")
             }
         } else { expanded }
     }
@@ -300,10 +311,10 @@ struct OutputSelection: View {
             if model.selected == nil { Text("Select an output").tag(model.selectedUID) }
             ForEach(model.devices) { Text($0.name).tag($0.uid) }
         }.labelsHidden().auralFrame(maxWidth: compact ? nil : .infinity).auralControlSize(comfortable ? .large : .regular).id(selectionRevision)
-            .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default.")
+            .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default. Follow macOS output in Settings switches automatically.")
     }
     private var expanded: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12 * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "Output", systemImage: "hifispeaker")
                 Spacer()
@@ -328,66 +339,109 @@ struct OutputSelection: View {
 }
 
 struct StudioMeter: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var meter: AudioMeter
     let running: Bool
+    @Binding var protectionEnabled: Bool
     var compact = false
+    /// Compact only: protection sits beside the meter instead of below it.
+    var inline = false
     @State private var heldPeak: Float = 0
     private var peak: Float { meter.peak }
     private var db: Double { running && peak > 0 ? 20 * log10(Double(peak)) : -90 }
     private var heldDB: String { heldPeak > 0 ? String(format: "%.1f", 20 * log10(Double(heldPeak))) : "−∞" }
+    /// The bar spans −60 to 0 dB.
+    private var level: Double { min(1, max(0, (db + 60) / 60)) }
+    private let levelHelp = "Loudest sample leaving Aural, in dB below full scale (dBFS). 0 dB is the most the output can carry, so readings are negative, and loud music often peaks within a few dB of 0. Your Mac's volume is applied afterwards and doesn't move this meter."
     var body: some View {
         Group {
             if compact {
-                HStack(spacing: 8) {
-                    Text("Output").foregroundStyle(AuralStyle.secondary)
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(AuralStyle.elevated)
-                            Capsule().fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
-                                .auralFrame(width: geometry.size.width * min(1, max(0, (db + 60) / 60)))
-                        }
-                    }.auralFrame(width: 70, height: 5)
-                        .accessibilityRepresentation { peakAccessibility }
-                    Text(db > -90 ? String(format: "%.1f dBFS", db) : "−∞ dBFS").monospacedDigit().auralFrame(width: 74, alignment: .trailing)
-                        .accessibilityHidden(true)
-                    Button { heldPeak = running ? peak : 0 } label: { Image(systemName: "arrow.counterclockwise") }
-                        .buttonStyle(.plain).accessibilityLabel("Reset peak hold")
-                        .accessibilityValue(heldPeak > 0 ? AuralAccessibility.samplePeak(20 * log10(Double(heldPeak))) : "Silent")
-                        .help("Peak hold: \(heldDB) dBFS. Click to reset.")
+                let layout = inline ? AnyLayout(HStackLayout(spacing: 14 * interfaceScale))
+                                    : AnyLayout(VStackLayout(alignment: .leading, spacing: 5 * interfaceScale))
+                layout {
+                    HStack(spacing: 8 * interfaceScale) {
+                        // "Level", not "Output": the window's output is the device picker.
+                        Text("Level").foregroundStyle(AuralStyle.secondary)
+                        ZStack {
+                            // A translucent track stays visible on every surface in both appearances.
+                            RoundedRectangle(cornerRadius: 1).fill(AuralStyle.grid.opacity(0.14))
+                            MeterFill(fraction: level, cornerRadius: 1).fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
+                        }.auralFrame(minWidth: 70, maxWidth: inline ? 200 : 70, minHeight: 5, maxHeight: 5)
+                            .help(levelHelp)
+                            .accessibilityRepresentation { peakAccessibility }
+                        Text(db > -90 ? String(format: "%.1f dB", db) : "−∞ dB").monospacedDigit().auralFrame(width: 58, alignment: .trailing)
+                            .accessibilityHidden(true)
+                        Button { heldPeak = running ? peak : 0 } label: { Image(systemName: "arrow.counterclockwise") }
+                            .buttonStyle(.plain).accessibilityLabel("Reset peak hold")
+                            .accessibilityValue(heldPeak > 0 ? AuralAccessibility.samplePeak(20 * log10(Double(heldPeak))) : "Silent")
+                            .help("Peak hold: \(heldDB) dB. Click to reset.")
+                    }
+                    if inline { Divider().auralFrame(height: 18) }
+                    protection
                 }.auralFont(size: 11)
             } else { expanded }
         }.onChange(of: peak) { _, value in if running { heldPeak = max(heldPeak, value) } }
             .onChange(of: running) { _, value in if !value { heldPeak = 0 } }
     }
     private var expanded: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 12 * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "Output level")
                 Spacer()
                 Text(db > -90 ? String(format: "%.1f", db) : "−∞").auralFont(size: 13, weight: .medium, design: .monospaced)
-                Text("dBFS").auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
+                Text("dB").auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
             }
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2).fill(AuralStyle.background)
-                    RoundedRectangle(cornerRadius: 2).fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
-                        .auralFrame(width: geometry.size.width * min(1, max(0, (db + 60) / 60)))
-                    HStack(spacing: 0) { ForEach(0..<24, id: \.self) { _ in Spacer(minLength: 0); Rectangle().fill(AuralStyle.surface).auralFrame(width: 2) } }
-                }
-            }.auralFrame(height: 15).accessibilityRepresentation { peakAccessibility }
-            HStack { Text("−60"); Spacer(); Text("−30"); Spacer(); Text("0 dBFS") }
+            ZStack {
+                RoundedRectangle(cornerRadius: 2).fill(AuralStyle.background)
+                MeterFill(fraction: level, cornerRadius: 2).fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
+                HStack(spacing: 0) { ForEach(0..<24, id: \.self) { _ in Spacer(minLength: 0); Rectangle().fill(AuralStyle.surface).auralFrame(width: 2) } }
+            }.auralFrame(height: 15).help(levelHelp).accessibilityRepresentation { peakAccessibility }
+            HStack { Text("−60"); Spacer(); Text("−30"); Spacer(); Text("0 dB") }
                 .auralFont(size: 9, design: .monospaced).foregroundStyle(AuralStyle.secondary)
             HStack {
-                Text("Hold  \(heldDB) dBFS").auralFont(size: 10, design: .monospaced).foregroundStyle(AuralStyle.secondary)
+                Text("Hold  \(heldDB) dB").auralFont(size: 10, design: .monospaced).foregroundStyle(AuralStyle.secondary)
                 Spacer()
                 Button { heldPeak = running ? peak : 0 } label: { Image(systemName: "arrow.counterclockwise") }
                     .buttonStyle(.plain).accessibilityLabel("Reset peak hold").help("Reset maximum output peak")
             }
+            protection
         }
     }
+    private var protection: some View {
+        let reducing = protectionEnabled && running && meter.reductionDB >= 0.05
+        return HStack(spacing: 6 * interfaceScale) {
+            Toggle(isOn: $protectionEnabled) {
+                HStack(spacing: 6 * interfaceScale) {
+                    Text("Peak protection")
+                    Text(protectionEnabled ? "On" : "Off").monospacedDigit()
+                }
+            }.toggleStyle(.checkbox).auralControlSize(.small)
+                .accessibilityLabel("Peak protection")
+                .help("Limits sample peaks in both channels together, including Bypass. Off allows peaks above full scale. This is not true-peak protection.")
+            if reducing {
+                Text(String(format: "Reducing %.1f dB", meter.reductionDB)).monospacedDigit()
+                    .accessibilityLabel(String(format: "Reducing peaks by %.1f decibels", meter.reductionDB))
+            } else if protectionEnabled && !running {
+                Text("Ready")
+            }
+            Spacer(minLength: 0)
+        }.auralFont(size: 10)
+            .foregroundStyle(reducing ? AuralStyle.warning : AuralStyle.secondary)
+    }
     private var peakAccessibility: some View {
-        ProgressView(value: min(1, max(0, (db + 60) / 60)))
+        ProgressView(value: level)
             .accessibilityLabel("Output sample peak")
             .accessibilityValue(AuralAccessibility.samplePeak(db))
+    }
+}
+
+/// The filled part of a level bar. It is drawn within the track's own frame, which interface
+/// zoom has already scaled, so the fill can never run past the track.
+private struct MeterFill: Shape {
+    var fraction: Double
+    var cornerRadius: CGFloat?
+    func path(in rect: CGRect) -> Path {
+        let filled = CGRect(x: rect.minX, y: rect.minY, width: rect.width * fraction, height: rect.height)
+        return cornerRadius.map { RoundedRectangle(cornerRadius: $0).path(in: filled) } ?? Capsule().path(in: filled)
     }
 }

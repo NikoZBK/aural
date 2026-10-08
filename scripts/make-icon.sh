@@ -3,10 +3,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ICON_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/aural-icon.XXXXXX")"
 trap 'rm -rf "$ICON_STAGE"' EXIT
-if [[ $# -eq 0 ]]; then set -- AppIcon AppIconSleeping; fi
+if [[ $# -eq 0 ]]; then set -- AppIcon AppIconActive; fi
 for icon in "$@"; do
     case "$icon" in
-        AppIcon|AppIconSleeping) ;;
+        AppIcon|AppIconActive) ;;
         *) printf 'Unknown icon: %s\n' "$icon" >&2; exit 1 ;;
     esac
     mkdir -p "$ICON_STAGE/$icon.iconset"

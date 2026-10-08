@@ -1,20 +1,23 @@
 import SwiftUI
 
 struct StereoPanel: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
+    var stacked = false
     private var settings: StereoSettings { model.profile.stereoSettings }
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 14 * interfaceScale) {
                 HStack {
                     AuralSectionLabel(title: "Stereo controls", systemImage: "arrow.left.and.right")
                     Spacer()
                     Button("Reset stereo") { if submitPendingInput() { model.resetStereoSettings() } }.buttonStyle(AuralButtonStyle())
                         .help("Restore neutral stereo settings, leaving EQ unchanged")
                 }
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 14) {
+                let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12 * interfaceScale)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12 * interfaceScale))
+                layout {
+                    VStack(alignment: .leading, spacing: 14 * interfaceScale) {
                         AuralSectionLabel(title: "Stereo balance")
                         control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, spokenValue: AuralAccessibility.balance(settings.balance), decimals: 2)
                         HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
@@ -28,7 +31,7 @@ struct StereoPanel: View {
                             .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.auralFrame(maxWidth: .infinity).auralPanel(padding: 14)
                         .accessibilityElement(children: .contain).accessibilityLabel("Stereo balance, width, and crossfeed")
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 14 * interfaceScale) {
                         AuralSectionLabel(title: "Left & right")
                         control("Left trim", value: settings.leftTrimDB, range: -24...12, suffix: "dB", keyPath: \.leftTrimDB, spokenValue: AuralAccessibility.decibels(settings.leftTrimDB))
                         control("Right trim", value: settings.rightTrimDB, range: -24...12, suffix: "dB", keyPath: \.rightTrimDB, spokenValue: AuralAccessibility.decibels(settings.rightTrimDB))
@@ -42,7 +45,7 @@ struct StereoPanel: View {
                     }.auralFont(size: 12).auralFrame(maxWidth: .infinity).auralPanel(padding: 14)
                         .accessibilityElement(children: .contain).accessibilityLabel("Channel trim, delay, and polarity")
                 }
-            }.padding(.bottom, 8)
+            }.auralPadding(.bottom, 8)
         }.scrollIndicators(.visible).onDisappear { model.endProfileGesture() }
     }
     private func flag(_ keyPath: WritableKeyPath<StereoSettings, Bool>) -> Binding<Bool> {
@@ -60,8 +63,8 @@ struct StereoPanel: View {
     }
     private func control(_ title: String, value: Double, range: ClosedRange<Double>, suffix: String,
                          keyPath: WritableKeyPath<StereoSettings, Double>, spokenValue: String, decimals: Int = 1) -> some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 4) {
+        VStack(spacing: 6 * interfaceScale) {
+            HStack(spacing: 4 * interfaceScale) {
                 Text(title).auralFont(size: 11, weight: .medium).auralFrame(maxWidth: .infinity, alignment: .leading)
                 PrecisionField(value: value, range: range, label: suffix == "dB" ? "\(title) in decibels" : suffix == "×" ? "\(title) multiplier" : title, decimals: decimals, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
                     model.endProfileGesture()

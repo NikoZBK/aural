@@ -79,21 +79,24 @@ struct AuralCommands: Commands {
         CommandGroup(replacing: .newItem) {}
         CommandMenu("Equalizer") {
             Group {
-                Button(model.undoLabel) { if submitPendingInput() { model.undoProfile() } }.disabled(!model.canUndo)
+                Button(model.undoLabel) { if submitPendingInput() { withAuralAnimation { model.undoProfile() } } }.disabled(!model.canUndo)
                     .keyboardShortcut("z", modifiers: [.command])
-                Button(model.redoLabel) { if submitPendingInput() { model.redoProfile() } }.disabled(!model.canRedo)
+                Button(model.redoLabel) { if submitPendingInput() { withAuralAnimation { model.redoProfile() } } }.disabled(!model.canRedo)
                     .keyboardShortcut("z", modifiers: [.command, .shift])
                 Divider()
-                Button("Compare A") { if submitPendingInput() { model.selectComparison(.a) } }.keyboardShortcut("1", modifiers: [.command, .option])
-                Button("Compare B") { if submitPendingInput() { model.selectComparison(.b) } }.keyboardShortcut("2", modifiers: [.command, .option])
+                Button("Compare A") { if submitPendingInput() { withAuralAnimation { model.selectComparison(.a) } } }.keyboardShortcut("1", modifiers: [.command, .option])
+                Button("Compare B") { if submitPendingInput() { withAuralAnimation { model.selectComparison(.b) } } }.keyboardShortcut("2", modifiers: [.command, .option])
                 Divider()
             }
-            Button("Bypass EQ") { model.setBypass(!model.bypass) }.keyboardShortcut("b", modifiers: [.command, .option])
+            Button("Bypass EQ") { withAuralAnimation { model.setBypass(!model.bypass) } }.keyboardShortcut("b", modifiers: [.command, .option])
+            Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
+            Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
+            Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput))
             Divider()
             Group {
                 Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.keyboardShortcut("c", modifiers: [.command, .shift])
             }
-            Button("Paste EQ") { if submitPendingInput() { model.pasteEQ() } }.keyboardShortcut("v", modifiers: [.command, .shift])
+            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.keyboardShortcut("v", modifiers: [.command, .shift])
             Button("Search AutoEQ profiles…") { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } }
             Button("Import AutoEQ…") { if submitPendingInput() { model.importAutoEQ() } }
             Group { Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } } }
@@ -117,7 +120,7 @@ struct AuralCommands: Commands {
                 .disabled(model.interfaceZoom == .actualSize)
             Divider()
             ThemePicker(model: model)
-            InterfaceStylePicker(model: model)
+            FilterPanelPositionPicker(model: model)
         }
     }
     private func submitPendingInput() -> Bool {
@@ -133,8 +136,11 @@ struct MenuBarControls: View {
     @ObservedObject var model: Model
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        Button(model.running ? "Stop equalization" : "Start equalization") { model.toggleProcessing() }
+        Button(model.running || model.waitingForOutput ? "Stop equalization" : "Start equalization") { model.toggleProcessing() }
+        Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput))
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
+        Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
+        Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }
         Button("Preset library…") { openWindow.showAuralWindow("presets") }
         Button("Search AutoEQ profiles…") { openWindow.showAuralWindow("autoeq") }
@@ -146,14 +152,13 @@ struct MenuBarControls: View {
                     .disabled(model.profile.preamp <= model.profile.preampRange.lowerBound)
             }
             Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
-                Button("A") { model.selectComparison(.a) }
-                Button("B") { model.selectComparison(.b) }
-                Button("Copy current to other slot") { model.copyComparisonToOther() }
+                Button("A") { withAuralAnimation { model.selectComparison(.a) } }
+                Button("B") { withAuralAnimation { model.selectComparison(.b) } }
+                Button("Copy current to other slot") { withAuralAnimation { model.copyComparisonToOther() } }
             }
         }
         Divider()
         ThemePicker(model: model)
-        InterfaceStylePicker(model: model)
         Button("Show Aural") { openWindow.showAuralWindow("main") }
         Button("Keyboard shortcuts…") { openWindow.showAuralWindow("shortcuts") }
         Button("About Aural") { openWindow.showAuralWindow("about") }
@@ -171,47 +176,60 @@ struct ThemePicker: View {
     }
 }
 
+struct FilterPanelPositionPicker: View {
+    @ObservedObject var model: Model
+    var body: some View {
+        Picker("Filter panel position", selection: Binding(get: { model.filterPanelPosition }, set: model.setFilterPanelPosition)) {
+            ForEach(FilterPanelPosition.allCases, id: \.self) { position in
+                Label(position.label, systemImage: position.symbol).tag(position)
+            }
+        }
+    }
+}
+
 struct StartupSettings: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14 * interfaceScale) {
             Text("Appearance").font(.headline)
             ThemePicker(model: model).pickerStyle(.segmented)
             Text("System follows your Mac's appearance.").font(.caption).foregroundStyle(.secondary)
-            InterfaceStylePicker(model: model).pickerStyle(.segmented)
-            Text(AuralInterfaceStyle.liquidGlassSupported
-                 ? "Liquid Glass adds depth to controls. Reduce Transparency or Increase Contrast uses solid surfaces."
-                 : "Liquid Glass requires macOS 26 or later. Saved choices use solid surfaces on this Mac.")
+            Divider()
+            Text("Output").font(.headline)
+            Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput))
+            Text("When macOS switches its sound output, Aural switches too and loads that output's saved EQ. EQ stays on if it was running.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Divider()
+            Text("Listening").font(.headline)
+            Toggle("Match levels for Bypass and A/B", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
+            Text("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Divider()
             Text("Startup").font(.headline)
             Toggle("Launch at login", isOn: Binding(get: { model.launchAtLoginRequested }, set: model.setLaunchAtLogin))
                 .disabled(model.loginStatus == nil)
-            if model.loginStatus == nil { Text("Checking launch-at-login status…").font(.caption).foregroundStyle(.secondary) }
+            if model.loginStatus == nil {
+                Text("Checking launch-at-login status…").font(.caption).foregroundStyle(.secondary).transition(.opacity)
+            }
             Toggle("Start EQ automatically", isOn: Binding(get: { model.startEQAutomatically }, set: model.setStartAutomatically))
             Text("Use the saved output and preset on launch. Wait up to 60 seconds if the device is disconnected. Stop pauses EQ for this session.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if model.loginStatus == .requiresApproval {
-                Text("macOS approval is needed to launch at login.").font(.caption).foregroundStyle(AuralStyle.warning)
-                Button("Open Login Items settings") { model.openLoginSettings() }
+                Group {
+                    Text("macOS approval is needed to launch at login.").font(.caption).foregroundStyle(AuralStyle.warning)
+                    Button("Open Login Items settings") { model.openLoginSettings() }
+                }.transition(.opacity)
             }
             Divider()
-            if let error = model.error { AuralNotice(message: error, isError: true) }
+            if let error = model.error { AuralNotice(message: error, isError: true).transition(.opacity) }
             Button("About Aural") { openWindow.showAuralWindow("about") }
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
-        }.padding(18).frame(width: 300).auralAppearance(model.theme, style: model.interfaceStyle).onAppear { model.refreshLoginStatus() }
+        }
+        .auralAnimation(AuralMotion.quick, value: StartupMotion(status: model.loginStatus?.rawValue, error: model.error))
+        .auralPadding(18).auralFrame(width: 300).auralAppearance(model.theme).onAppear { model.refreshLoginStatus() }
     }
 }
 
-struct InterfaceStylePicker: View {
-    @ObservedObject var model: Model
-    var body: some View {
-        Picker("Style", selection: Binding(get: { model.interfaceStyle }, set: model.setInterfaceStyle)) {
-            ForEach(AuralInterfaceStyle.allCases, id: \.self) { style in
-                Text(style.label).tag(style)
-                    .disabled(style == .liquidGlass && !AuralInterfaceStyle.liquidGlassSupported)
-            }
-        }.help("Liquid Glass uses Apple's native material on macOS 26 or later. Theme controls light and dark appearance separately.")
-    }
-}
+private struct StartupMotion: Equatable { let status: Int?; let error: String? }

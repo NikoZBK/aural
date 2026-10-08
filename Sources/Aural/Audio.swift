@@ -56,7 +56,11 @@ struct OutputDevice: Identifiable, Equatable {
     private(set) var device: OutputDevice?
     private(set) var sampleRate = 48000.0
     var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil }
-    var peak: Float { dsp.map(eq_peak) ?? 0 }
+    func readMeter() -> AudioMeterReading {
+        guard let dsp else { return AudioMeterReading() }
+        let reading = eq_read_meter(dsp)
+        return AudioMeterReading(peak: reading.peak, reductionDB: reading.reductionDB)
+    }
     var faults: UInt32 { dsp.map(eq_faults) ?? 0 }
 
     static func devices() throws -> [OutputDevice] {
@@ -82,6 +86,12 @@ struct OutputDevice: Identifiable, Equatable {
     static func defaultOutput() throws -> AudioObjectID {
         try scalar(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, AudioObjectID(0))
     }
+    /// The macOS default output, including outputs Aural cannot equalize.
+    static func systemOutput() throws -> OutputDevice? {
+        let id = try defaultOutput()
+        guard id != AudioObjectID(kAudioObjectUnknown) else { return nil }
+        return OutputDevice(id: id, uid: try audioString(id, kAudioDevicePropertyDeviceUID), name: try audioString(id, kAudioObjectPropertyName))
+    }
     static func validateStereoFormat(_ format: AudioStreamBasicDescription, rate: Double? = nil) throws {
         let planar = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
         let bytesPerFrame = UInt32(MemoryLayout<Float>.size) * (planar ? 1 : 2)
@@ -95,7 +105,7 @@ struct OutputDevice: Identifiable, Equatable {
             throw AudioFailure(message: "The audio route requires native 32-bit float stereo at 32–192 kHz. The output format changed or is unsupported; select an output and start again.")
         }
     }
-    func start(_ output: OutputDevice, profile: Profile, bypass: Bool) throws {
+    func start(_ output: OutputDevice, profile: Profile, bypass: Bool, peakProtectionEnabled: Bool, levelMatch: LevelMatch = .none) throws {
         try stop()
         guard #available(macOS 14.2, *) else { throw AudioFailure(message: "Aural requires macOS 14.2 or newer.") }
         do {
@@ -137,7 +147,8 @@ struct OutputDevice: Identifiable, Equatable {
             }
             guard let engine = eq_create(sampleRate, inputOffset) else { throw AudioFailure(message: "Cannot allocate the equalizer for this sample rate.") }
             dsp = engine
-            try update(profile, bypass: bypass)
+            setPeakProtection(peakProtectionEnabled)
+            try update(profile, bypass: bypass, levelMatch: levelMatch)
             try check(AudioDeviceCreateIOProcID(aggregate, eq_callback, UnsafeMutableRawPointer(engine), &proc), "Create audio callback")
             guard let proc else { throw AudioFailure(message: "Core Audio returned no audio callback.") }
             // With a tap-only input there is nothing to disable. Avoid a redundant HAL
@@ -156,14 +167,19 @@ struct OutputDevice: Identifiable, Equatable {
             throw AudioFailure(message: original)
         }
     }
-    func update(_ profile: Profile, bypass: Bool) throws {
+    func setPeakProtection(_ enabled: Bool) {
+        if let dsp { eq_set_peak_protection(dsp, enabled) }
+    }
+    func update(_ profile: Profile, bypass: Bool, levelMatch: LevelMatch = .none) throws {
         _ = try profile.validated()
         if dsp != nil, let filters = profile.filters, filters.contains(where: { $0.enabled && $0.frequency >= sampleRate * 0.49 }) {
             throw AudioFailure(message: "An imported filter is too close to this output's Nyquist frequency. Choose a higher sample rate in Audio MIDI Setup before using this profile.")
         }
         let filters = profile.dspFilters(rate: sampleRate)
         var stereo = profile.dspStereo
-        if let dsp, !eq_update_filters_stereo(dsp, filters, UInt32(filters.count), profile.preamp, bypass, &stereo) {
+        // A/B matching lowers playback only; the saved preamp is unchanged.
+        let preamp = max(-60, profile.preamp + levelMatch.eqOffsetDB)
+        if let dsp, !eq_update_filters_matched(dsp, filters, UInt32(filters.count), preamp, bypass, &stereo, levelMatch.bypassGainDB) {
             throw AudioFailure(message: "The equalizer could not accept this setting. Stop and start processing to retry.")
         }
     }
