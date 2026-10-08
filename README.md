@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Resources/AppIcon.png" width="160" alt="Aural icon: a cyan EQ curve on a graphite grid">
+  <img src="Resources/AppIcon.png" width="160" alt="Aural icon: a cyan EQ curve shaped like the letter A on a graphite grid">
 </p>
 <h1 align="center">Aural</h1>
 <p align="center">A native macOS equalizer. Shape your sound, keep your settings local.</p>

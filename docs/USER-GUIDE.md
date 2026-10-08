@@ -44,7 +44,7 @@ EQ usually lowers the overall level, because the preamp makes room for boosts. B
 
 The menu bar includes preset selection, favorites, and preamp adjustments in 1 dB steps within the current EQ limits. These controls preserve the current bypass and playback state when changing preamp.
 
-Aural's icon is an EQ curve. While EQ is processing, the curve lights up and shows its filter nodes; when EQ is stopped or bypassed, it shows the curve alone. The main window, About window, and running app's Dock icon update together, including after using controls in the menu bar. Finder keeps the idle icon.
+Aural's icon is an EQ curve shaped like the letter A. While EQ is processing, the A lights up inside; when EQ is stopped or bypassed, it shows the curve alone. The main window, About window, and running app's Dock icon update together, including after using controls in the menu bar. Finder keeps the idle icon.
 
 ## Presets
 

@@ -1,11 +1,13 @@
-// Draws Aural's app icons: an EQ response on a graphite tile, following the macOS
-// icon grid (an 824 pt tile with a 100 pt transparent margin on a 1024 pt canvas).
+// Draws Aural's app icons: an EQ response shaped like an A on a graphite tile, following
+// the macOS icon grid (an 824 pt tile with a 100 pt transparent margin on a 1024 pt canvas).
 //
 //   swift scripts/draw-icon.swift [output directory]   # default: Resources
 //   bash scripts/make-icon.sh                          # then package the ICNS files
 //
-// AppIcon is the idle icon and the Finder icon: the curve alone. AppIconActive shows
-// while EQ is processing: the same curve, lit underneath, with its filter nodes.
+// The response is flat at 0 dB with one tall boost: its sides are the legs of the A, and
+// the crossbar lies on the +6 dB grid line. AppIcon is the idle icon and the Finder icon;
+// AppIconActive shows while EQ is processing: the same A, lit inside. (A node marker at the
+// apex would read as Å.)
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -13,9 +15,20 @@ import ImageIO
 let canvas: CGFloat = 1024
 let tile = CGRect(x: 100, y: 100, width: 824, height: 824)
 let tileRadius: CGFloat = 185
-// The response spans 20 Hz–20 kHz and ±12 dB, drawn inside the tile.
-let plot = tile.insetBy(dx: 74, dy: 150)
-let decibelRange: CGFloat = 12
+// The response spans 20 Hz–20 kHz across the plot, with 0 dB low in the tile.
+let plot = tile.insetBy(dx: 74, dy: 0)
+let zeroDecibels: CGFloat = 290
+let pixelsPerDecibel: CGFloat = 170 / 6
+func level(_ decibels: CGFloat) -> CGFloat { zeroDecibels + decibels * pixelsPerDecibel }
+
+// The letter: feet on the 0 dB line, apex at +16.6 dB, crossbar at +6 dB.
+let apex = CGPoint(x: canvas / 2, y: 760)
+let footSpread: CGFloat = 215
+let leftFoot = CGPoint(x: apex.x - footSpread, y: level(0))
+let rightFoot = CGPoint(x: apex.x + footSpread, y: level(0))
+let crossbarY = level(6)
+let crossbarHalfWidth = footSpread * (apex.y - crossbarY) / (apex.y - level(0))
+let strokeWidth: CGFloat = 48
 
 let space = CGColorSpace(name: CGColorSpace.sRGB)!
 func color(_ red: CGFloat, _ green: CGFloat, _ blue: CGFloat, _ alpha: CGFloat = 1) -> CGColor {
@@ -30,25 +43,16 @@ func position(hertz: Double) -> CGFloat {
     CGFloat((log10(hertz) - log10(20)) / 3)
 }
 
-/// A low shelf, a narrow presence dip, and an air bell, with flat response between
-/// them: the shape of a headphone correction rather than a wave.
-enum Band { case lowShelf, bell }
-let bands: [(kind: Band, center: CGFloat, gain: CGFloat, width: CGFloat)] = [
-    (.lowShelf, position(hertz: 110), 5.5, 0.07),
-    (.bell, position(hertz: 2300), -6, 0.085),
-    (.bell, position(hertz: 9500), 4.5, 0.065),
-]
-func gain(at fraction: CGFloat) -> CGFloat {
-    bands.reduce(0) { sum, band in
-        let distance = (fraction - band.center) / band.width
-        switch band.kind {
-        case .lowShelf: return sum + band.gain / (1 + exp(distance * 2.2))
-        case .bell: return sum + band.gain * exp(-distance * distance / 2)
-        }
-    }
-}
-func point(at fraction: CGFloat) -> CGPoint {
-    CGPoint(x: plot.minX + fraction * plot.width, y: plot.midY + gain(at: fraction) / decibelRange * plot.height / 2)
+/// Flat, then one boost with straight sides: rounded where it leaves 0 dB like a
+/// filter's skirt, and nearly sharp at the apex like the letter.
+func response() -> CGPath {
+    let path = CGMutablePath()
+    path.move(to: CGPoint(x: plot.minX, y: level(0)))
+    path.addArc(tangent1End: leftFoot, tangent2End: apex, radius: 70)
+    path.addArc(tangent1End: apex, tangent2End: rightFoot, radius: 12)
+    path.addArc(tangent1End: rightFoot, tangent2End: CGPoint(x: plot.maxX, y: level(0)), radius: 70)
+    path.addLine(to: CGPoint(x: plot.maxX, y: level(0)))
+    return path
 }
 
 func draw(active: Bool) -> CGImage {
@@ -80,48 +84,32 @@ func draw(active: Bool) -> CGImage {
         }
     }
     // Level grid every 6 dB, with 0 dB as the reference line.
-    for decibels in stride(from: -18, through: 18, by: 6) {
-        let y = plot.midY + CGFloat(decibels) / decibelRange * plot.height / 2
+    for decibels in stride(from: -6, through: 24, by: 6) {
+        let y = level(CGFloat(decibels))
         context.setStrokeColor(color(1, 1, 1, decibels == 0 ? 0.16 : 0.06))
         context.setLineWidth(decibels == 0 ? 5 : 3)
         context.strokeLineSegments(between: [CGPoint(x: tile.minX, y: y), CGPoint(x: tile.maxX, y: y)])
     }
 
-    let curve = CGMutablePath()
-    let samples = 400
-    for index in 0...samples {
-        let next = point(at: CGFloat(index) / CGFloat(samples))
-        if index == 0 { curve.move(to: next) } else { curve.addLine(to: next) }
-    }
-
+    let curve = response()
     if active {
-        // Lit area between the response and 0 dB.
+        // Lit area between the boost and 0 dB.
         let area = curve.mutableCopy()!
-        area.addLine(to: CGPoint(x: plot.maxX, y: plot.midY))
-        area.addLine(to: CGPoint(x: plot.minX, y: plot.midY))
         area.closeSubpath()
         context.addPath(area)
-        context.setFillColor(color(0.30, 0.74, 0.86, 0.24))
+        context.setFillColor(color(0.30, 0.74, 0.86, 0.32))
         context.fillPath()
     }
 
-    context.addPath(curve)
     context.setStrokeColor(accent)
-    context.setLineWidth(38)
+    context.setLineWidth(strokeWidth)
     context.setLineCap(.round)
     context.setLineJoin(.round)
+    context.addPath(curve)
     context.strokePath()
-
-    if active {
-        // One node per band, cut out of the curve like the graph's band handles.
-        for band in bands {
-            let center = point(at: band.center)
-            context.setFillColor(graphite)
-            context.fillEllipse(in: CGRect(x: center.x - 44, y: center.y - 44, width: 88, height: 88))
-            context.setFillColor(accent)
-            context.fillEllipse(in: CGRect(x: center.x - 30, y: center.y - 30, width: 60, height: 60))
-        }
-    }
+    // The crossbar is the +6 dB grid line, drawn in the curve's color between the legs.
+    context.strokeLineSegments(between: [CGPoint(x: apex.x - crossbarHalfWidth, y: crossbarY),
+                                         CGPoint(x: apex.x + crossbarHalfWidth, y: crossbarY)])
     context.restoreGState()
 
     // A hairline edge keeps the tile's outline on dark Dock backgrounds.
