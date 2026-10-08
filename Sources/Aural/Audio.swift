@@ -185,21 +185,40 @@ struct OutputDevice: Identifiable, Equatable {
             throw AudioFailure(message: "The equalizer could not accept this setting. Stop and start processing to retry.")
         }
     }
+    /// Releases everything it can and throws the first failure at the end, so one
+    /// Core Audio error cannot leave the tap muting system audio. Whatever failed
+    /// stays recorded, and the next stop or start retries it.
     func stop() throws {
-        if let proc {
-            try check(AudioDeviceStop(aggregate, proc), "Stop audio")
-            try check(AudioDeviceDestroyIOProcID(aggregate, proc), "Release audio callback")
-            self.proc = nil
+        var failure: Error?
+        func attempt(_ step: () throws -> Void) -> Bool {
+            do { try step(); return true } catch { if failure == nil { failure = error }; return false }
         }
-        if let dsp { eq_destroy(dsp); self.dsp = nil }
-        if aggregate != 0 { try check(AudioHardwareDestroyAggregateDevice(aggregate), "Release private route"); aggregate = 0 }
+        var callbackStopped = true
+        if let proc {
+            callbackStopped = attempt { try check(AudioDeviceStop(aggregate, proc), "Stop audio") }
+            if attempt({ try check(AudioDeviceDestroyIOProcID(aggregate, proc), "Release audio callback") }) { self.proc = nil }
+        }
+        // A callback that may still be running keeps its engine: leak it rather than free it.
+        if let dsp { if callbackStopped { eq_destroy(dsp) }; self.dsp = nil }
+        if aggregate != 0, attempt({ try check(AudioHardwareDestroyAggregateDevice(aggregate), "Release private route") }) {
+            aggregate = 0; proc = nil // The callback belonged to the destroyed device.
+        }
         if tap != 0 {
-            if #available(macOS 14.2, *) { try check(AudioHardwareDestroyProcessTap(tap), "Release audio tap") }
-            tap = 0
+            if #available(macOS 14.2, *) {
+                if attempt({ try check(AudioHardwareDestroyProcessTap(tap), "Release audio tap") }) { tap = 0 }
+            } else { tap = 0 }
         }
         inputStreams = []; outputStreams = []; inputOffset = 0
         device = nil
+        if let failure { throw failure }
     }
+    #if AURAL_TESTING
+    /// A running route whose device has gone, so stopping its callback fails.
+    func adoptForTesting(tap: AudioObjectID, aggregate: AudioObjectID, device: OutputDevice) {
+        self.tap = tap; self.aggregate = aggregate; self.device = device
+        proc = eq_callback; dsp = eq_create(48000, 0)
+    }
+    #endif
     func verify() throws {
         guard let device else { return }
         // The callback replaces bad samples from a playing app without stopping

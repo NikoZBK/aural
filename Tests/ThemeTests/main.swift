@@ -41,7 +41,25 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         if CommandLine.arguments.contains("--check-accessibility") { _ = NSApplication.shared; checkAccessibility(); return }
         if CommandLine.arguments.contains("--check-autoeq-live") { try await checkAutoEQLive(); return }
         try checkThemes()
+        checkRouteCleanup()
         try await checkAutoEQCatalog()
+    }
+
+    /// A failed step must not end cleanup early: a callback that cannot be stopped
+    /// on a vanished device must not keep the tap muting system audio.
+    @MainActor private static func checkRouteCleanup() {
+        let route = AudioRoute()
+        route.adoptForTesting(tap: 0x7fff_fff1, aggregate: 0x7fff_fff2,
+                              device: OutputDevice(id: 0x7fff_fff0, uid: "missing", name: "Missing"))
+        do {
+            try route.stop()
+            require(false, "Stopping audio on a missing device must fail")
+        } catch {
+            require((error as? CoreAudioFailure)?.action == "Stop audio", "Cleanup must report its first failure")
+        }
+        require(route.device == nil && !route.hasResources && route.readMeter().peak == 0,
+                "A failed audio stop must still release the engine, private route, and tap")
+        do { try route.stop() } catch { require(false, "Stopping a released route must succeed") }
     }
 
     @MainActor private static func checkThemes() throws {
