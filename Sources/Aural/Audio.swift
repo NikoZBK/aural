@@ -62,6 +62,7 @@ struct OutputDevice: Identifiable, Equatable {
         return AudioMeterReading(peak: reading.peak, reductionDB: reading.reductionDB)
     }
     var faults: UInt32 { dsp.map(eq_faults) ?? 0 }
+    private var loggedSignalFaults: UInt32 = 0
 
     static func devices() throws -> [OutputDevice] {
         try ids(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices).compactMap { id in
@@ -147,6 +148,7 @@ struct OutputDevice: Identifiable, Equatable {
             }
             guard let engine = eq_create(sampleRate, inputOffset) else { throw AudioFailure(message: "Cannot allocate the equalizer for this sample rate.") }
             dsp = engine
+            loggedSignalFaults = 0
             setPeakProtection(peakProtectionEnabled)
             try update(profile, bypass: bypass, levelMatch: levelMatch)
             try check(AudioDeviceCreateIOProcID(aggregate, eq_callback, UnsafeMutableRawPointer(engine), &proc), "Create audio callback")
@@ -200,6 +202,16 @@ struct OutputDevice: Identifiable, Equatable {
     }
     func verify() throws {
         guard let device else { return }
+        // The callback replaces bad samples from a playing app without stopping
+        // EQ, so they are only logged. Malformed buffers mean a broken route.
+        if let dsp {
+            let signalFaults = eq_signal_faults(dsp)
+            if signalFaults != loggedSignalFaults {
+                let replaced = signalFaults &- loggedSignalFaults
+                Self.logger.warning("Replaced \(replaced, privacy: .public) non-finite or overflowing audio samples")
+                loggedSignalFaults = signalFaults
+            }
+        }
         let alive = try scalar(device.id, kAudioDevicePropertyDeviceIsAlive, UInt32(0))
         let rate = try scalar(device.id, kAudioDevicePropertyNominalSampleRate, Double(0))
         guard alive == 1, abs(rate - sampleRate) < 1, faults == 0 else {

@@ -8,6 +8,8 @@
 
 #define N 48000
 static float source[N*4], dest[N*2];
+// Healthy audio raises neither route nor signal faults.
+static bool no_faults(EQ *eq) { return eq_faults(eq)==0 && eq_signal_faults(eq)==0; }
 static void process(EQ *eq, unsigned channels) {
     AudioBufferList in={1,{{channels,N*channels*sizeof(float),source}}};
     AudioBufferList out={1,{{2,sizeof(dest),dest}}};
@@ -49,7 +51,7 @@ static void check_peak_protection(void) {
         eq_process(eq,&in,&out);
         assert(fabs(output[1]+.98)<1e-7 && fabs(output[0]/output[1]+.025)<1e-7);
         meter=eq_read_meter(eq);
-        assert(fabs(meter.reductionDB-20*log10(8/.98))<1e-4 && eq_faults(eq)==0);
+        assert(fabs(meter.reductionDB-20*log10(8/.98))<1e-4 && no_faults(eq));
         eq_destroy(eq);
 
         for(unsigned mode=0;mode<3;mode++) {
@@ -67,7 +69,7 @@ static void check_peak_protection(void) {
             double ratio=mode==2 ? -7.0/13 : -.25;
             assert(fabs(dest[N*2-1]/dest[N*2-2]-ratio)<1e-6);
             meter=eq_read_meter(eq);
-            assert(fabs(meter.peak-.98)<1e-7 && meter.reductionDB>12 && eq_faults(eq)==0);
+            assert(fabs(meter.peak-.98)<1e-7 && meter.reductionDB>12 && no_faults(eq));
             AudioBufferList bad={1,{{2,sizeof(dest),NULL}}};
             AudioBufferList good={1,{{2,sizeof(source)/2,source}}};
             eq_process(eq,&good,&bad);
@@ -110,7 +112,7 @@ static void check_peak_protection_switch(void) {
                 assert(memcmp(input,output,sizeof(input))==0 && meter.peak==8 && meter.reductionDB==0);
             }
         }
-        assert(eq_faults(eq)==0);
+        assert(no_faults(eq));
         eq_destroy(eq);
 
         for(unsigned mode=0;mode<3;mode++) {
@@ -130,20 +132,20 @@ static void check_peak_protection_switch(void) {
             eq_set_peak_protection(eq,true);
             process(eq,2);
             for(unsigned i=0;i<N*2;i++) assert(isfinite(dest[i]) && fabs(dest[i])<=.980001);
-            assert(eq_read_meter(eq).reductionDB>12 && eq_faults(eq)==0);
+            assert(eq_read_meter(eq).reductionDB>12 && no_faults(eq));
             eq_destroy(eq);
         }
         eq=eq_create(rates[r],0); assert(eq);
         eq_set_peak_protection(eq,false);
         input[0]=NAN; input[1]=.5f;
         eq_process(eq,&in,&out);
-        assert(output[0]==0 && output[1]==.5f && eq_faults(eq)==1);
+        assert(output[0]==0 && output[1]==.5f && eq_signal_faults(eq)==1 && eq_faults(eq)==0);
         EQFilter disabled={1000,0,1,EQFilterPeak,true,EQChannelStereo};
         assert(eq_update_filters(eq,&disabled,1,24,false));
         memset(source,0,sizeof(source)); process(eq,2); // Complete the settings crossfade.
         source[0]=FLT_MAX; source[1]=.5f;
         process(eq,2);
-        assert(dest[0]==0 && dest[1]==0 && eq_faults(eq)==2);
+        assert(dest[0]==0 && dest[1]==0 && eq_signal_faults(eq)==2 && eq_faults(eq)==0);
         for(unsigned i=0;i<N*2;i++) assert(isfinite(dest[i]));
         eq_destroy(eq);
     }
@@ -172,7 +174,7 @@ static void check_matched_bypass(void) {
     assert(!eq_update_filters_matched(eq,&peak,1,0,true,&stereo,NAN));
     assert(!eq_update_filters_matched(eq,&peak,1,0,true,&stereo,-24.01));
     assert(!eq_update_filters_matched(eq,&peak,1,0,true,&stereo,12.01));
-    assert(eq_faults(eq)==0); eq_destroy(eq);
+    assert(no_faults(eq)); eq_destroy(eq);
     puts("PASS level-matched bypass gain, stereo path, EQ path independence, and validation");
 }
 int main(void) {
@@ -182,7 +184,7 @@ int main(void) {
     double gains[10]={0};
     EQ *eq=eq_create(48000,0); assert(eq);
     tone(.1,0); process(eq,2);
-    for(int i=0;i<N*2;i++) assert(source[i]==dest[i]); assert(eq_faults(eq)==0);
+    for(int i=0;i<N*2;i++) assert(source[i]==dest[i]); assert(no_faults(eq));
     puts("PASS flat response and stereo isolation");
     gains[5]=6; assert(eq_update(eq,gains,0,false)); tone(.1,1);process(eq,2);
     double measured=20*log10(rms(dest,N,N*2)/rms(source,N,N*2));
@@ -277,7 +279,7 @@ int main(void) {
         }
         double expected=eq_response_filters(1000,48000,layouts[preset],counts[preset],-8);
         assert(fabs(10*log10(outputPower/inputPower)-expected)<.03);
-        assert(eq_faults(eq)==0);
+        assert(no_faults(eq));
     }
     eq_destroy(eq);
     puts("PASS live preset layout changes on one engine with realistic audio buffers");

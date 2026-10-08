@@ -30,7 +30,7 @@ struct EQ {
     double rate;
     unsigned offset;
     Settings queue[64], target;
-    _Atomic unsigned read, write, faults;
+    _Atomic unsigned read, write, faults, signalFaults;
     _Atomic unsigned protectionEnabled;
     _Atomic float peak, meterPeak, meterReduction;
     Chain chains[2];
@@ -327,7 +327,7 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         double mix=eq->transitioning && !eq->warmupRemaining ? (double)eq->transitionFrame/eq->transitionLength : 0;
         for (unsigned c=0;c<2;c++) {
             dry[c]=in[c][f*is[c]];
-            if (!isfinite(dry[c])) { dry[c]=0; atomic_fetch_add_explicit(&eq->faults,1,memory_order_relaxed); }
+            if (!isfinite(dry[c])) { dry[c]=0; atomic_fetch_add_explicit(&eq->signalFaults,1,memory_order_relaxed); }
         }
         run_chain(&eq->chains[eq->active],dry,samples);
         if (eq->transitioning) {
@@ -337,12 +337,12 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         }
         if (!isfinite(samples[0]) || !isfinite(samples[1]) || (!protectionEnabled &&
                 (fabs(samples[0])>FLT_MAX || fabs(samples[1])>FLT_MAX))) {
-                // Latch a fault for the control thread and recover state without
-                // allowing NaNs or float overflow to reach the device, even
-                // when peak protection is off.
+            // Count a signal fault for the control thread and recover state
+            // without allowing NaNs or float overflow to reach the device, even
+            // when peak protection is off.
             for (unsigned bank=0;bank<2;bank++) reset_history(&eq->chains[bank]);
             samples[0]=samples[1]=0;
-            atomic_fetch_add_explicit(&eq->faults,1,memory_order_relaxed);
+            atomic_fetch_add_explicit(&eq->signalFaults,1,memory_order_relaxed);
         }
         if (eq->transitioning) {
             if (eq->warmupRemaining) eq->warmupRemaining--;
@@ -379,6 +379,7 @@ EQMeter eq_read_meter(EQ *eq) {
     return (EQMeter){peak,atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed) ? reduction : 0};
 }
 unsigned eq_faults(EQ *eq) { return atomic_load_explicit(&eq->faults,memory_order_relaxed); }
+unsigned eq_signal_faults(EQ *eq) { return atomic_load_explicit(&eq->signalFaults,memory_order_relaxed); }
 OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID proc, unsigned count) {
     if (!count) return kAudioHardwareIllegalOperationError;
     size_t size=offsetof(AudioHardwareIOProcStreamUsage,mStreamIsOn)+count*sizeof(UInt32);

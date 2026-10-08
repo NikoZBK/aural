@@ -48,7 +48,12 @@ typedef struct { float peak, reductionDB; } EQMeter;
 // Single control-thread reader: maxima since the previous read, then reset.
 // Output level and gain reduction are independent interval measurements.
 EQMeter eq_read_meter(EQ *eq);
+// Malformed buffers that no audio can pass through: the route is broken.
 unsigned eq_faults(EQ *eq);
+// Samples the callback contained without stopping: non-finite input replaced
+// by silence, and non-finite or overflowing output that reset filter history.
+// One playing app can cause these; they say nothing about the route.
+unsigned eq_signal_faults(EQ *eq);
 double eq_response(double frequency, double sampleRate, const double *gains, double preamp);
 
 #pragma clang assume_nonnull end

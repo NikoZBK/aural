@@ -6,6 +6,8 @@
 #include <string.h>
 #include <time.h>
 
+// Healthy audio raises neither route nor signal faults.
+static bool no_faults(EQ *eq) { return eq_faults(eq)==0 && eq_signal_faults(eq)==0; }
 static double measure(EQ *eq, double rate, double frequency, double *correlation) {
     float in[256],out[256];
     AudioBufferList input={1,{{2,sizeof(in),in}}}, output={1,{{2,sizeof(out),out}}};
@@ -27,7 +29,7 @@ static double measure(EQ *eq, double rate, double frequency, double *correlation
             }
         }
     }
-    assert(eq_faults(eq)==0);
+    assert(no_faults(eq));
     if (correlation) *correlation=cross/sqrt(powerIn*powerOut);
     // Fit both quadratures: a finite, non-integral cycle window biases RMS ratios
     // when the filter shifts phase, especially at low frequency/high sample rate.
@@ -42,7 +44,7 @@ static void frame(EQ *eq, float left, float right, float result[2]) {
 }
 static void settle(EQ *eq, float left, float right, float result[2]) {
     for (unsigned i=0;i<16000;i++) frame(eq,left,right,result);
-    assert(eq_faults(eq)==0);
+    assert(no_faults(eq));
 }
 static double crossfeed_ratio(EQ *eq, double frequency) {
     double leftPower=0,rightPower=0;
@@ -108,7 +110,7 @@ static void stereo_tests(void) {
                 assert(fabs(out[c]-expected)<1e-7);
             }
         }
-        assert(eq_faults(eq)==0); eq_destroy(eq);
+        assert(no_faults(eq)); eq_destroy(eq);
     }
     puts("PASS fractional stereo delay impulse timing, maximum delay and ring wrap at five sample rates");
 
@@ -132,7 +134,7 @@ static void stereo_tests(void) {
         largestStep=fmax(largestStep,fabs(out[0]-previous)); previous=out[0];
         assert(isfinite(out[0]) && isfinite(out[1]));
     }
-    assert(largestStep<.001 && out[0]==.05f && out[1]==.05f && eq_faults(eq)==0);
+    assert(largestStep<.001 && out[0]==.05f && out[1]==.05f && no_faults(eq));
     eq_destroy(eq);
     puts("PASS delay warmup without signal drop, rapid stereo edits, smooth polarity transitions and latest target");
 }
@@ -158,7 +160,7 @@ static void channel_tests(void) {
             assert(fabs(eq_response_filters_channel(1000,48000,filters,2,-3,c+1)-expected[c])<1e-8);
         }
         assert(fabs(eq_response_filters(1000,48000,filters,2,-3)-fmax(expected[0],expected[1]))<1e-8);
-        assert(eq_faults(eq)==0);
+        assert(no_faults(eq));
     }
     filters[0].channel=3; assert(!eq_update_filters(eq,filters,2,0,false));
     assert(isnan(eq_response_filters_channel(1000,48000,filters,2,0,3)));
@@ -197,7 +199,7 @@ static void preamp_history_tests(void) {
             }
             oldAmplitude=amplitude;
         }
-        assert(eq_faults(eq)==0 && eq_faults(reference)==0);
+        assert(no_faults(eq) && no_faults(reference));
         eq_destroy(eq);eq_destroy(reference);
     }
     puts("PASS preamp cuts and boosts preserve slow-filter history and fade magnitude at five sample rates");
@@ -256,7 +258,7 @@ static void channel_history_tests(void) {
             frame(eq,input,input,out); frame(reference,input,input,base);
             if (i>=(unsigned)ceil(rate*.02)) assert(out[c]==base[c]);
         }
-        assert(eq_faults(eq)==0 && eq_faults(reference)==0);
+        assert(no_faults(eq) && no_faults(reference));
         eq_destroy(eq); eq_destroy(reference);
     }
     puts("PASS independent channel history across other-channel edits, removal, insertion, identity filters, preamp and routing at five rates");
@@ -278,7 +280,7 @@ static double bass_error(EQ *eq, double rate, unsigned *sample, unsigned skip, u
         }
         worst=fmax(worst,fabs(20*log10(peak/bassTone)-expected));
     }
-    assert(eq_faults(eq)==0);
+    assert(no_faults(eq));
     return worst;
 }
 static void edit_history_tests(void) {
@@ -324,7 +326,7 @@ static void edit_history_tests(void) {
                 frame(reference,bass_input(sample,rate),bass_input(sample,rate),base);
                 if (i>=fade) assert(out[0]==base[0] && out[1]==base[1]);
             }
-            assert(eq_faults(eq)==0 && eq_faults(reference)==0); eq_destroy(reference);
+            assert(no_faults(eq) && no_faults(reference)); eq_destroy(reference);
         }
         eq_destroy(eq);
     }
@@ -413,9 +415,9 @@ int main(void) {
             assert(isfinite(previous) && out[2*i]==out[2*i+1]);
         }
     }
-    assert(largestStep<.001 && fabs(previous-.05)<1e-6 && eq_faults(eq)==0);
-    // Malformed and nonfinite input must surface a fault without leaking bad output.
-    in[0]=NAN; eq_process(eq,&input,&output); assert(eq_faults(eq)>0);
+    assert(largestStep<.001 && fabs(previous-.05)<1e-6 && no_faults(eq));
+    // Nonfinite input is contained as a signal fault; malformed buffers are route faults.
+    in[0]=NAN; eq_process(eq,&input,&output); assert(eq_signal_faults(eq)==1 && eq_faults(eq)==0);
     for(unsigned i=0;i<128;i++) assert(isfinite(out[i]));
     unsigned faults=eq_faults(eq); input.mBuffers[0].mDataByteSize-=1;
     eq_process(eq,&input,&output); assert(eq_faults(eq)==faults+1);
@@ -442,7 +444,7 @@ int main(void) {
             eq_process(eq,&input,&output);
             for(unsigned i=0;i<128;i++) assert(isfinite(out[i]) && fabs(out[i])<=.981);
         }
-        assert(eq_faults(eq)==0);eq_destroy(eq);
+        assert(no_faults(eq));eq_destroy(eq);
     }
     printf("PASS 32-filter extreme-value stress at five rates (CPU %.3fs, sanitizer build)\n",(double)(clock()-begin)/CLOCKS_PER_SEC);
 }

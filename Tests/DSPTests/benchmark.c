@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+// Healthy audio raises neither route nor signal faults.
+static bool no_faults(EQ *eq) { return eq_faults(eq)==0 && eq_signal_faults(eq)==0; }
 static double now(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t); return t.tv_sec+t.tv_nsec*1e-9; }
 static int compare(const void *a,const void *b) { double x=*(const double*)a,y=*(const double*)b;return (x>y)-(x<y); }
 int main(void) {
@@ -27,7 +29,7 @@ int main(void) {
         double start=now();eq_process(eq,&input,&output);times[block]=now()-start;sum+=times[block];
         for(unsigned i=0;i<Frames*2;i++)assert(isfinite(out[i])&&fabs(out[i])<=.981);
     }
-    assert(eq_faults(eq)==0);eq_destroy(eq);
+    assert(no_faults(eq));eq_destroy(eq);
     qsort(times,Blocks,sizeof(double),compare);
     printf("192 kHz / 64 frames / 32 filters / repeated transitions: mean %.2f us, p99 %.2f us, max %.2f us; buffer budget %.2f us\n",
         sum/Blocks*1e6,times[Blocks*99/100]*1e6,times[Blocks-1]*1e6,Frames/192000.0*1e6);
