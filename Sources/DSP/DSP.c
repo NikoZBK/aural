@@ -126,6 +126,14 @@ static Coeff coeff(EQFilter filter, double db, double rate) {
             c=matched(matched_poles(w*s,q),1,a*a*quad(a,s/q,1,x)/quad(1,s/q,a,x),a*a,w);
         return invert ? (Coeff){1/c.b0,c.a1/c.b0,c.a2/c.b0,c.b1/c.b0,c.b2/c.b0} : c;
     }
+    if (filter.type==EQFilterLowPass1 || filter.type==EQFilterHighPass1) {
+        // 1/(s + 1) and s/(s + 1), with the second pole at the origin as in the 6 dB/octave
+        // shelves. The high-pass has one zero at DC, for its slope, and matches the gain at hz.
+        Poles p={{exp(-w),0},{-expm1(-w),1},0};
+        if (filter.type==EQFilterLowPass1) return matched(p,1,1/quad(0,1,1,x),.5,w);
+        double k=sqrt(pole_distance(p,w)/2)/(2*sin(w/2));
+        return with_poles(k,-k,0,p);
+    }
     if (filter.type==EQFilterAllPass) {
         // Unity magnitude at any rate; the bilinear form keeps the phase inversion at hz.
         double alpha=sin(w)/(2*q), a0=1+alpha;
@@ -269,7 +277,7 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
     for (unsigned i=0;i<count;i++) {
         EQFilter f=filters[i];
         if (!isfinite(f.frequency) || f.frequency<10 || f.frequency>22000 || !isfinite(f.gain) || fabs(f.gain)>30 ||
-            !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterHighShelf1 || f.channel>EQChannelSide || (!has_gain(f.type) && f.gain!=0)) return false;
+            !isfinite(f.q) || f.q<.05 || f.q>50 || (!f.disabled && f.frequency>=eq->rate*.49) || f.type>EQFilterHighPass1 || f.channel>EQChannelSide || (!has_gain(f.type) && f.gain!=0)) return false;
     }
     Settings *next=&eq->slots[eq->back];
     memcpy(next->filters,filters,sizeof(EQFilter)*count);

@@ -559,6 +559,8 @@ static double analog_db(EQFilter f, double x) {
     case EQFilterHighPass: m=x*x*x*x/d; break;
     case EQFilterBandPass: m=x*x/(q*q*d); break;
     case EQFilterNotch: m=(1-x*x)*(1-x*x)/d; break;
+    case EQFilterLowPass1: m=1/(1+x*x); break;
+    case EQFilterHighPass1: m=x*x/(1+x*x); break;
     }
     return 10*log10(m);
 }
@@ -574,6 +576,8 @@ static void analog_shape_tests(void) {
         {{5000,0,2,EQFilterBandPass,false,EQChannelStereo},1}, {{6000,0,4,EQFilterNotch,false,EQChannelStereo},.05},
         {{150,9,M_SQRT1_2,EQFilterLowShelf1,false,EQChannelStereo},.01}, {{1000,-12,50,EQFilterLowShelf1,false,EQChannelStereo},.02},
         {{3000,6,.05,EQFilterHighShelf1,false,EQChannelStereo},.05}, {{10000,-10,M_SQRT1_2,EQFilterHighShelf1,false,EQChannelStereo},.3},
+        {{100,0,M_SQRT1_2,EQFilterLowPass1,false,EQChannelStereo},.2}, {{12000,0,M_SQRT1_2,EQFilterLowPass1,false,EQChannelStereo},.6},
+        {{40,0,M_SQRT1_2,EQFilterHighPass1,false,EQChannelStereo},.01}, {{8000,0,M_SQRT1_2,EQFilterHighPass1,false,EQChannelStereo},.25},
     };
     const double rates[]={44100,48000,96000,192000};
     for (unsigned i=0;i<sizeof cases/sizeof *cases;i++) for (unsigned r=0;r<4;r++) {
@@ -590,10 +594,13 @@ static void analog_shape_tests(void) {
             assert(error<cases[i].tolerance);
         }
     }
-    // The 6 dB/octave shelves have no Q.
-    EQFilter loose={1000,-12,.05,EQFilterLowShelf1,false,EQChannelStereo}, tight=loose; tight.q=50;
-    for (double hz=20;hz<20000;hz*=1.5) assert(eq_response_filters(hz,48000,&loose,1,0)==eq_response_filters(hz,48000,&tight,1,0));
-    puts("PASS peak, shelf, 6 dB/octave shelf, pass and notch filters keep their analog shape and exact centers at four sample rates");
+    // The 6 dB/octave shelves and pass filters have no Q.
+    const unsigned firstOrder[]={EQFilterLowShelf1,EQFilterHighShelf1,EQFilterLowPass1,EQFilterHighPass1};
+    for (unsigned i=0;i<4;i++) {
+        EQFilter loose={1000,firstOrder[i]<=EQFilterHighShelf1 ? -12 : 0,.05,firstOrder[i],false,EQChannelStereo}, tight=loose; tight.q=50;
+        for (double hz=20;hz<20000;hz*=1.5) assert(eq_response_filters(hz,48000,&loose,1,0)==eq_response_filters(hz,48000,&tight,1,0));
+    }
+    puts("PASS peak, shelf, 6 dB/octave shelf and pass, pass and notch filters keep their analog shape and exact centers at four sample rates");
 }
 int main(void) {
     analog_shape_tests();
@@ -607,12 +614,13 @@ int main(void) {
     const double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         double rate=rates[r];
-        for (unsigned type=EQFilterLowPass;type<=EQFilterAllPass;type++) {
+        for (unsigned type=EQFilterLowPass;type<=EQFilterHighPass1;type++) {
+            if (type==EQFilterLowShelf1 || type==EQFilterHighShelf1) continue;
             EQ *eq=eq_create(rate,0); assert(eq);
             EQFilter filter={1000,0,M_SQRT1_2,type,false,EQChannelStereo};
             assert(eq_update_filters(eq,&filter,1,0,false));
             double phase,db=measure(eq,rate,1000,&phase);
-            if(type==EQFilterLowPass || type==EQFilterHighPass) assert(fabs(db+3.01029995664)<.02);
+            if(type==EQFilterLowPass || type==EQFilterHighPass || type==EQFilterLowPass1 || type==EQFilterHighPass1) assert(fabs(db+3.01029995664)<.02);
             if(type==EQFilterBandPass || type==EQFilterAllPass) assert(fabs(db)<.02);
             if(type==EQFilterNotch) assert(db < -100);
             if(type==EQFilterAllPass) assert(phase < -.999); // all-pass must change phase, not be identity
@@ -629,6 +637,9 @@ int main(void) {
             if(type==EQFilterLowPass) assert(fabs(low)<.01 && high < -40);
             if(type==EQFilterHighPass) assert(low < -40 && fabs(high)<.01);
             if(type==EQFilterBandPass) assert(low < -15 && high < -15);
+            // One decade from 1 kHz, a first-order filter is 20 dB down.
+            if(type==EQFilterLowPass1) assert(fabs(low)<.05 && fabs(high+20.04)<.5);
+            if(type==EQFilterHighPass1) assert(fabs(low+20.04)<.05 && fabs(high)<.05);
             filter.disabled=true;
             assert(eq_update_filters(eq,&filter,1,-3,false));
             assert(fabs(measure(eq,rate,1000,NULL)+3)<.02);
@@ -639,7 +650,7 @@ int main(void) {
             eq_destroy(eq);
         }
     }
-    puts("PASS pass/notch/all-pass magnitude, phase, stereo isolation, disabled filters and bypass at five rates");
+    puts("PASS pass, 6 dB/octave pass, notch and all-pass magnitude, phase, stereo isolation, disabled filters and bypass at five rates");
 
     // Disabled gain filters must preserve their saved gain while acting as identity.
     for(unsigned type=0;type<=EQFilterHighShelf1;type++) {

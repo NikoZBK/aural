@@ -158,4 +158,10 @@ while full.filters!.count < Profile.maxFilters { full = try ProfileTools.addFilt
 require(full.filters?.count == Profile.maxFilters, "Adding the final supported filter failed")
 rejects("add past capacity") { _ = try ProfileTools.addFilter(full) }
 rejects("duplicate past capacity") { _ = try ProfileTools.duplicateFilter(full, at: 0) }
+// Each section of a steeper low- or high-pass filter takes a slot.
+let steep = Profile(filters: Array(repeating: ImportedFilter(kind: .highPass, frequency: 20, gain: 0, q: 1, enabled: true, slope: .linkwitzRiley36), count: 21))
+rejects("duplicate slope past capacity") { _ = try ProfileTools.duplicateFilter(steep, at: 0) }
+let steepFull = try ProfileTools.addFilter(steep)
+require(steepFull.filters?.slots == Profile.maxFilters && steepFull.filters?[0].slope == .linkwitzRiley36, "Adding beside slopes failed")
+rejects("add past slope capacity") { _ = try ProfileTools.addFilter(steepFull) }
 print("PASS inline filter editing, gainless types, disabled-state preservation, insertion order, final-filter protection, and \(Profile.maxFilters)-filter capacity")

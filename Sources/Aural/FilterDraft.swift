@@ -8,22 +8,30 @@ struct FilterDraft: Identifiable, Equatable {
     var q: String
     var enabled: Bool
     var channel: ImportedFilter.Channel
+    var slope: ImportedFilter.Slope?
 
     init(_ filter: ImportedFilter = ImportedFilter(kind: .peak, frequency: 1000, gain: 0, q: 1.4, enabled: true)) {
         kind = filter.kind; frequency = String(filter.frequency)
         gain = String(filter.gain); q = String(filter.q); enabled = filter.enabled
-        channel = filter.effectiveChannel
+        channel = filter.effectiveChannel; slope = filter.slope
     }
+    var shape: FilterShape {
+        get { FilterShape(kind: kind, slope: slope) }
+        set { kind = newValue.kind; slope = newValue.slope }
+    }
+    var usesQ: Bool { shape.usesQ }
+    var slots: Int { shape.slots }
 
     func filter(row: Int) throws -> ImportedFilter {
         guard let hz = Double(frequency.trimmingCharacters(in: .whitespaces)),
               let db = kind.usesGain ? Double(gain.trimmingCharacters(in: .whitespaces)) : 0,
-              let typed = Double(q.trimmingCharacters(in: .whitespaces)) ?? (kind.usesQ ? nil : 0.7071) else {
+              let typed = Double(q.trimmingCharacters(in: .whitespaces)) ?? (usesQ ? nil : 0.7071) else {
             throw AudioFailure(message: "Filter \(row): enter numbers for frequency, gain, and Q (use a decimal point).")
         }
-        // A hidden Q is kept for switching back to a shelf with Q, but must not block the filter.
-        let quality = kind.usesQ || (0.05...50).contains(typed) ? typed : 0.7071
-        let result = ImportedFilter(kind: kind, frequency: hz, gain: db, q: quality, enabled: enabled, channel: channel == .stereo ? nil : channel)
+        // A hidden Q is kept for switching back to a type with Q, but must not block the filter.
+        let quality = usesQ || (0.05...50).contains(typed) ? typed : 0.7071
+        let result = ImportedFilter(kind: kind, frequency: hz, gain: db, q: quality, enabled: enabled,
+                                    channel: channel == .stereo ? nil : channel, slope: shape.slope)
         do { try result.validate() }
         catch { throw AudioFailure(message: "Filter \(row): \(error.localizedDescription)") }
         return result
@@ -43,16 +51,19 @@ struct ParametricDraft: Equatable {
         }).map { FilterDraft($0) }
     }
 
+    /// The filter slots the rows take of Profile.maxFilters.
+    var slots: Int { filters.reduce(0) { $0 + $1.slots } }
+
     mutating func duplicateFilter(_ id: UUID) throws {
-        guard filters.count < Profile.maxFilters else { throw AudioFailure(message: "At most \(Profile.maxFilters) filters are supported.") }
         guard let index = filters.firstIndex(where: { $0.id == id }) else {
             throw AudioFailure(message: "The filter no longer exists.")
         }
+        guard slots + filters[index].slots <= Profile.maxFilters else { throw AudioFailure(message: "At most \(Profile.maxFilters) filters are supported.") }
         let original = filters[index]
         var copy = FilterDraft()
         copy.kind = original.kind; copy.frequency = original.frequency
         copy.gain = original.gain; copy.q = original.q; copy.enabled = original.enabled
-        copy.channel = original.channel
+        copy.channel = original.channel; copy.slope = original.slope
         filters.insert(copy, at: index + 1)
     }
 

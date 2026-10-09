@@ -21,7 +21,7 @@ extension Profile {
     }
 
     /// The profile's filters, then its tilt.
-    func dspFilters(rate: Double) -> [EQFilter] { bandFilters(rate: rate) + tiltFilters }
+    func dspFilters(rate: Double) -> [EQFilter] { bandSections(rate: rate).flatMap { $0 } + tiltFilters }
 
     /// A 6 dB/octave low and high shelf on the pivot, each reaching half its gain there,
     /// so the pivot keeps its level and bass and treble move apart by up to twice the tilt.
@@ -57,9 +57,10 @@ extension Profile {
                         disabled: false, channel: UInt32(EQChannelStereo))
     }
 
-    private func bandFilters(rate: Double) -> [EQFilter] {
+    /// The engine filters for each band: one, or a low- or high-pass slope's sections.
+    func bandSections(rate: Double) -> [[EQFilter]] {
         if let filters {
-            return filters.map { filter in
+            return filters.map { filter -> [EQFilter] in
                 let type: UInt32
                 switch filter.kind {
                 case .peak: type = UInt32(EQFilterPeak)
@@ -81,7 +82,17 @@ extension Profile {
                 case .mid: channel = UInt32(EQChannelMid)
                 case .side: channel = UInt32(EQChannelSide)
                 }
-                return EQFilter(frequency: filter.frequency, gain: filter.gain, q: filter.q, type: type, disabled: !filter.enabled, channel: channel)
+                let base = EQFilter(frequency: filter.frequency, gain: filter.gain, q: filter.q, type: type, disabled: !filter.enabled, channel: channel)
+                guard let sections = filter.slope?.sections else { return [base] }
+                // Other slopes run their sections in a row at the filter frequency.
+                var first = base
+                first.type = UInt32(filter.kind == .lowPass ? EQFilterLowPass1 : EQFilterHighPass1)
+                first.q = 0.7071067811865476
+                return (sections.firstOrder ? [first] : []) + sections.q.map { q in
+                    var section = base
+                    section.q = q
+                    return section
+                }
             }
         }
         // Solve against the engine's own response, so each slider is exact at this rate.
@@ -93,7 +104,7 @@ extension Profile {
             var filter = band(index, gain: gain)
             return eq_response_filters(frequency, rate, &filter, 1, 0)
         }
-        return bandGains.indices.map { band($0, gain: bandGains[$0]) }
+        return bandGains.indices.map { [band($0, gain: bandGains[$0])] }
     }
     // This is the EQ/preamp response, before stereo processing. The default
     // returns the louder channel so automatic headroom covers both channels;

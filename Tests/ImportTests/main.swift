@@ -454,6 +454,55 @@ do {
             "A hidden Q blocked a 6 dB/octave shelf")
     hiddenQ.kind = .lowShelf
     do { _ = try hiddenQ.filter(row: 1); fatalError("A visible invalid Q was accepted") } catch {}
+    // Other low- and high-pass slopes export as their second-order sections, numbered in
+    // order; Equalizer APO has no first-order pass filter for odd slopes.
+    let steep = try Profile(preamp: -1, filters: [
+        ImportedFilter(kind: .highPass, frequency: 30, gain: 0, q: 2, enabled: true, channel: .side, slope: .linkwitzRiley24),
+        ImportedFilter(kind: .peak, frequency: 1000, gain: -2, q: 1, enabled: true),
+        ImportedFilter(kind: .lowPass, frequency: 18000, gain: 0, q: 0.7, enabled: false, slope: .butterworth24)]).validated()
+    let steepText = try AutoEQ.export(steep)
+    let steepLines = steepText.split(separator: "\n").filter { $0.hasPrefix("Filter") }.map(String.init)
+    require(steepLines.count == 5 && steepLines.enumerated().allSatisfy { $0.element.hasPrefix("Filter \($0.offset + 1): ") }
+            && steepLines[0].contains("ON HPQ Fc 30.0 Hz Q 0.707") && steepLines[3].contains("OFF LPQ Fc 18000.0 Hz Q 0.541")
+            && steepLines[4].contains("OFF LPQ Fc 18000.0 Hz Q 1.306"), "Slopes must export as numbered sections: \(steepLines)")
+    let reimported = try AutoEQ.parse(steepText, name: "Steep").filters!
+    require(reimported.map(\.kind) == [.highPass, .highPass, .peak, .lowPass, .lowPass]
+            && reimported.map(\.effectiveChannel) == [.side, .side, .stereo, .stereo, .stereo]
+            && zip(reimported.map(\.q), [0.7071, 0.7071, 1, 0.5412, 1.3066]).allSatisfy { abs($0.0 - $0.1) < 0.0001 },
+            "Exported slope sections must import as the same sections")
+    var odd = steep
+    odd.filters![2].slope = .butterworth18
+    do { _ = try AutoEQ.export(odd); fatalError("Export wrote an odd slope as text") }
+    catch { require(error.localizedDescription.contains("filter 3") && error.localizedDescription.contains("18 dB/oct"), "Export must name the odd slope") }
+    let savedSteep = try JSONDecoder().decode(Profile.self, from: JSONEncoder().encode(steep))
+    require(savedSteep == steep && savedSteep.filters?[0].slope == .linkwitzRiley24, "Preset lost a slope")
+    var flatter = steep
+    flatter.filters![0].slope = nil
+    require(flatter != steep, "A slope must count as a change")
+    let legacyPass = try JSONDecoder().decode(ImportedFilter.self, from: Data(#"{"kind":"LPQ","frequency":100,"gain":0,"q":0.7,"enabled":true}"#.utf8))
+    require(legacyPass.slope == nil && legacyPass.usesQ, "Earlier presets must keep their 12 dB/octave pass filters")
+    do { _ = try Profile(filters: [ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true, slope: .butterworth24)]).validated(); fatalError("A peak kept a slope") }
+    catch { require(error.localizedDescription.contains("slope"), "Slope validation must explain itself") }
+    let tooSteep = Array(repeating: ImportedFilter(kind: .lowPass, frequency: 18000, gain: 0, q: 1, enabled: true, slope: .butterworth42), count: 17)
+    do { _ = try Profile(filters: tooSteep).validated(); fatalError("Accepted more filter sections than the engine holds") }
+    catch { require(error.localizedDescription.contains("counts as 2–4"), "The filter limit must explain slope sections") }
+    require(FilterShape(kind: .peak, slope: .linkwitzRiley48).slope == nil && FilterShape(kind: .lowPass, slope: .linkwitzRiley48).label == "Low pass 48 dB/oct Linkwitz-Riley"
+            && FilterShape(kind: .highPass, slope: .butterworth6).name == "High pass 6 dB" && FilterShape(kind: .highPass).label == "High pass · HPQ"
+            && FilterShape.slopes(for: .lowPass).map { $0.slope?.decibelsPerOctave ?? 12 } == [6, 12, 18, 24, 24, 30, 36, 36, 42, 48, 48],
+            "Type menus must name and order slopes")
+    var slopeDraft = FilterDraft(steep.filters![0])
+    slopeDraft.q = "x"
+    let slopeFilter = try slopeDraft.filter(row: 1)
+    require(slopeFilter.slope == .linkwitzRiley24 && slopeFilter.q == 0.7071 && slopeFilter.effectiveChannel == .side, "A hidden Q blocked a slope")
+    slopeDraft.shape = FilterShape(kind: .peak)
+    require(slopeDraft.slope == nil && slopeDraft.usesQ, "Other kinds must drop the slope")
+    var slotDraft = ParametricDraft(Profile(filters: Array(tooSteep.prefix(15)) + [ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true)]))
+    require(slotDraft.slots == 61, "Drafts must count slope sections")
+    do { try slotDraft.duplicateFilter(slotDraft.filters[0].id); fatalError("Duplicated a slope past the filter limit") }
+    catch { require(slotDraft.slots == 61, "Rejected duplication changed filters") }
+    try slotDraft.duplicateFilter(slotDraft.filters[15].id)
+    let slotProfile = try slotDraft.profile()
+    require(slotDraft.slots == 62 && slotProfile.filters?[0].slope == .butterworth42, "Drafts must keep slopes")
     // Mid/Side filters travel as Equalizer APO's Copy routing: mid in the left slot and side
     // in the right, decoded before the next left/right filter and at the end.
     let midSide = try Profile(preamp: -3, filters: [
@@ -504,7 +553,7 @@ do {
     settings.mergePresets(try PresetBackup.decode(data))
     require(settings.presets["Stereo fixture"] == effects, "Native preset backup lost stereo settings")
 }
-print("PASS channel and Mid/Side text import/export, draft preservation, unsupported semantics and complete stereo backup")
+print("PASS channel and Mid/Side text import/export, slope sections, draft preservation, unsupported semantics and complete stereo backup")
 
 // Diagnostics must identify physical lines in Windows exports as well as LF files.
 for newline in ["\n", "\r\n", "\r"] {

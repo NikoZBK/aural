@@ -55,7 +55,7 @@ struct EQBars: View {
                 return true
             }, end: { model.endProfileGesture() })
                 .frame(width: 40 * interfaceScale, height: height)
-                .help(adjustable ? "Drag or use Up and Down arrows to adjust gain. Double-click or press zero to reset." : "\(filter?.kind.label ?? "Filter") has no gain control.")
+                .help(adjustable ? "Drag or use Up and Down arrows to adjust gain. Double-click or press zero to reset." : "\(filter?.shape.label ?? "Filter") has no gain control.")
             Text(frequency >= 1000 ? String(format: "%.3gk", frequency / 1000) : String(format: "%.0f", frequency))
                 .auralFont(size: 10, design: .monospaced).foregroundStyle(AuralStyle.secondary)
                 .lineLimit(1).help(String(format: "%.0f Hz", frequency))

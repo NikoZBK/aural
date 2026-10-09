@@ -23,7 +23,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 
 ## Audio processing
 
-Peaking, Q-based and first-order (6 dB/octave) low/high shelf, second-order low/high pass, band-pass, notch, and all-pass filters are implemented. Live control updates use prepared coefficients and preallocated chains. Audio callbacks allocate no memory, acquire no locks, perform no file I/O, and make no Swift/UI calls. Channel/stereo additions preserve default output and complete bypass semantics; peak protection follows its saved On/Off switch during bypass.
+Peaking, Q-based and first-order (6 dB/octave) low/high shelf, low/high pass (12 dB/octave with Q, or 6–48 dB/octave Butterworth and 24–48 dB/octave Linkwitz-Riley sections, each taking one of the 64 filter slots), band-pass, notch, and all-pass filters are implemented. Live control updates use prepared coefficients and preallocated chains. Audio callbacks allocate no memory, acquire no locks, perform no file I/O, and make no Swift/UI calls. Channel/stereo additions preserve default output and complete bypass semantics; peak protection follows its saved On/Off switch during bypass.
 
 ## Added in Aural 1.1
 
@@ -47,7 +47,6 @@ The working tree now provides an On/Off checkbox beside the Level meter and in t
 | --- | --- | --- |
 | Surround and arbitrary routing | One stereo output stream; independent L/R filters and calibration only | Channel-layout model, multichannel taps, routing matrix, real 5.1/7.1/USB hardware validation. |
 | Convolution / APO `GraphicEQ` | Unsupported and explicitly rejected | Realtime partitioned convolution, impulse loading/resampling, latency reporting, offline response and realtime stress tests. A peak-filter approximation would not preserve APO semantics. |
-| Higher-order crossover filters | Second-order LPQ/HPQ only | Cascade/order model, Butterworth/Linkwitz-Riley definitions, response and phase tests, matching import semantics. |
 | VST or Audio Unit hosting | No plug-in host | Audio Unit lifecycle, state recall, latency compensation, crash isolation, and permission behavior. Windows VST binaries cannot run natively. |
 | Device/app automation, layered presets | Saved-device startup, macOS output following, and resume after sleep or reconnection | Explicit rule precedence, per-app routing support, composable processing stages. |
 | Global hotkeys / MIDI | Shortcuts while Aural is active; menu-bar controls | Conflict-aware global registration and editable assignments; CoreMIDI mapping with a serialized control path. |

@@ -217,7 +217,7 @@ struct MonitorPanel: View {
                 Divider().overlay(AuralStyle.border)
                 VStack(alignment: .leading, spacing: 9 * interfaceScale) {
                     AuralSectionLabel(title: "Audio processing")
-                    stage("01", "Preamp & filters", detail: "\(model.profile.dspFilters(rate: model.responseRate).filter { !$0.disabled }.count) active bands")
+                    stage("01", "Preamp & filters", detail: "\(model.profile.filters?.filter(\.enabled).count ?? GraphicEQ.frequencies.filter { $0 < model.responseRate * 0.49 }.count) active bands")
                     stage("02", "Stereo & delay", detail: model.profile.stereoSettings == StereoSettings() ? "Neutral" : "Custom processing")
                     stage("03", "Peak protection", detail: model.peakProtectionEnabled ? "Both channels · on" : "Off")
                 }

@@ -153,3 +153,13 @@ require(tilted.filters.count == 1 && near(tilted.filters[0].values[tiltedCenter]
 require(near(tilted.combined[tiltedCenter], tiltedProfile.response(1733, rate: 48000)) && tilted.combined[tiltedCenter] > narrow.combined[center],
         "The curve must include tilt")
 print("PASS tilt shows in the curve and not as a filter")
+
+// A steeper slope is one band: one trace of all its sections.
+let slopeProfile = Profile(filters: [ImportedFilter(kind: .peak, frequency: 200, gain: 3, q: 1, enabled: true),
+                                     ImportedFilter(kind: .lowPass, frequency: 1000, gain: 0, q: 1, enabled: true, channel: .right, slope: .linkwitzRiley48),
+                                     ImportedFilter(kind: .highPass, frequency: 50, gain: 0, q: 1, enabled: true, slope: .butterworth18)])
+let sloped = ResponseAnalysis(profile: slopeProfile, rate: 48000, bypass: false)
+let corner = sloped.frequencies.firstIndex(of: 1000)!
+require(sloped.filters.map(\.index) == [0, 1, 2] && sloped.filters[1].channel == .right && abs(sloped.filters[1].values[corner] + 6.02) < 0.01
+        && abs(sloped.filters[2].values[sloped.frequencies.firstIndex(of: 50)!] + 3.01) < 0.01, "Each slope must draw as one trace")
+print("PASS slopes draw as one trace per band")

@@ -7,10 +7,11 @@ typedef struct EQ EQ;
 enum { EQBands = 10, EQMaxFilters = 80 };
 enum { EQFilterPeak, EQFilterLowShelf, EQFilterHighShelf, EQFilterLowPass,
        EQFilterHighPass, EQFilterBandPass, EQFilterNotch, EQFilterAllPass,
-       EQFilterLowShelf1, EQFilterHighShelf1 };
+       EQFilterLowShelf1, EQFilterHighShelf1, EQFilterLowPass1, EQFilterHighPass1 };
 // disabled defaults to false for existing C initializers. Gain applies only to EQ/shelves.
 // The first-order (6 dB/octave) shelves ignore q; like the others, they reach half
-// their gain at the filter frequency.
+// their gain at the filter frequency. The first-order low- and high-pass filters also
+// ignore q and are 3 dB down at the filter frequency.
 // Mid and Side filters act on M = (L + R)/2 and S = (L - R)/2, which are decoded
 // back to L = M + S and R = M - S, as Equalizer APO's mid/side Copy routing does.
 // Filters run in list order; Stereo filters apply to both channels either way.

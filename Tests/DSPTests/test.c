@@ -362,7 +362,7 @@ int main(void) {
     assert(fabs(eq_response_filters(1234,48000,&custom,1,-6.7)+14)<.001);
     custom.q=.7;double wide=eq_response_filters(2000,48000,&custom,1,0);
     custom.q=5;double narrow=eq_response_filters(2000,48000,&custom,1,0);assert(wide<narrow-1);
-    eq=eq_create(48000,0);assert(eq);custom.type=EQFilterHighShelf1+1;assert(!eq_update_filters(eq,&custom,1,0,false));
+    eq=eq_create(48000,0);assert(eq);custom.type=EQFilterHighPass1+1;assert(!eq_update_filters(eq,&custom,1,0,false));
     custom.type=0;custom.q=0;assert(!eq_update_filters(eq,&custom,1,0,false));
     assert(!eq_update_filters(eq,&custom,33,0,false));eq_destroy(eq);
     puts("PASS imported peaking, low/high shelves, custom frequency/Q, response consistency, and validation");

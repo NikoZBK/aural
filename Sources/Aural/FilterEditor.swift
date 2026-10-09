@@ -76,14 +76,15 @@ struct FilterEditor: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 5 * interfaceScale) {
-                Text("\(draft.filters.count) / \(Profile.maxFilters)")
-                    .contentTransition(.numericText(value: Double(draft.filters.count)))
+                Text("\(draft.slots) / \(Profile.maxFilters)")
+                    .contentTransition(.numericText(value: Double(draft.slots)))
                     .auralFont(size: 16, weight: .medium, design: .monospaced)
                     .foregroundStyle(Color.primary)
                 Text("filters").foregroundStyle(AuralStyle.secondary)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(draft.filters.count) of \(Profile.maxFilters) filters")
+            .accessibilityLabel("\(draft.slots) of \(Profile.maxFilters) filters")
+            .help("Low- and high-pass filters steeper than 12 dB/octave count as 2–4 filters.")
         }
     }
 
@@ -131,7 +132,7 @@ struct FilterEditor: View {
                 Spacer()
                 Button("Add filter", systemImage: "plus") { withAuralAnimation { draft.filters.append(FilterDraft()) } }
                     .buttonStyle(AuralButtonStyle())
-                    .disabled(draft.filters.count >= Profile.maxFilters)
+                    .disabled(draft.slots >= Profile.maxFilters)
                     .help("Add a peak filter. You can use up to \(Profile.maxFilters) filters.")
             }
             if draft.filters.isEmpty {
@@ -187,10 +188,9 @@ struct FilterEditor: View {
             Toggle("Filter \(number) enabled", isOn: filter.enabled)
                 .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 28)
                 .help("Enable or bypass filter \(number)")
-            AuralPicker(title: "Filter \(number) type", value: filter.wrappedValue.kind.label, selection: filter.kind, size: .small) {
-                ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
-                    Text(kind.label).tag(kind)
-                }
+            let shape = filter.wrappedValue.shape
+            FilterTypeMenu(title: "Filter \(number) type", shape: shape, buttonTitle: shape.slope == nil ? shape.label : shape.name) {
+                filter.wrappedValue.shape = $0
             }.auralFrame(width: 166)
             AuralPicker(title: "Filter \(number) channel", value: filter.wrappedValue.channel == .stereo ? "L+R" : filter.wrappedValue.channel.label,
                         selection: filter.channel, size: .small) {
@@ -214,21 +214,21 @@ struct FilterEditor: View {
                     .accessibilityLabel("Filter \(number) has no gain parameter")
                     .help("This filter uses frequency and Q. Adjust preamp to change the overall level.")
             }
-            if filter.wrappedValue.kind.usesQ {
+            if filter.wrappedValue.usesQ {
                 TextField("Q", text: filter.q)
                     .auralFrame(width: 80)
                     .accessibilityLabel("Filter \(number) Q")
                     .accessibilityHint("Enter a number from 0.05 to 50")
             } else {
                 Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 80)
-                    .accessibilityLabel("Filter \(number) has a fixed 6 dB per octave slope")
-                    .help("This shelf has a fixed 6 dB/octave slope, so it has no Q.")
+                    .accessibilityLabel("Filter \(number) has a fixed \(shape.slope?.label ?? "6 dB per octave") slope")
+                    .help(shape.fixedQHelp)
             }
             Menu {
                 Button("Duplicate", systemImage: "plus.square.on.square") {
                     do { try withAuralAnimation { try draft.duplicateFilter(id) }; error = nil }
                     catch { self.error = error.localizedDescription }
-                }.disabled(draft.filters.count >= Profile.maxFilters)
+                }.disabled(draft.slots + filter.wrappedValue.slots > Profile.maxFilters)
                 Button("Move up", systemImage: "arrow.up") {
                     do { try withAuralAnimation { try draft.moveFilter(id, by: -1) }; error = nil }
                     catch { self.error = error.localizedDescription }

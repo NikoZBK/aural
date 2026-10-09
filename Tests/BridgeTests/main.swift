@@ -218,3 +218,48 @@ require(withSolo.count <= Int(EQMaxFilters) && eq_update_filters(soloEngine, wit
         "The engine must hold a full profile with tilt, loudness and a solo at the top of the range")
 eq_destroy(soloEngine)
 print("PASS band solo filter per type, stereo channel, graphic bands, engine limit and capacity")
+
+// Low- and high-pass slopes: sections in a row at the filter frequency, one slot each.
+func rounded(_ values: [Double]) -> [Double] { values.map { ($0 * 10000).rounded() / 10000 } }
+require(rounded(ImportedFilter.Slope.butterworth24.sections.q) == [0.5412, 1.3066] && !ImportedFilter.Slope.butterworth24.sections.firstOrder
+        && rounded(ImportedFilter.Slope.butterworth18.sections.q) == [1] && ImportedFilter.Slope.butterworth18.sections.firstOrder
+        && ImportedFilter.Slope.butterworth6.sections.q.isEmpty && ImportedFilter.Slope.butterworth6.sections.firstOrder
+        && rounded(ImportedFilter.Slope.linkwitzRiley24.sections.q) == [0.7071, 0.7071]
+        && rounded(ImportedFilter.Slope.linkwitzRiley36.sections.q) == [0.5, 1, 1] && !ImportedFilter.Slope.linkwitzRiley36.sections.firstOrder
+        && rounded(ImportedFilter.Slope.linkwitzRiley48.sections.q) == [0.5412, 0.5412, 1.3066, 1.3066]
+        && ImportedFilter.Slope.allCases.map(\.slots) == [1, 2, 2, 2, 3, 3, 3, 4, 4, 4], "Slopes must use Butterworth and Linkwitz-Riley sections")
+let gentleSlope = Profile(filters: [ImportedFilter(kind: .highPass, frequency: 80, gain: 0, q: 3, enabled: false, channel: .side, slope: .butterworth18)])
+require(gentleSlope.dspFilters(rate: 48000).map { [$0.type, $0.channel, $0.disabled ? 1 : 0] }
+        == [[UInt32(EQFilterHighPass1), UInt32(EQChannelSide), 1], [UInt32(EQFilterHighPass), UInt32(EQChannelSide), 1]]
+        && rounded(gentleSlope.dspFilters(rate: 48000).map(\.q)) == [0.7071, 1] && gentleSlope.dspFilters(rate: 48000).allSatisfy { $0.frequency == 80 },
+        "An odd slope must start with a first-order section and keep its channel and state")
+var worstSlope = 0.0
+for slope in ImportedFilter.Slope.allCases {
+    for kind in [ImportedFilter.Kind.lowPass, .highPass] {
+        for rate in [44100.0, 96000] {
+            let filters = Profile(filters: [ImportedFilter(kind: kind, frequency: 1000, gain: 0, q: 0.7071, enabled: true, slope: slope)]).dspFilters(rate: rate)
+            require(filters.count == slope.slots, "\(slope) must take \(slope.slots) engine filters")
+            let order = Double(slope.decibelsPerOctave / 6)
+            for step in -24...24 {
+                let frequency = 1000 * pow(2, Double(step) / 8)
+                let x = kind == .lowPass ? frequency / 1000 : 1000 / frequency
+                // Butterworth: 1/(1 + x^2n). Linkwitz-Riley: a Butterworth of half the order, squared.
+                let analog = slope.isLinkwitzRiley ? -20 * log10(1 + pow(x, order)) : -10 * log10(1 + pow(x, 2 * order))
+                guard analog > -60 else { continue }
+                worstSlope = max(worstSlope, abs(eq_response_filters(frequency, rate, filters, UInt32(filters.count), 0) - analog))
+            }
+        }
+    }
+}
+require(worstSlope < 0.2, "Slopes miss their analog shape by \(worstSlope) dB")
+let steepProfile = Profile(filters: Array(repeating: ImportedFilter(kind: .lowPass, frequency: 18000, gain: 0, q: 1, enabled: true, slope: .linkwitzRiley48), count: Profile.maxFilters / 4))
+require(steepProfile.filters!.slots == Profile.maxFilters && (try? steepProfile.validated()) != nil
+        && (try? Profile(filters: steepProfile.filters! + [ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true)]).validated()) == nil,
+        "Slope sections must count against the filter limit")
+var steepTilt = steepProfile; steepTilt.tilt = 2
+let steepChain = steepTilt.dspFilters(rate: 44100) + Loudness.filters(level: 40, reference: 80) + [topSolo]
+guard let steepEngine = eq_create(44100, 0) else { fatalError("Engine allocation failed") }
+require(steepChain.count <= Int(EQMaxFilters) && eq_update_filters(steepEngine, steepChain, UInt32(steepChain.count), -12, false),
+        "The engine must hold a full profile of slope sections with tilt, loudness and solo")
+eq_destroy(steepEngine)
+print(String(format: "PASS low- and high-pass slopes follow Butterworth and Linkwitz-Riley shapes within %.3f dB at two rates, and count against the filter limit", worstSlope))

@@ -27,6 +27,9 @@ struct ImportedFilter: Codable, Equatable, Sendable {
         case lowPass = "LPQ", highPass = "HPQ", bandPass = "BP", notch = "NO", allPass = "AP"
         var usesGain: Bool { [.peak, .lowShelf, .highShelf, .firstOrderLowShelf, .firstOrderHighShelf].contains(self) }
         var usesQ: Bool { self != .firstOrderLowShelf && self != .firstOrderHighShelf }
+        var hasSlopes: Bool { self == .lowPass || self == .highPass }
+        /// The label without its Equalizer APO code.
+        var name: String { label.components(separatedBy: " · ")[0] }
         var label: String {
             switch self {
             case .peak: return "Peak · PK"
@@ -42,16 +45,52 @@ struct ImportedFilter: Codable, Equatable, Sendable {
             }
         }
     }
+    /// Low- and high-pass slopes other than 12 dB/octave, which has its own Q and is nil.
+    /// The others are fixed sections at the filter frequency: Butterworth slopes are 3 dB down
+    /// there, and Linkwitz-Riley slopes, two Butterworth filters in a row, 6 dB. Each section
+    /// takes one of the profile's filter slots. Aural 1.4 and earlier play them at 12 dB/octave.
+    enum Slope: String, Codable, CaseIterable, Sendable {
+        case butterworth6 = "BW6", butterworth18 = "BW18", butterworth24 = "BW24", linkwitzRiley24 = "LR24"
+        case butterworth30 = "BW30", butterworth36 = "BW36", linkwitzRiley36 = "LR36"
+        case butterworth42 = "BW42", butterworth48 = "BW48", linkwitzRiley48 = "LR48"
+        var decibelsPerOctave: Int { Int(rawValue.dropFirst(2))! }
+        var isLinkwitzRiley: Bool { rawValue.hasPrefix("LR") }
+        /// A first-order section for odd Butterworth orders, then second-order sections by Q.
+        var sections: (firstOrder: Bool, q: [Double]) {
+            func butterworth(_ order: Int) -> [Double] {
+                stride(from: order % 2 == 0 ? 1 : 2, to: order, by: 2).map { 1 / (2 * cos(Double($0) * .pi / Double(2 * order))) }
+            }
+            let order = decibelsPerOctave / 6
+            guard isLinkwitzRiley else { return (!order.isMultiple(of: 2), butterworth(order)) }
+            // Two first-order sections in a row are one second-order section with Q 0.5.
+            let half = butterworth(order / 2)
+            return (false, ((order / 2).isMultiple(of: 2) ? [] : [0.5]) + (half + half).sorted())
+        }
+        var slots: Int { sections.q.count + (sections.firstOrder ? 1 : 0) }
+        /// Short, for menu buttons in filter rows.
+        var name: String { "\(decibelsPerOctave) dB" + (isLinkwitzRiley ? " LR" : "") }
+        var label: String {
+            decibelsPerOctave == 6 ? "6 dB/oct" : "\(decibelsPerOctave) dB/oct " + (isLinkwitzRiley ? "Linkwitz-Riley" : "Butterworth")
+        }
+    }
     var kind: Kind
     var frequency: Double
     var gain: Double
     var q: Double
     var enabled: Bool
     var channel: Channel?
+    /// Only low- and high-pass filters have one.
+    var slope: Slope?
     var effectiveChannel: Channel { channel ?? .stereo }
+    var shape: FilterShape {
+        get { FilterShape(kind: kind, slope: slope) }
+        set { kind = newValue.kind; slope = newValue.slope }
+    }
+    var usesQ: Bool { shape.usesQ }
+    var slots: Int { shape.slots }
     static func == (lhs: ImportedFilter, rhs: ImportedFilter) -> Bool {
         lhs.kind == rhs.kind && lhs.frequency == rhs.frequency && lhs.gain == rhs.gain &&
-        lhs.q == rhs.q && lhs.enabled == rhs.enabled && lhs.effectiveChannel == rhs.effectiveChannel
+        lhs.q == rhs.q && lhs.enabled == rhs.enabled && lhs.effectiveChannel == rhs.effectiveChannel && lhs.slope == rhs.slope
     }
     func validate() throws {
         guard frequency.isFinite, (10...22000).contains(frequency), gain.isFinite, abs(gain) <= 30,
@@ -61,7 +100,37 @@ struct ImportedFilter: Codable, Equatable, Sendable {
         guard kind.usesGain || gain == 0 else {
             throw AudioFailure(message: "Pass and notch filters do not have a gain parameter. Use preamp to adjust overall level.")
         }
+        guard slope == nil || kind.hasSlopes else {
+            throw AudioFailure(message: "Only low- and high-pass filters have a slope setting.")
+        }
     }
+}
+/// A filter type as the type menus offer it: the kind, and a low- or high-pass filter's slope.
+struct FilterShape: Hashable, Sendable {
+    let kind: ImportedFilter.Kind
+    let slope: ImportedFilter.Slope?
+    init(kind: ImportedFilter.Kind, slope: ImportedFilter.Slope? = nil) {
+        self.kind = kind
+        self.slope = kind.hasSlopes ? slope : nil
+    }
+    /// The slopes a type menu offers for a kind: nil is 12 dB/octave, with Q.
+    static func slopes(for kind: ImportedFilter.Kind) -> [FilterShape] {
+        let slopes: [ImportedFilter.Slope?] = [.butterworth6, nil] + ImportedFilter.Slope.allCases.dropFirst().map(Optional.some)
+        return slopes.map { FilterShape(kind: kind, slope: $0) }
+    }
+    var usesQ: Bool { kind.usesQ && slope == nil }
+    var slots: Int { slope?.slots ?? 1 }
+    /// Short, for menu buttons: "Low pass 24 dB LR".
+    var name: String { slope.map { "\(kind.name) \($0.name)" } ?? kind.name }
+    var label: String { slope.map { "\(kind.name) \($0.label)" } ?? kind.label }
+    /// Why the Q field is empty.
+    var fixedQHelp: String {
+        slope == nil ? "This shelf has a fixed 6 dB/octave slope, so it has no Q." : "This slope has a fixed shape, so it has no Q."
+    }
+}
+extension Array where Element == ImportedFilter {
+    /// The filter slots these filters take of Profile.maxFilters.
+    var slots: Int { reduce(0) { $0 + $1.slots } }
 }
 struct StereoSettings: Codable, Equatable, Sendable {
     var leftTrimDB = 0.0
@@ -145,7 +214,8 @@ struct AutoEQSource: Codable, Equatable, Sendable {
 }
 
 struct Profile: Codable, Equatable, Sendable {
-    /// The engine's EQMaxFilters also holds tilt and loudness compensation; the bridge tests check this.
+    /// Filter slots: steeper low- and high-pass filters take one per section. The engine's
+    /// EQMaxFilters also holds tilt, loudness compensation and solo; the bridge tests check this.
     static let maxFilters = 64
     /// Tilt pivots on 1 kHz: positive values raise the treble and lower the bass by up to that many dB.
     static let tiltRange = -6.0...6.0
@@ -174,8 +244,8 @@ struct Profile: Codable, Equatable, Sendable {
             throw AudioFailure(message: "Tilt must be from −6 to +6 dB.")
         }
         if let filters {
-            guard (1...Self.maxFilters).contains(filters.count) else {
-                throw AudioFailure(message: "A profile must contain 1–\(Self.maxFilters) filters. Disabled filters are retained but do not affect the sound.")
+            guard !filters.isEmpty, filters.slots <= Self.maxFilters else {
+                throw AudioFailure(message: "A profile must contain 1–\(Self.maxFilters) filters, and each low- or high-pass filter steeper than 12 dB/octave counts as 2–4. Disabled filters are retained but do not affect the sound.")
             }
             for filter in filters { try filter.validate() }
         }

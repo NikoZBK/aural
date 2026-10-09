@@ -84,8 +84,8 @@ struct ResponseAnalysis: Sendable {
         combined = midSide && !bypass ? sample(activeFilters, preamp: profile.preamp, channel: UInt32(EQChannelStereo))
             : zip(left, right).map { max($0.0, $0.1) }
         // Tilt is not a band; it shows in the curve only.
-        filters = bypass ? [] : activeFilters.dropLast(profile.tiltFilters.count).enumerated().compactMap { index, filter in
-            guard !filter.disabled else { return nil }
+        filters = bypass ? [] : profile.bandSections(rate: rate).enumerated().compactMap { index, sections in
+            guard let filter = sections.first, !filter.disabled else { return nil }
             let channel: ImportedFilter.Channel
             switch Int(filter.channel) {
             case EQChannelLeft: channel = .left
@@ -96,7 +96,7 @@ struct ResponseAnalysis: Sendable {
             }
             // Alone, each filter's response is its own channel's.
             let sampleChannel = filter.channel == UInt32(EQChannelStereo) ? UInt32(EQChannelLeft) : filter.channel
-            return FilterTrace(index: index, channel: channel, values: sample([filter], preamp: 0, channel: sampleChannel))
+            return FilterTrace(index: index, channel: channel, values: sample(sections, preamp: 0, channel: sampleChannel))
         }
         comparisonLeft = comparisonProfile.map { sample(referenceFilters, preamp: $0.preamp, channel: UInt32(EQChannelLeft)) }
         comparisonRight = comparisonProfile.map { sample(referenceFilters, preamp: $0.preamp, channel: UInt32(EQChannelRight)) }

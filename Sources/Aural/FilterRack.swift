@@ -90,7 +90,7 @@ struct FilterRack: View {
         Button("Reset EQ") { if finishNumericEdit() { withAuralAnimation { model.resetEQ() } } }
             .buttonStyle(AuralButtonStyle()).help("Set band gains, tilt, and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
         Button { if finishNumericEdit() { withAuralAnimation { model.addFilter() } } } label: { Image(systemName: "plus") }
-            .buttonStyle(AuralButtonStyle()).disabled(count >= Profile.maxFilters).help("Add a parametric filter").accessibilityLabel("Add filter")
+            .buttonStyle(AuralButtonStyle()).disabled((model.profile.filters?.slots ?? count) >= Profile.maxFilters).help("Add a parametric filter").accessibilityLabel("Add filter")
     }
 
     private var selectedInspector: some View {
@@ -236,18 +236,9 @@ private struct FilterRow: View {
                         Text(String(format: "%02d", number)).auralFont(size: 9, design: .monospaced).foregroundStyle(AuralStyle.secondary)
                     }
                 }.auralFrame(width: 18).accessibilityHidden(true)
-                Menu(currentFilter.kind.label.components(separatedBy: " · ")[0]) {
-                    ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
-                        Button {
-                            editFilter { $0.kind = kind; if !kind.usesGain { $0.gain = 0 } }
-                        } label: {
-                            if currentFilter.kind == kind {
-                                Label(kind.label.components(separatedBy: " · ")[0], systemImage: "checkmark")
-                            } else { Text(kind.label.components(separatedBy: " · ")[0]) }
-                        }
-                    }
-                }.auralMenuButton(.small).fixedSize().accessibilityLabel("Filter \(number) type")
-                    .accessibilityValue(currentFilter.kind.label)
+                FilterTypeMenu(title: "Filter \(number) type", shape: currentFilter.shape, buttonTitle: currentFilter.shape.name) { shape in
+                    editFilter { $0.shape = shape; if !shape.kind.usesGain { $0.gain = 0 } }
+                }.fixedSize()
             }.auralFrame(maxWidth: .infinity, alignment: .leading)
             Menu(currentFilter.effectiveChannel == .stereo ? "L+R" : currentFilter.effectiveChannel.rawValue) {
                 ForEach(ImportedFilter.Channel.allCases, id: \.self) { channel in
@@ -273,14 +264,14 @@ private struct FilterRow: View {
                     .accessibilityLabel("Filter \(number) has no gain parameter")
                     .overlay(alignment: .topLeading) { numericLabel("dB") }
             }
-            if filter.kind.usesQ {
+            if filter.usesQ {
                 PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
                     Self.updateFilter(model: model, index: index) { $0.q = value }
                 }.auralFrame(width: 58).overlay(alignment: .topLeading) { numericLabel("Q") }
             } else {
                 Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary).auralFrame(width: 58)
-                    .accessibilityLabel("Filter \(number) has a fixed 6 dB per octave slope")
-                    .help("This shelf has a fixed 6 dB/octave slope, so it has no Q.")
+                    .accessibilityLabel("Filter \(number) has a fixed \(filter.slope?.label ?? "6 dB per octave") slope")
+                    .help(filter.shape.fixedQHelp)
                     .overlay(alignment: .topLeading) { numericLabel("Q") }
             }
             Menu {
@@ -291,7 +282,7 @@ private struct FilterRow: View {
                         .disabled(!model.running || model.bypass)
                 }
                 Divider()
-                Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.count ?? 0) >= Profile.maxFilters)
+                Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.slots ?? 0) + currentFilter.slots > Profile.maxFilters)
                 Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.disabled(model.profile.filters?.count == 1)
             } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 22)
                 .accessibilityLabel("Filter \(number) actions")
@@ -311,6 +302,33 @@ private struct FilterRow: View {
 
 /// The rack has fixed numeric columns and one flexible type column. Placing them
 /// directly avoids HStack's repeated minimum/ideal probes of every native field.
+/// The filter type menu: each kind, with low- and high-pass slopes in submenus.
+struct FilterTypeMenu: View {
+    let title: String
+    let shape: FilterShape
+    let buttonTitle: String
+    let choose: (FilterShape) -> Void
+    var body: some View {
+        Menu(buttonTitle) {
+            ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
+                if kind.hasSlopes {
+                    Menu {
+                        ForEach(FilterShape.slopes(for: kind), id: \.self) { item($0, title: $0.slope?.label ?? "12 dB/oct with Q") }
+                    } label: { checked(shape.kind == kind, title: kind.name) }
+                } else {
+                    item(FilterShape(kind: kind), title: kind.name)
+                }
+            }
+        }.auralMenuButton(.small).help(shape.label).accessibilityLabel(title).accessibilityValue(shape.label)
+    }
+    private func item(_ value: FilterShape, title: String) -> some View {
+        Button { choose(value) } label: { checked(shape == value, title: title) }
+    }
+    @ViewBuilder private func checked(_ on: Bool, title: String) -> some View {
+        if on { Label(title, systemImage: "checkmark") } else { Text(title) }
+    }
+}
+
 struct FilterColumns: Layout {
     let height: CGFloat
     let scale: CGFloat

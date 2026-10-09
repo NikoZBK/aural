@@ -29,10 +29,17 @@ enum AutoEQ {
         if let index = filters.firstIndex(where: { !$0.kind.usesQ }) {
             throw AudioFailure(message: "Equalizer APO text has no 6 dB/octave shelf that matches filter \(index + 1). Change it to a Low shelf or High shelf before exporting EQ text, or save a preset and use Back up presets to preserve it.")
         }
+        if let index = filters.firstIndex(where: { $0.slope?.sections.firstOrder == true }) {
+            throw AudioFailure(message: "Equalizer APO text has no 6 dB/octave low- or high-pass filter, which the \(filters[index].slope!.label) slope of filter \(index + 1) needs. Choose 12, 24, 36, or 48 dB/oct before exporting EQ text, or save a preset and use Back up presets to preserve it.")
+        }
+        // Other slopes export as their second-order sections, one filter line each.
+        let sections = filters.flatMap { filter in
+            filter.slope.map { $0.sections.q.map { q in var section = filter; section.slope = nil; section.q = q; return section } } ?? [filter]
+        }
         var lines = ["Preamp: \(parametric.preamp) dB"]
         // Stereo filters act the same on left/right and mid/side, so they never switch.
         var target = "ALL", midSide = false
-        for (index, filter) in filters.enumerated() {
+        for (index, filter) in sections.enumerated() {
             let channel = filter.effectiveChannel
             if channel != .stereo && channel.isMidSide != midSide {
                 midSide.toggle()

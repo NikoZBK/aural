@@ -32,7 +32,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 
 ## Features
 
-- **Parametric and graphic EQ.** Up to 64 filters on the left, right, or both channels, or on mid or side: peak, shelf (12 or 6 dB/octave), pass, notch, and all-pass, each with the same shape at every sample rate. Ten- and 31-band layouts; each ten-band slider sets the exact level at its frequency.
+- **Parametric and graphic EQ.** Up to 64 filters on the left, right, or both channels, or on mid or side: peak, shelf (12 or 6 dB/octave), low- and high-pass (6 to 48 dB/octave, Butterworth or Linkwitz-Riley), band-pass, notch, and all-pass, each with the same shape at every sample rate. Ten- and 31-band layouts; each ten-band slider sets the exact level at its frequency.
 - **Edit on the curve.** Drag numbered points, type exact values, or use faders. A/B comparison and 100 steps of undo.
 - **Fair comparisons.** Optional level matching plays Bypass and both A/B versions at the same estimated loudness.
 - **AutoEQ built in.** Search the online headphone catalog, preview a correction, and import it. You can also paste or import Equalizer APO text.
