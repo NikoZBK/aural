@@ -32,6 +32,31 @@ extension Profile {
         }
     }
 
+    /// Band solo plays only the part of the spectrum one band acts on, through one filter
+    /// on both channels after the whole chain. Peaks, notches, band-passes and all-passes play
+    /// a band-pass at their frequency and Q; shelves play the side they boost or cut, and
+    /// low- and high-pass filters the side they remove. A band above the engine's limit at
+    /// this rate plays at the limit, so a disabled filter there can still be soloed.
+    /// Nil if the profile has no such band.
+    func soloFilter(band index: Int, rate: Double) -> EQFilter? {
+        let kind: ImportedFilter.Kind, frequency: Double, q: Double
+        if let filters {
+            guard filters.indices.contains(index) else { return nil }
+            (kind, frequency, q) = (filters[index].kind, filters[index].frequency, filters[index].q)
+        } else {
+            guard gains.indices.contains(index) else { return nil }
+            (kind, frequency, q) = (.peak, GraphicEQ.frequencies[index], GraphicEQ.q)
+        }
+        let type: UInt32, soloQ: Double
+        switch kind {
+        case .peak, .bandPass, .notch, .allPass: (type, soloQ) = (UInt32(EQFilterBandPass), q)
+        case .lowShelf, .firstOrderLowShelf, .highPass: (type, soloQ) = (UInt32(EQFilterLowPass), 0.7071067811865476)
+        case .highShelf, .firstOrderHighShelf, .lowPass: (type, soloQ) = (UInt32(EQFilterHighPass), 0.7071067811865476)
+        }
+        return EQFilter(frequency: min(frequency, (rate * 0.49).nextDown), gain: 0, q: soloQ, type: type,
+                        disabled: false, channel: UInt32(EQChannelStereo))
+    }
+
     private func bandFilters(rate: Double) -> [EQFilter] {
         if let filters {
             return filters.map { filter in

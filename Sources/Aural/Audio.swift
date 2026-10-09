@@ -57,7 +57,15 @@ struct OutputDevice: Identifiable, Equatable {
     private(set) var sampleRate = 48000.0
     /// Loudness compensation, after the profile's filters. The next update or start applies it.
     var loudness: [EQFilter] = []
+    /// The band playing alone, after everything else. The next update or start applies it; Stop ends it.
+    var solo: Int?
     var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil }
+    /// What the engine runs for a profile: its filters and tilt, loudness compensation, then any solo.
+    func engineFilters(for profile: Profile) -> [EQFilter] {
+        var filters = profile.dspFilters(rate: sampleRate) + loudness
+        if let solo, let filter = profile.soloFilter(band: solo, rate: sampleRate) { filters.append(filter) }
+        return filters
+    }
     func readMeter() -> AudioMeterReading {
         guard let dsp else { return AudioMeterReading() }
         let reading = eq_read_meter(dsp)
@@ -192,7 +200,7 @@ struct OutputDevice: Identifiable, Equatable {
         if dsp != nil, let filters = profile.filters, filters.contains(where: { $0.enabled && $0.frequency >= sampleRate * 0.49 }) {
             throw AudioFailure(message: "An imported filter is too close to this output's Nyquist frequency. Choose a higher sample rate in Audio MIDI Setup before using this profile.")
         }
-        let filters = profile.dspFilters(rate: sampleRate) + loudness
+        let filters = engineFilters(for: profile)
         var stereo = profile.dspStereo
         // A/B matching lowers playback only; the saved preamp is unchanged.
         let preamp = max(-60, profile.preamp + levelMatch.eqOffsetDB)
@@ -204,6 +212,7 @@ struct OutputDevice: Identifiable, Equatable {
     /// Core Audio error cannot leave the tap muting system audio. Whatever failed
     /// stays recorded, and the next stop or start retries it.
     func stop() throws {
+        solo = nil
         var failure: Error?
         func attempt(_ step: () throws -> Void) -> Bool {
             do { try step(); return true } catch { if failure == nil { failure = error }; return false }

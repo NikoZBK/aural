@@ -189,3 +189,32 @@ for tilt in [-6.0, -2.5, 1, 6] {
 }
 require(worstTilt < 0.05, "Tilt misses its analog shape by \(worstTilt) dB")
 print(String(format: "PASS tilt keeps 1 kHz and follows 6 dB/octave shelves within %.3f dB at three rates", worstTilt))
+
+// Band solo: one stereo filter after the chain plays the part of the spectrum a band acts on.
+let soloKinds: [(ImportedFilter.Kind, Int, Double, Double)] = [
+    // kind, solo type, a frequency it passes, a frequency it rejects (relative to 1 kHz)
+    (.peak, EQFilterBandPass, 1, 4), (.bandPass, EQFilterBandPass, 1, 4), (.notch, EQFilterBandPass, 1, 4), (.allPass, EQFilterBandPass, 1, 4),
+    (.lowShelf, EQFilterLowPass, 0.1, 10), (.firstOrderLowShelf, EQFilterLowPass, 0.1, 10), (.highPass, EQFilterLowPass, 0.1, 10),
+    (.highShelf, EQFilterHighPass, 10, 0.1), (.firstOrderHighShelf, EQFilterHighPass, 10, 0.1), (.lowPass, EQFilterHighPass, 10, 0.1)
+]
+for (kind, type, passes, rejects) in soloKinds {
+    let filter = ImportedFilter(kind: kind, frequency: 1000, gain: kind.usesGain ? -6 : 0, q: 4, enabled: false, channel: .side)
+    let profile = Profile(preamp: -3, filters: [ImportedFilter(kind: .peak, frequency: 200, gain: 3, q: 1, enabled: true), filter])
+    guard let solo = profile.soloFilter(band: 1, rate: 48000) else { fatalError("\(kind) must solo") }
+    require(solo.type == UInt32(type) && solo.channel == UInt32(EQChannelStereo) && !solo.disabled && solo.gain == 0 && solo.frequency == 1000
+            && solo.q == (type == EQFilterBandPass ? 4 : 0.7071067811865476), "\(kind) must solo through a stereo \(type) at its frequency")
+    var single = solo
+    require(abs(eq_response_filters(1000 * passes, 48000, &single, 1, 0)) < 3.1 && eq_response_filters(1000 * rejects, 48000, &single, 1, 0) < -14,
+            "\(kind) solo must play its own part of the spectrum")
+}
+let graphicSolo = Profile().soloFilter(band: 9, rate: 32000)
+require(Profile().soloFilter(band: 10, rate: 48000) == nil && Profile(filters: [ImportedFilter(kind: .peak, frequency: 1000, gain: 1, q: 1, enabled: true)]).soloFilter(band: 1, rate: 48000) == nil
+        && Profile().soloFilter(band: 4, rate: 48000).map { [$0.frequency, $0.q] } == [GraphicEQ.frequencies[4], GraphicEQ.q]
+        && graphicSolo.map { $0.frequency < 32000 * 0.49 && $0.frequency > 15679 } == true, "Solo must exist only for real bands and stay below the engine limit")
+let topSolo = Profile(filters: [ImportedFilter(kind: .peak, frequency: 22000, gain: 0, q: 1, enabled: false)]).soloFilter(band: 0, rate: 44100)!
+let withSolo = withLoudness + [topSolo]
+guard let soloEngine = eq_create(44100, 0) else { fatalError("Engine allocation failed") }
+require(withSolo.count <= Int(EQMaxFilters) && eq_update_filters(soloEngine, withSolo, UInt32(withSolo.count), -12, false),
+        "The engine must hold a full profile with tilt, loudness and a solo at the top of the range")
+eq_destroy(soloEngine)
+print("PASS band solo filter per type, stereo channel, graphic bands, engine limit and capacity")

@@ -105,6 +105,8 @@ struct FilterRack: View {
                 })) {
                     ForEach(bands, id: \.index) { band in Text(Self.bandTitle(band)).tag(band.index) }
                 }.auralFrame(width: 170)
+                Spacer(minLength: 0)
+                soloToggle
             }.transition(.identity).id(selectionRevision)
             if let filters = model.profile.filters, filters.indices.contains(selectedBand) {
                 VStack(spacing: 0) {
@@ -128,6 +130,17 @@ struct FilterRack: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private var soloToggle: some View {
+        let available = model.running && !model.bypass
+        return Toggle(isOn: Binding(get: { model.soloBand == selectedBand }, set: { on in
+            if finishNumericEdit() { withAuralAnimation { model.setSolo(on ? selectedBand : nil) } }
+        })) { Label("Solo", systemImage: "headphones") }
+            .toggleStyle(.button).auralControlSize(.small).disabled(!available)
+            .help(available ? "Play only the part of the spectrum this band acts on, to find it by ear. Edits apply while soloed."
+                            : "Start EQ and turn off Bypass to solo a band.")
+            .accessibilityLabel("Solo band \(selectedBand + 1)")
     }
 
     private static func bandTitle(_ band: EQBarBand) -> String {
@@ -215,8 +228,14 @@ private struct FilterRow: View {
             Toggle("Filter \(number) enabled", isOn: Binding(get: { currentFilter.enabled }, set: { enabled in editFilter { $0.enabled = enabled } }))
                 .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 24)
             HStack(spacing: 6 * interfaceScale) {
-                Text(String(format: "%02d", number)).auralFont(size: 9, design: .monospaced)
-                    .foregroundStyle(AuralStyle.secondary).auralFrame(width: 18).accessibilityHidden(true)
+                Group {
+                    if model.soloBand == index {
+                        Image(systemName: "headphones").auralFont(size: 10, weight: .semibold).foregroundStyle(AuralStyle.warning)
+                            .help("Filter \(number) is soloed")
+                    } else {
+                        Text(String(format: "%02d", number)).auralFont(size: 9, design: .monospaced).foregroundStyle(AuralStyle.secondary)
+                    }
+                }.auralFrame(width: 18).accessibilityHidden(true)
                 Menu(currentFilter.kind.label.components(separatedBy: " · ")[0]) {
                     ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
                         Button {
@@ -265,6 +284,13 @@ private struct FilterRow: View {
                     .overlay(alignment: .topLeading) { numericLabel("Q") }
             }
             Menu {
+                if model.soloBand == index {
+                    Button("End solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(nil) } } }
+                } else {
+                    Button("Solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(index) } } }
+                        .disabled(!model.running || model.bypass)
+                }
+                Divider()
                 Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.count ?? 0) >= Profile.maxFilters)
                 Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.disabled(model.profile.filters?.count == 1)
             } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 22)
@@ -272,6 +298,7 @@ private struct FilterRow: View {
         }.auralPadding(.horizontal, 10).auralFrame(height: compact ? 78 : 39)
             .background(index.isMultiple(of: 2) ? Color.clear : AuralStyle.elevated.opacity(0.32))
             .accessibilityElement(children: .contain).accessibilityLabel("Filter \(number)")
+            .accessibilityValue(model.soloBand == index ? "Soloed" : "")
     }
 
     @ViewBuilder private func numericLabel(_ title: String) -> some View {

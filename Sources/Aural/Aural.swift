@@ -89,6 +89,7 @@ struct AuralCommands: Commands {
                 Divider()
             }
             Button("Bypass EQ") { withAuralAnimation { model.setBypass(!model.bypass) } }.keyboardShortcut("b", modifiers: [.command, .option])
+            Button("End solo") { withAuralAnimation { model.setSolo(nil) } }.disabled(model.soloBand == nil)
             Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
             Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
             Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled))
@@ -140,6 +141,7 @@ struct MenuBarControls: View {
         Button(model.running || model.waitingForOutput ? "Stop equalization" : "Start equalization") { model.toggleProcessing() }
         Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput))
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass))
+        if let band = model.soloBand { Button("End solo of band \(band + 1)") { model.setSolo(nil) } }
         Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
         Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
         Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled))

@@ -23,9 +23,13 @@ struct MainView: View {
     // Keep the existing persisted preference: it now controls the inspector,
     // rather than selecting two independent copies of the listening workspace.
     private var detailsVisible: Bool { model.interfaceMode == .professional }
-    private var status: String { model.running ? (model.bypass ? "Bypassed" : "EQ active") : (model.waitingForOutput ? "Waiting" : "EQ stopped") }
+    private var status: String {
+        if let band = model.soloBand { return "Solo · band \(band + 1)" }
+        return model.running ? (model.bypass ? "Bypassed" : "EQ active") : (model.waitingForOutput ? "Waiting" : "EQ stopped")
+    }
     private var statusSymbol: String {
-        model.running ? (model.bypass ? "arrow.turn.up.right" : "checkmark.circle.fill") : (model.waitingForOutput ? "hourglass" : "stop.circle")
+        if model.soloBand != nil { return "headphones" }
+        return model.running ? (model.bypass ? "arrow.turn.up.right" : "checkmark.circle.fill") : (model.waitingForOutput ? "hourglass" : "stop.circle")
     }
     /// A wait keeps EQ on: Stop cancels it, as it would stop running audio.
     private var processingOn: Bool { model.running || model.waitingForOutput }
@@ -97,11 +101,15 @@ struct MainView: View {
                 Image(systemName: statusSymbol).auralSymbolTransition()
             }
                 .auralFont(size: 11, weight: .medium)
-                .foregroundStyle(model.running && model.bypass ? AuralStyle.warning : Color.primary)
+                .foregroundStyle(model.running && (model.bypass || model.soloBand != nil) ? AuralStyle.warning : Color.primary)
                 .fixedSize()
                 .accessibilityIdentifier("processing-status")
-                .help("Bypass skips EQ, preamp, and stereo effects while routing stays active. Stop releases the audio connection. Waiting means EQ resumes when its output is ready.")
+                .help("Bypass skips EQ, preamp, and stereo effects while routing stays active. Stop releases the audio connection. Waiting means EQ resumes when its output is ready. Solo plays only one band's part of the spectrum.")
             Spacer(minLength: 12 * interfaceScale)
+            if model.soloBand != nil {
+                Button("End solo") { if submitPendingInput() { withAuralAnimation { model.setSolo(nil) } } }
+                    .buttonStyle(AuralButtonStyle()).help("Play the whole EQ again")
+            }
             Toggle("Bypass", isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } }))
                 .toggleStyle(.button).auralControlSize(.small)
                 .help(model.matchLevels
@@ -121,7 +129,7 @@ struct MainView: View {
                 .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, output, level matching, startup, About, and updates")
                 .popover(isPresented: $showStartup) { StartupSettings(model: model).auralZoom(model) }
         }.fixedSize(horizontal: false, vertical: true)
-            .auralAnimation(AuralMotion.quick, value: [model.running, model.bypass, model.waitingForOutput])
+            .auralAnimation(AuralMotion.quick, value: [model.running, model.bypass, model.waitingForOutput, model.soloBand != nil])
     }
 
     private func workspace(compact: Bool) -> some View {

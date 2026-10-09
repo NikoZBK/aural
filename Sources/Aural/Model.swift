@@ -8,7 +8,9 @@ import ServiceManagement
     @Published var selectedUID = ""
     @Published var profile = Profile()
     @Published var bypass = false
-    @Published var running = false
+    @Published var running = false { didSet { if !running { soloBand = nil; route.solo = nil } } }
+    /// The band playing alone while EQ runs; see setSolo. Never saved or recorded in undo history.
+    @Published private(set) var soloBand: Int?
     let meter = AudioMeter()
     @Published var error: String?
     @Published var presetName = ""
@@ -326,13 +328,43 @@ import ServiceManagement
         _ = commitProfile(ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName), label: "Adjust EQ")
     }
     func setBypass(_ value: Bool) {
+        // Bypass plays the unprocessed signal, so it ends a solo.
+        let solo = value ? nil : soloBand
+        route.solo = solo
         do {
             let match = levelMatch(for: profile, in: workspace)
             try route.update(profile, bypass: value, levelMatch: match)
             bypass = value
+            soloBand = solo
             levelMatch = match
             error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { route.solo = soloBand; self.error = error.localizedDescription }
+    }
+    /// Plays only the part of the spectrum one band acts on (Profile.soloFilter), or the
+    /// whole EQ again with nil. Solo needs running EQ without Bypass. It follows edits to
+    /// its band; Stop, Bypass, and adding or removing bands end it.
+    func setSolo(_ band: Int?) {
+        guard band != soloBand else { return }
+        if let band {
+            guard running, !bypass else { error = "Start EQ and turn off Bypass to solo a band."; return }
+            guard committedProfile.profile.soloFilter(band: band, rate: route.sampleRate) != nil else {
+                error = "The band layout changed. Choose the band to solo again."
+                return
+            }
+        }
+        route.solo = band
+        do {
+            try route.update(committedProfile.profile, bypass: bypass, levelMatch: levelMatch)
+            soloBand = band
+            error = nil
+        } catch { route.solo = soloBand; self.error = error.localizedDescription }
+    }
+    /// The solo after an edit: kept while the band layout stays the same.
+    private func soloKept(after next: Profile) -> Int? {
+        let current = committedProfile.profile
+        guard (next.filters == nil) == (current.filters == nil),
+              (next.filters?.count ?? next.gains.count) == (current.filters?.count ?? current.gains.count) else { return nil }
+        return soloBand
     }
     /// Level matching depends on the playing version and, while comparing, the
     /// other A/B version. Off returns the original, unmatched playback.
@@ -447,6 +479,8 @@ import ServiceManagement
                 try candidate.setSelectedPreset(snapshot.selectedPresetName, forOutput: selectedUID)
             }
             let match = levelMatch(for: snapshot.profile, in: nextWorkspace ?? workspace)
+            let solo = (nextBypass ?? bypass) ? nil : soloKept(after: snapshot.profile)
+            route.solo = solo
             try route.update(snapshot.profile, bypass: nextBypass ?? bypass, levelMatch: match)
             // Focus can submit an unchanged number after another editor opens.
             // Only a different document or comparison target invalidates its draft.
@@ -460,12 +494,14 @@ import ServiceManagement
             if documentChanged { editRevision += 1 }
             workspace.updateComparison(snapshot)
             if let nextBypass { bypass = nextBypass }
+            soloBand = solo
             levelMatch = match
             settings = candidate
             importNotice = nil
             error = nil
             return persist()
         } catch {
+            route.solo = soloBand
             profile = committedProfile.profile
             selectedPresetName = committedProfile.selectedPresetName
             editRevision += 1

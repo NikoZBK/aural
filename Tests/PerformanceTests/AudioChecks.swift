@@ -2,6 +2,7 @@ import AppKit
 import CoreAudio
 import Foundation
 import Combine
+import DSP
 
 @MainActor func checkAudioFormatsAndSettings() throws {
     func stereoFormat(rate: Double, planar: Bool) -> AudioStreamBasicDescription {
@@ -253,4 +254,77 @@ import Combine
     require(!blocked.matchLevels && !blocked.followSystemOutput && blocked.error?.contains("Could not save output following:") == true,
             "A failed save must keep both options off and display the failure")
     print("PASS output following and level matching defaults, malformed settings, persistence, A/B offsets, sleep pause, wake, Stop, and save failure")
+}
+
+/// Band solo is playback state only: it follows edits to its band and ends with Stop,
+/// Bypass, and a changed band layout. No hardware route is opened.
+@MainActor func checkBandSolo() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("aural-solo-checks-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try! FileManager.default.removeItem(at: directory) }
+    let file = directory.appendingPathComponent("settings.json")
+    var settings = Settings()
+    settings.selectedUID = "fixture-output"
+    settings.devices[settings.selectedUID] = Profile(preamp: -3, filters: [
+        ImportedFilter(kind: .peak, frequency: 1000, gain: 4, q: 2, enabled: true),
+        ImportedFilter(kind: .lowShelf, frequency: 120, gain: 3, q: 0.7, enabled: true, channel: .side)])
+    try JSONEncoder().encode(settings).write(to: file)
+    let model = Model(settingsFile: file, readLoginStatus: { .notRegistered })
+    model.select(settings.selectedUID)
+    func engineSolo() -> EQFilter? {
+        let filters = model.route.engineFilters(for: model.profile)
+        let extra = filters.count - (model.profile.dspFilters(rate: model.route.sampleRate) + model.route.loudness).count
+        require(extra == 0 || extra == 1, "Solo adds at most one filter")
+        return extra == 1 ? filters.last : nil
+    }
+    func fields(_ filter: EQFilter?) -> [Double]? { filter.map { [$0.frequency, $0.gain, $0.q, Double($0.type), Double($0.channel)] } }
+
+    model.setSolo(0)
+    require(model.soloBand == nil && engineSolo() == nil && model.error?.contains("Start EQ") == true, "Stopped EQ must not solo")
+    model.running = true // No hardware route is opened in this control-state test.
+    model.setSolo(2)
+    require(model.soloBand == nil && model.error != nil, "A missing band must not solo")
+    model.setSolo(1)
+    require(model.soloBand == 1 && model.error == nil && fields(engineSolo()) == fields(model.profile.soloFilter(band: 1, rate: model.route.sampleRate))
+            && engineSolo()?.type == UInt32(EQFilterLowPass), "Solo must play the band's part of the spectrum after the chain")
+    let before = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
+    require(before.devices["fixture-output"] == model.profile && !model.canUndo, "Solo must not be saved or recorded in undo history")
+
+    var edited = model.profile.filters![1]
+    edited.frequency = 150
+    model.updateFilter(at: 1, with: edited)
+    require(model.soloBand == 1 && engineSolo()?.frequency == 150, "Solo must follow edits to its band")
+    model.undoProfile()
+    require(model.soloBand == 1 && engineSolo()?.frequency == 120, "Undo with the same bands must keep the solo")
+    model.setSolo(0)
+    require(model.soloBand == 0 && engineSolo()?.type == UInt32(EQFilterBandPass), "Solo must move to another band")
+
+    model.setBypass(true)
+    require(model.soloBand == nil && model.route.solo == nil && engineSolo() == nil, "Bypass must end the solo")
+    model.setSolo(0)
+    require(model.soloBand == nil && model.error?.contains("Bypass") == true, "Bypassed EQ must not solo")
+    model.setBypass(false)
+    model.setSolo(0)
+    model.addFilter()
+    require(model.soloBand == nil && engineSolo() == nil, "Adding a band must end the solo")
+    model.setSolo(2)
+    model.deleteFilter(at: 0)
+    require(model.soloBand == nil && engineSolo() == nil, "Removing a band must end the solo")
+    model.setSolo(0)
+    model.setSolo(nil)
+    require(model.soloBand == nil && engineSolo() == nil, "Ending the solo must play the whole EQ")
+    model.setSolo(1)
+    model.stop()
+    require(!model.running && model.soloBand == nil && model.route.solo == nil, "Stop must end the solo")
+
+    // Graphic bands solo too, and switching to filters changes the layout.
+    model.useGraphicTemplate(bands: 10)
+    model.running = true
+    model.setSolo(4)
+    require(model.soloBand == 4 && engineSolo()?.frequency == 500, "Graphic bands must solo")
+    model.setPreamp(-6)
+    require(model.soloBand == 4, "Other edits must keep the solo")
+    model.running = false
+    require(model.soloBand == nil && model.route.solo == nil, "Any stop must end the solo")
+    print("PASS band solo needs running EQ, follows its band and undo, moves, ends with Bypass, layout changes, End solo and Stop, and is never saved")
 }
