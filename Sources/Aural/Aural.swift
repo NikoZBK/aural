@@ -250,8 +250,12 @@ private struct StartupMotion: Equatable { let status: Int?; let error: String? }
 struct LoudnessReference: View {
     @ObservedObject var model: Model
     var body: some View {
-        Picker("Reference level", selection: Binding(get: { model.loudness.referenceLevel }, set: model.setLoudnessReferenceLevel)) {
-            ForEach(Loudness.referenceLevels, id: \.self) { level in Text("\(Int(level)) phon").tag(level) }
+        HStack(spacing: 8) {
+            Text("Reference level").accessibilityHidden(true)
+            AuralPicker(title: "Reference level", value: "\(Int(model.loudness.referenceLevel)) phon",
+                        selection: Binding(get: { model.loudness.referenceLevel }, set: model.setLoudnessReferenceLevel)) {
+                ForEach(Loudness.referenceLevels, id: \.self) { level in Text("\(Int(level)) phon").tag(level) }
+            }
         }.help("How loud music is at the reference volume. 80 phon suits a comfortable, full listening level.")
         Button("Use current volume as reference") { model.setLoudnessReference() }
             .disabled(model.outputVolume == nil)

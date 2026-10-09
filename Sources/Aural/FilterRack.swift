@@ -86,7 +86,7 @@ struct FilterRack: View {
             Divider()
             Button("Shift up ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: 1.0 / 3) } } }
             Button("Shift down ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: -1.0 / 3) } } }
-        }.fixedSize().help("Adjust all bands together. Undo restores your previous EQ.")
+        }.auralMenuButton().fixedSize().help("Adjust all bands together. Undo restores your previous EQ.")
         Button("Reset EQ") { if finishNumericEdit() { withAuralAnimation { model.resetEQ() } } }
             .buttonStyle(AuralButtonStyle()).help("Set band gains, tilt, and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
         Button { if finishNumericEdit() { withAuralAnimation { model.addFilter() } } } label: { Image(systemName: "plus") }
@@ -95,14 +95,17 @@ struct FilterRack: View {
 
     private var selectedInspector: some View {
         VStack(alignment: .leading, spacing: 12 * interfaceScale) {
-            Picker("Selected filter", selection: Binding(get: { selectedBand }, set: { index in
-                selectedBand = index
-                selectionRevision += 1
-            })) {
-                ForEach(EQBarBand.bands(in: model.profile), id: \.index) { band in
-                    Text("\(band.index + 1) · \(band.frequency, specifier: "%.0f") Hz\(band.filter?.enabled == false ? " · Off" : "")").tag(band.index)
-                }
-            }.auralFrame(width: 230).transition(.identity).id(selectionRevision)
+            let bands = EQBarBand.bands(in: model.profile)
+            HStack(spacing: 8 * interfaceScale) {
+                Text("Selected filter").auralFont(size: 12).accessibilityHidden(true)
+                AuralPicker(title: "Selected filter", value: bands.first { $0.index == selectedBand }.map(Self.bandTitle) ?? "",
+                            selection: Binding(get: { selectedBand }, set: { index in
+                    selectedBand = index
+                    selectionRevision += 1
+                })) {
+                    ForEach(bands, id: \.index) { band in Text(Self.bandTitle(band)).tag(band.index) }
+                }.auralFrame(width: 170)
+            }.transition(.identity).id(selectionRevision)
             if let filters = model.profile.filters, filters.indices.contains(selectedBand) {
                 VStack(spacing: 0) {
                     columnHeader
@@ -125,6 +128,10 @@ struct FilterRack: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private static func bandTitle(_ band: EQBarBand) -> String {
+        String(format: "%d · %.0f Hz", band.index + 1, band.frequency) + (band.filter?.enabled == false ? " · Off" : "")
     }
 
     private func finishNumericEdit() -> Bool {
@@ -220,7 +227,7 @@ private struct FilterRow: View {
                             } else { Text(kind.label.components(separatedBy: " · ")[0]) }
                         }
                     }
-                }.auralFont(size: 11).fixedSize().accessibilityLabel("Filter \(number) type")
+                }.auralMenuButton(.small).fixedSize().accessibilityLabel("Filter \(number) type")
                     .accessibilityValue(currentFilter.kind.label)
             }.auralFrame(maxWidth: .infinity, alignment: .leading)
             Menu(currentFilter.effectiveChannel == .stereo ? "L+R" : currentFilter.effectiveChannel.rawValue) {
@@ -233,7 +240,7 @@ private struct FilterRow: View {
                         } else { Text(channel == .stereo ? "L+R" : channel.rawValue) }
                     }
                 }
-            }.auralFrame(width: 60).auralControlSize(.small).accessibilityLabel("Filter \(number) channel")
+            }.auralMenuButton(.small).auralFrame(width: 60).accessibilityLabel("Filter \(number) channel")
                 .accessibilityValue(currentFilter.effectiveChannel.label)
             PrecisionField(value: filter.frequency, range: 10...22000, label: "Filter \(number) frequency in hertz", decimals: 0, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
                 Self.updateFilter(model: model, index: index) { $0.frequency = value }

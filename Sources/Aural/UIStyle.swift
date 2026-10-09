@@ -84,15 +84,6 @@ enum AuralStyle {
                  dark: NSColor(srgbRed: 0.69, green: 0.82, blue: 0.46, alpha: 1))]
 }
 
-private struct AuralMenuStyle: MenuStyle {
-    @Environment(\.colorScheme) private var colorScheme
-    func makeBody(configuration: Configuration) -> some View {
-        // AppKit-backed menu buttons retain resolved label colors across scheme changes.
-        // Recreate only the button, leaving numeric fields and editor state intact.
-        Menu(configuration).menuStyle(.automatic).id(colorScheme)
-    }
-}
-
 private struct AuralAppearance: ViewModifier {
     let theme: AuralTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -102,10 +93,11 @@ private struct AuralAppearance: ViewModifier {
         // Forward an explicit theme in the same update as the surfaces, so
         // dynamic colors never resolve against the previous appearance.
         content.environment(\.colorScheme, scheme)
-            .background(AuralStyle.background).menuStyle(AuralMenuStyle())
-            // Native popup indicators can resolve a bridged dynamic NSColor as
-            // red in the older SDK compatibility path. Tint with a static color
-            // for the current scheme; custom drawing uses the adaptive accent.
+            .background(AuralStyle.background)
+            // Native controls can resolve a bridged dynamic NSColor as red in the
+            // older SDK compatibility path. Tint checkboxes and segmented controls
+            // with a static color for the current scheme; custom drawing uses the
+            // adaptive accent, and menu buttons use `AuralMenuButtonStyle`.
             .preferredColorScheme(theme.colorScheme).tint(AuralStyle.staticAccent(for: scheme, increasedContrast: contrast == .increased))
     }
 }
@@ -180,6 +172,60 @@ struct AuralButtonStyle: ButtonStyle {
             .animation(AuralMotion.instant) { content in
                 content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
             }
+    }
+}
+
+/// Menu buttons drawn in SwiftUI. A native pop-up button paints its indicator with the
+/// system accent whenever AppKit redraws it on its own, such as when the window becomes
+/// key, so it can't hold the fixed accent. These stay neutral, like `AuralButtonStyle`.
+struct AuralMenuButtonStyle: ButtonStyle {
+    /// Small buttons match the 27-point numeric fields in filter rows.
+    enum Size { case small, regular, large }
+    var size = Size.regular
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.auralInterfaceScale) private var scale
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6 * scale) {
+            configuration.label.lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.down").auralFont(size: size == .large ? 11 : 9, weight: .semibold)
+                .foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
+        }
+        .auralFont(size: size == .small ? 11 : (size == .large ? 14 : 12), weight: size == .regular ? .medium : .regular)
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, (size == .small ? 8 : 10) * scale).padding(.vertical, (size == .large ? 9 : 7) * scale)
+        .auralFrame(minHeight: size == .small ? 27 : nil)
+        .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 5))
+        .contentShape(RoundedRectangle(cornerRadius: 5))
+        .animation(AuralMotion.quick) { content in
+            content.overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(isFocused ? Color.primary : AuralStyle.controlBorder, lineWidth: isFocused ? 2 : 1))
+        }
+        .animation(AuralMotion.instant) { content in
+            content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
+        }
+    }
+}
+
+/// A pop-up picker on an `AuralMenuButtonStyle` button. Its menu checks the selection.
+struct AuralPicker<Selection: Hashable, Content: View>: View {
+    let title: String
+    let value: String
+    @Binding var selection: Selection
+    var size = AuralMenuButtonStyle.Size.regular
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        Menu {
+            Picker(title, selection: $selection, content: content).pickerStyle(.inline).labelsHidden()
+        } label: { Text(value) }
+        .auralMenuButton(size)
+        .accessibilityLabel(title).accessibilityValue(value)
+    }
+}
+
+extension View {
+    /// Draws a `Menu` as an `AuralMenuButtonStyle` button.
+    func auralMenuButton(_ size: AuralMenuButtonStyle.Size = .regular) -> some View {
+        menuStyle(.button).buttonStyle(AuralMenuButtonStyle(size: size))
     }
 }
 

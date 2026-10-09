@@ -187,19 +187,19 @@ struct FilterEditor: View {
             Toggle("Filter \(number) enabled", isOn: filter.enabled)
                 .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 28)
                 .help("Enable or bypass filter \(number)")
-            Picker("Filter \(number) type", selection: filter.kind) {
+            AuralPicker(title: "Filter \(number) type", value: filter.wrappedValue.kind.label, selection: filter.kind, size: .small) {
                 ForEach(ImportedFilter.Kind.allCases, id: \.self) { kind in
                     Text(kind.label).tag(kind)
                 }
-            }
-            .labelsHidden().auralFrame(width: 166)
-            Picker("Filter \(number) channel", selection: filter.channel) {
+            }.auralFrame(width: 166)
+            AuralPicker(title: "Filter \(number) channel", value: filter.wrappedValue.channel == .stereo ? "L+R" : filter.wrappedValue.channel.label,
+                        selection: filter.channel, size: .small) {
                 Text("L+R").tag(ImportedFilter.Channel.stereo)
                 Text("Left").tag(ImportedFilter.Channel.left)
                 Text("Right").tag(ImportedFilter.Channel.right)
                 Text("Mid").tag(ImportedFilter.Channel.mid)
                 Text("Side").tag(ImportedFilter.Channel.side)
-            }.labelsHidden().auralFrame(width: 66)
+            }.auralFrame(width: 66)
             TextField("Frequency", text: filter.frequency)
                 .auralFrame(width: 122)
                 .accessibilityLabel("Filter \(number) frequency in hertz")

@@ -156,10 +156,13 @@ struct AutoEQBrowserView: View {
             }.auralAnimation(AuralMotion.quick, value: search.isEmpty)
                 .auralPadding(10).background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
-            Picker("Measurement source", selection: $provider) {
-                Text("All sources").tag("")
-                ForEach(Array(Set(browser.entries.map(\.provider))).sorted(), id: \.self) { Text($0).tag($0) }
-            }.auralFont(size: 12)
+            HStack(spacing: 8 * interfaceScale) {
+                Text("Measurement source").auralFont(size: 12).accessibilityHidden(true)
+                AuralPicker(title: "Measurement source", value: provider.isEmpty ? "All sources" : provider, selection: $provider) {
+                    Text("All sources").tag("")
+                    ForEach(Array(Set(browser.entries.map(\.provider))).sorted(), id: \.self) { Text($0).tag($0) }
+                }
+            }
             if browser.loading {
                 HStack { ProgressView().auralControlSize(.small); Text("Loading AutoEQ catalog…") }
                     .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)

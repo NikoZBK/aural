@@ -333,10 +333,11 @@ struct OutputSelection: View {
         } else { expanded }
     }
     private var devicePicker: some View {
-        Picker("Output device", selection: Binding(get: { model.selectedUID }, set: selectOutput)) {
+        AuralPicker(title: "Output device", value: model.selected?.name ?? "Select an output",
+                    selection: Binding(get: { model.selectedUID }, set: selectOutput), size: comfortable ? .large : .regular) {
             if model.selected == nil { Text("Select an output").tag(model.selectedUID) }
             ForEach(model.devices) { Text($0.name).tag($0.uid) }
-        }.labelsHidden().auralFrame(maxWidth: compact ? nil : .infinity).auralControlSize(comfortable ? .large : .regular).id(selectionRevision)
+        }.auralFrame(maxWidth: compact ? nil : .infinity).id(selectionRevision)
             .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default. Follow macOS output in Settings switches automatically.")
     }
     private var expanded: some View {
