@@ -315,6 +315,41 @@ struct TiltControls: View {
     }
 }
 
+/// Loudness compensation follows the macOS volume, after the filters and tilt. The
+/// reference that sets where it starts is in a popover.
+struct LoudnessControls: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
+    @ObservedObject var model: Model
+    @State private var showReference = false
+    var body: some View {
+        HStack(spacing: 6 * interfaceScale) {
+            Toggle(isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled)) {
+                HStack(spacing: 6 * interfaceScale) {
+                    Text("Loudness")
+                    Text(model.loudness.enabled ? "On" : "Off").monospacedDigit()
+                }
+            }.toggleStyle(.checkbox).auralControlSize(.small)
+                .accessibilityLabel("Loudness compensation")
+                .help("Restores bass and treble as you turn the volume down, following the ISO 226 equal-loudness contours. At the reference volume, EQ plays as set.")
+            Button { showReference.toggle() } label: { Image(systemName: "slider.horizontal.3") }
+                .buttonStyle(.plain).accessibilityLabel("Loudness reference")
+                .help("Set the volume and level where EQ plays as set")
+                .popover(isPresented: $showReference) {
+                    VStack(alignment: .leading, spacing: 14 * interfaceScale) {
+                        Text("Loudness compensation").font(.headline)
+                        Text("Restores bass and treble as you turn the volume down, following the ISO 226 equal-loudness contours. At the reference volume, EQ plays as set.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        if model.loudness.enabled {
+                            LoudnessReference(model: model)
+                        } else {
+                            Text("Turn on Loudness to set the reference volume.").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }.auralPadding(18).auralFrame(width: 300).auralAppearance(model.theme).auralZoom(model)
+                }
+        }.auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
+    }
+}
+
 struct OutputSelection: View {
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model

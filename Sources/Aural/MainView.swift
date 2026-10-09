@@ -55,8 +55,8 @@ struct MainView: View {
                 Divider()
                 workspace(compact: logicalWidth < 720).auralFrame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
-                // A wide bar holds preamp, level, and protection on one row.
-                footer(compact: logicalWidth < 820).background(AuralStyle.surface)
+                // A wide bar holds preamp, tilt, loudness, level, and protection on one row.
+                footer(compact: logicalWidth < 960).background(AuralStyle.surface)
             }
         }
         .auralZoom(model)
@@ -110,6 +110,10 @@ struct MainView: View {
                 Button("End solo") { if submitPendingInput() { withAuralAnimation { model.setSolo(nil) } } }
                     .buttonStyle(AuralButtonStyle()).help("Play the whole EQ again")
             }
+            // Beside Bypass, which it affects with A/B.
+            Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
+                .toggleStyle(.checkbox).auralControlSize(.small).auralFont(size: 11).fixedSize()
+                .help("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
             Toggle("Bypass", isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } }))
                 .toggleStyle(.button).auralControlSize(.small)
                 .help(model.matchLevels
@@ -126,7 +130,7 @@ struct MainView: View {
                     .auralFrame(minWidth: 78)
             }.buttonStyle(AuralButtonStyle(prominent: !processingOn)).disabled(model.selected == nil && !processingOn)
             Button { showStartup.toggle() } label: { Image(systemName: "gearshape") }
-                .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, output, level matching, startup, About, and updates")
+                .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, output, startup, About, and updates")
                 .popover(isPresented: $showStartup) { StartupSettings(model: model).auralZoom(model) }
         }.fixedSize(horizontal: false, vertical: true)
             .auralAnimation(AuralMotion.quick, value: [model.running, model.bypass, model.waitingForOutput, model.soloBand != nil])
@@ -314,20 +318,27 @@ struct MainView: View {
     }
 
     /// One bar for the end of the signal path, in processing order: the preamp that
-    /// sets headroom, the tilt after the filters, then the level leaving the EQ and the
-    /// protection limiting it. The sample rate already shows under the graph.
+    /// sets headroom, the tilt after the filters, loudness compensation, then the level
+    /// leaving the EQ and the protection limiting it. The sample rate already shows under the graph.
+    /// When one row doesn't fit, loudness goes under tilt and protection under the level.
     private func footer(compact: Bool) -> some View {
-        HStack(spacing: 14 * interfaceScale) {
+        let tone = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 5 * interfaceScale))
+                           : AnyLayout(HStackLayout(spacing: 14 * interfaceScale))
+        return HStack(spacing: 14 * interfaceScale) {
             PreampControls(model: model, submissions: submissions, compact: true)
             Divider().auralFrame(height: compact ? 36 : 18)
-            TiltControls(model: model, submissions: submissions)
+            tone {
+                TiltControls(model: model, submissions: submissions)
+                if !compact { Divider().auralFrame(height: 18) }
+                LoudnessControls(model: model)
+            }
             Divider().auralFrame(height: compact ? 36 : 18)
             StudioMeter(meter: model.meter, running: model.running,
                         protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
                         compact: true, inline: !compact)
         }
         .auralFrame(maxWidth: .infinity, alignment: .leading)
-        .help("Audio passes through preamp, filters and tilt, stereo and delay, then optional peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
+        .help("Audio passes through preamp, filters and tilt, loudness compensation, stereo and delay, then optional peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
         .auralPadding(.horizontal, 20).auralPadding(.vertical, 8)
     }
 
