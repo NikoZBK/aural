@@ -135,7 +135,7 @@ While EQ waits, the status reads **Waiting**. **Cancel** or **Stop EQ** ends the
 
 Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings, or About. Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets stay on your Mac. Automatic checks and downloads are optional. Installing an update briefly stops EQ; after relaunch, Aural follows your existing **Start EQ automatically** setting. The **Releases page** link is available if a check fails.
 
-Users upgrading from 1.2.1 or earlier install version 1.3 manually once to enable future in-app updates.
+Users upgrading from 1.2.1 or earlier install the latest version manually once to enable future in-app updates.
 
 ## Privacy
 
@@ -178,12 +178,13 @@ Tests cover measured frequency response, channel isolation, Mid/Side routing, ti
 
 The engine tests measure response at 32, 44.1, 48, 96, and 192 kHz, check all-pass phase inversion at its center frequency, exercise explicit disabled filters, and stress rapid updates and 64-filter extremes. A magnitude floor of −300 dB per filter keeps exact notch zeros finite in the response calculation; it does not change audio. Nonfinite samples and malformed buffers latch faults for the control thread instead of sending invalid samples to the output.
 
-Filter shapes follow the analog prototypes of the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/), digitized with M. Vicanek's matched second-order design ("Matched Second Order Digital Filters", 2016): poles map exactly, and each filter matches its analog level at 0 Hz, at its own frequency and at half the sample rate. A filter therefore keeps its shape at every sample rate instead of narrowing toward the top of the audio band. All-pass filters keep the cookbook's bilinear form, whose magnitude is already exact. The 6 dB/octave shelves use the same match with one real pole; one pole cannot follow the analog curve all the way to half the sample rate, but at 44.1 kHz shelves up to 15 kHz stay within 0.6 dB of it. Equalizer APO, AutoEQ and Aural 1.3 and earlier use the bilinear form, so at 44.1 and 48 kHz treble filters sound slightly different from them: by under 0.8 dB for filters below 4 kHz, and by up to about 3 dB for wide ±6 dB filters near 16 kHz. At 96 kHz the difference stays under 0.6 dB. Text syntax follows the supported subset of the [Equalizer APO reference](https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/). Profiles containing new filter types require Aural 0.8.0 or later, and 6 dB/octave shelves and Mid/Side filters require a release newer than 1.3. Aural 1.3 and earlier play a tilted profile without its tilt.
+Filter shapes follow the analog prototypes of the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/), digitized with M. Vicanek's matched second-order design ("Matched Second Order Digital Filters", 2016): poles map exactly, and each filter matches its analog level at 0 Hz, at its own frequency and at half the sample rate. A filter therefore keeps its shape at every sample rate instead of narrowing toward the top of the audio band. All-pass filters keep the cookbook's bilinear form, whose magnitude is already exact. The 6 dB/octave shelves use the same match with one real pole; one pole cannot follow the analog curve all the way to half the sample rate, but at 44.1 kHz shelves up to 15 kHz stay within 0.6 dB of it. Equalizer APO, AutoEQ and Aural 1.3 and earlier use the bilinear form, so at 44.1 and 48 kHz treble filters sound slightly different from them: by under 0.8 dB for filters below 4 kHz, and by up to about 3 dB for wide ±6 dB filters near 16 kHz. At 96 kHz the difference stays under 0.6 dB. Text syntax follows the supported subset of the [Equalizer APO reference](https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/). Profiles containing new filter types require Aural 0.8.0 or later, and 6 dB/octave shelves and Mid/Side filters require Aural 1.4 or later. Aural 1.3 and earlier play a tilted profile without its tilt.
 
 [Apple Core Audio taps](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps) · [AutoEQ](https://github.com/jaakkopasanen/AutoEq) · [Icon provenance](ICON.md)
 
 ## Release notes
 
+- [1.4](RELEASE-1.4.0.md): Mid/Side filters, 6 dB/octave shelves, tilt, loudness compensation, true-peak protection, and up to 64 filters.
 - [1.3](RELEASE-1.3.0.md): verified in-app updates and signed packaging.
 - [1.2.1](RELEASE-1.2.1.md): undo/redo, interface zoom, and a keyboard shortcuts guide.
 - [1.2](RELEASE-1.2.0.md): Liquid Glass, the expandable workspace, and direct curve editing.

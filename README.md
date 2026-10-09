@@ -28,7 +28,7 @@
 1. Open the DMG and drag **Aural** to **Applications**.
 2. Launch Aural, choose your output, and click **Start EQ**. Allow system audio capture when macOS asks.
 
-No audio driver is needed. Later versions install from **Check for Updates…**. If you're on 1.2.1 or earlier, install 1.3 manually once.
+No audio driver is needed. Later versions install from **Check for Updates…**. If you're on 1.2.1 or earlier, install the latest version manually once.
 
 ## Features
 
