@@ -40,7 +40,7 @@ rejects(sample + "\nPreamp: -2 dB", contains: "Preamp")
 rejects("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 0", contains: "Q")
 rejects("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q NaN")
 rejects("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1 trailing")
-rejects("Filter 1: ON LS Fc 1000 Hz Gain 1 dB Q 1")
+rejects("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1 Q 2")
 let disabledProfile = try AutoEQ.parse("Filter 1: OFF PK Fc 1000 Hz Gain 1 dB Q 1", name: "Disabled")
 require(disabledProfile.filters?[0].enabled == false && disabledProfile.filters?[0].gain == 1, "Disabled profile lost saved gain")
 rejects("Preamp: -5 dB")
@@ -293,7 +293,13 @@ for kind in ImportedFilter.Kind.allCases where !kind.usesGain {
     require(persisted == parsed, "New filter persistence lost parameters")
     rejects("Filter 1: ON \(kind.rawValue) Fc 1000 Hz Gain 3 dB Q 1")
     rejects("Filter 1: ON \(kind.rawValue) Fc 1000 Hz Q 0")
-    rejects("Filter 1: ON \(kind.rawValue) Fc 1000 Hz")
+    if kind == .allPass {
+        rejects("Filter 1: ON AP Fc 1000 Hz", contains: "Q")
+    } else {
+        // Equalizer APO's defaults when Q is omitted.
+        let defaulted = try AutoEQ.parse("Filter 1: ON \(kind.rawValue) Fc 1000 Hz", name: "Default Q")
+        require(defaulted.filters?[0].q == (kind == .notch ? 30 : 0.5.squareRoot()), "Omitted Q must use Equalizer APO's default")
+    }
     var draft = FilterDraft()
     draft.kind = kind; draft.gain = "6.5"
     let result = try draft.filter(row: 1)
@@ -646,3 +652,172 @@ do {
     fatalError("Exported tilt as Equalizer APO text")
 } catch { require(error.localizedDescription.contains("tilt"), error.localizedDescription) }
 print("PASS tilt persistence, earlier profiles, validation, and export refusal")
+
+// Equalizer APO's own configuration demo, a Room EQ Wizard filter file. Each filter must match
+// Equalizer APO's design (BiQuad.cpp) at a sample rate high enough that it equals the analog prototype.
+do {
+    let demo = """
+    Filter Settings file
+
+    Room EQ V5,01
+    Dated: 16.05.2013 21:56:38
+
+    Notes:This file demonstrates all filter types the Generic equalizer supports
+
+    Equaliser: Generic
+    No measurement
+    Filter  1: ON  PK       Fc    50,0 Hz  Gain -10,0 dB  Q  2,50
+    Filter  2: ON  Modal    Fc     100H z  Gain   3,0 dB  Q  5,41  T60 target   100 ms
+    Filter  3: ON  LP       Fc   8.000 Hz
+    Filter  4: ON  HP       Fc    30,0 Hz
+    Filter  5: ON  LPQ      Fc  10.000 Hz  Q  0,400
+    Filter  6: ON  HPQ      Fc    20,0 Hz  Q  0,500
+    Filter  7: ON  LS       Fc     300 Hz  Gain   5,0 dB
+    Filter  8: ON  HS       Fc   1.000 Hz  Gain  -3,0 dB
+    Filter  9: ON  LS 12dB  Fc   2.000 Hz  Gain  -5,0 dB
+    Filter 10: ON  HS 12dB  Fc     500 Hz  Gain   5,0 dB
+    Filter 11: ON  LS 6dB   Fc    50,0 Hz  Gain   7,2 dB
+    Filter 12: ON  HS 6dB   Fc  12.000 Hz  Gain  10,0 dB
+    Filter 13: ON  NO       Fc     800 Hz
+    Filter 14: ON  AP       Fc     900 Hz  Q  0,707
+    Filter 15: ON  None
+    Filter 16: OFF None
+    Filter: ON PEQ Fc 2000 Hz Gain 4 dB BW Oct 0.5
+    Filter: ON BP Fc 1000 Hz BW Oct 2
+    Filter: ON HSC 6 dB Fc 100 Hz Gain -6.0 dB
+    Filter: ON LSC Fc 300 Hz Gain 5.0 dB Q 0.6473
+    Filter: ON LS Fc 3000 Hz Gain -4 dB Q 0.9
+    Filter: ON HS Fc 400 Hz Gain 6 dB Q 0.5
+    Filter: ON PK Q 2 Gain 1,5 dB Fc 1\u{00A0}000 Hz
+    """
+    // Type, gain, Fc, Q, BW or slope, whether that is BW or slope, and whether Fc is the corner.
+    let reference: [(String, Double, Double, Double, Bool, Bool)] = [
+        ("PK", -10, 50, 2.5, false, false), ("PK", 3, 100, 5.41, false, false),
+        ("LP", 0, 8000, 0.5.squareRoot(), false, false), ("HP", 0, 30, 0.5.squareRoot(), false, false),
+        ("LP", 0, 10000, 0.4, false, false), ("HP", 0, 20, 0.5, false, false),
+        ("LS", 5, 300, 0.9, true, false), ("HS", -3, 1000, 0.9, true, false),
+        ("LS", -5, 2000, 1, true, true), ("HS", 5, 500, 1, true, true),
+        ("LS", 7.2, 50, 0.5, true, true), ("HS", 10, 12000, 0.5, true, true),
+        ("NO", 0, 800, 30, false, false), ("AP", 0, 900, 0.707, false, false),
+        ("PK", 4, 2000, 0.5, true, false), ("BP", 0, 1000, 2, true, false),
+        ("HS", -6, 100, 0.5, true, false), ("LS", 5, 300, 0.6473, false, false),
+        ("LS", -4, 3000, 0.9, false, true), ("HS", 6, 400, 0.5, false, true),
+        ("PK", 1.5, 1000, 2, false, false)]
+    let imported = try AutoEQ.parse(demo, name: "Equalizer APO demo")
+    require(imported.filters?.count == reference.count, "The demo must import every filter but None")
+    let rate = 2_000_000.0
+    func magnitude(_ b: [Double], _ a: [Double], at theta: Double) -> Double {
+        func value(_ c: [Double]) -> Double {
+            hypot(c[0] + c[1] * cos(theta) + c[2] * cos(2 * theta), c[1] * sin(theta) + c[2] * sin(2 * theta))
+        }
+        return value(b) / value(a)
+    }
+    for (index, (filter, apo)) in zip(imported.filters!, reference).enumerated() {
+        let (type, gain, fc, width, isBandwidthOrSlope, corner) = apo
+        let shelf = type == "LS" || type == "HS"
+        let a = pow(10, gain / (type == "PK" || shelf ? 40 : 20))
+        var frequency = fc
+        if corner {
+            let s = isBandwidthOrSlope ? width : 1 / ((1 / (width * width) - 2) / (a + 1 / a) + 1)
+            frequency = type == "LS" ? fc * pow(10, abs(gain) / 80 / s) : fc / pow(10, abs(gain) / 80 / s)
+        }
+        let omega = 2 * Double.pi * frequency / rate, sn = sin(omega), cs = cos(omega)
+        let alpha = !isBandwidthOrSlope ? sn / (2 * width)
+            : shelf ? sn / 2 * ((a + 1 / a) * (1 / width - 1) + 2).squareRoot() : sn * sinh(log(2) / 2 * width * omega / sn)
+        let beta = 2 * a.squareRoot() * alpha
+        let b: [Double], d: [Double]
+        switch type {
+        case "LP": (b, d) = ([(1 - cs) / 2, 1 - cs, (1 - cs) / 2], [1 + alpha, -2 * cs, 1 - alpha])
+        case "HP": (b, d) = ([(1 + cs) / 2, -(1 + cs), (1 + cs) / 2], [1 + alpha, -2 * cs, 1 - alpha])
+        case "BP": (b, d) = ([alpha, 0, -alpha], [1 + alpha, -2 * cs, 1 - alpha])
+        case "NO": (b, d) = ([1, -2 * cs, 1], [1 + alpha, -2 * cs, 1 - alpha])
+        case "AP": (b, d) = ([1 - alpha, -2 * cs, 1 + alpha], [1 + alpha, -2 * cs, 1 - alpha])
+        case "PK": (b, d) = ([1 + alpha * a, -2 * cs, 1 - alpha * a], [1 + alpha / a, -2 * cs, 1 - alpha / a])
+        case "LS": (b, d) = ([a * ((a + 1) - (a - 1) * cs + beta), 2 * a * ((a - 1) - (a + 1) * cs), a * ((a + 1) - (a - 1) * cs - beta)],
+                             [(a + 1) + (a - 1) * cs + beta, -2 * ((a - 1) + (a + 1) * cs), (a + 1) + (a - 1) * cs - beta])
+        default: (b, d) = ([a * ((a + 1) + (a - 1) * cs + beta), -2 * a * ((a - 1) + (a + 1) * cs), a * ((a + 1) + (a - 1) * cs - beta)],
+                           [(a + 1) - (a - 1) * cs + beta, 2 * ((a - 1) - (a + 1) * cs), (a + 1) - (a - 1) * cs - beta])
+        }
+        // Aural's analog prototype, as numerator and denominator coefficients of s², s and 1.
+        let A = pow(10, filter.gain / 40), q = filter.q, root = A.squareRoot()
+        let n: [Double], m: [Double]
+        switch filter.kind {
+        case .peak: (n, m) = ([1, A / q, 1], [1, 1 / (A * q), 1])
+        case .lowShelf: (n, m) = ([A, A * root / q, A * A], [A, root / q, 1])
+        case .highShelf: (n, m) = ([A * A, A * root / q, A], [1, root / q, A])
+        case .lowPass: (n, m) = ([0, 0, 1], [1, 1 / q, 1])
+        case .highPass: (n, m) = ([1, 0, 0], [1, 1 / q, 1])
+        case .bandPass: (n, m) = ([0, 1 / q, 0], [1, 1 / q, 1])
+        case .notch: (n, m) = ([1, 0, 1], [1, 1 / q, 1])
+        case .allPass: (n, m) = ([1, -1 / q, 1], [1, 1 / q, 1])
+        default: fatalError("Unexpected filter kind \(filter.kind)")
+        }
+        for step in 0...60 {
+            let f = 20 * pow(1000, Double(step) / 60), w = f / filter.frequency
+            func value(_ c: [Double]) -> Double { hypot(c[2] - c[0] * w * w, c[1] * w) }
+            let expected = magnitude(b, d, at: 2 * Double.pi * f / rate), actual = value(n) / value(m)
+            require(abs(actual - expected) <= 1e-3 * max(1, expected),
+                    "Filter \(index + 1) differs from Equalizer APO at \(f) Hz: \(actual) vs \(expected)")
+        }
+    }
+    let demoKinds: [ImportedFilter.Kind] = [.peak, .peak, .lowPass, .highPass, .lowPass, .highPass, .lowShelf, .highShelf, .lowShelf, .highShelf,
+                                            .lowShelf, .highShelf, .notch, .allPass, .peak, .bandPass, .highShelf, .lowShelf, .lowShelf, .highShelf, .peak]
+    require(imported.filters?.map(\.kind) == demoKinds, "Equalizer APO aliases imported as the wrong kinds")
+    require(imported.filters?[2].frequency == 8000 && imported.filters?[0].frequency == 50, "Thousands separators or decimal commas misread")
+    require(imported.stereo == nil, "A file without delays must not set stereo effects")
+}
+print("PASS Equalizer APO demo file, Room EQ Wizard header, aliases, defaults, BW, slopes and corner frequencies")
+
+// Equalizer APO syntax that Aural cannot reproduce is refused rather than approximated.
+do {
+    let commas = try AutoEQ.parse("Preamp: -6,5 dB\nFilter1: OFF PK Fc 1234,5 Hz Gain 1 dB Q 1", name: "Commas")
+    require(commas.preamp == -6.5 && commas.filters?[0].frequency == 1234.5 && commas.filters?[0].enabled == false, "Comma decimals misread")
+    for (text, message) in [
+        ("Filter: ON PK Fc 1000 Hz Gain 1 dB", "need a Q"),
+        ("Filter: ON PK Fc 1000 Hz Q 1", "need a gain"),
+        ("Filter: ON PK Gain 1 dB Q 1", "need a frequency"),
+        ("Filter: ON PK Fc 1000 Hz Gain 1 dB Q 1 BW Oct 1", "only one"),
+        ("Filter: ON LSC Fc 1000 Hz Gain 1 dB BW Oct 1", "not BW"),
+        ("Filter: ON LSC 12dB Fc 1000 Hz Gain 1 dB Q 1", "only one"),
+        ("Filter: ON PK 12dB Fc 1000 Hz Gain 1 dB Q 1", "Only shelves"),
+        ("Filter: ON PK Fc 1000 Hz Gain 1 dB BW Oct 0", "greater than 0"),
+        ("Filter: ON LSC 0 dB Fc 1000 Hz Gain 1 dB", "greater than 0"),
+        ("Filter: ON LSC 48 dB Fc 100 Hz Gain 20 dB", "too steep"),
+        ("Filter: ON PK Fc 1000 Hz Gain 1 dB Q 1 T60 target 100 ms", "Malformed"),
+        ("Filter: ON IIR Order 1 Coefficients 1 0 1 0", "IIR"),
+        ("Filter: ON LS1 Fc 1000 Hz Gain 1 dB", "Unsupported filter type LS1"),
+        ("Filter: ON PK Fc 31.125 Hz Gain 1 dB Q 1", "22000"),
+        ("Filter 1 ON PK Fc 1000 Hz Gain 1 dB Q 1", "colon"),
+        ("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1\nDelay: 10 samples", "samples"),
+        ("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1\nDelay: -1 ms", "0 ms or longer"),
+        ("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1\nDelay: 20 ms\nChannel: L\nDelay: 11 ms", "30 ms"),
+        ("Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1\n\(AutoEQ.midSideEncode)\nChannel: L\nDelay: 1 ms\n\(AutoEQ.midSideDecode)", "mid or side"),
+        ("Channel: L\nDelay: 1 ms\n\(AutoEQ.midSideEncode)\nFilter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1\n\(AutoEQ.midSideDecode)", "Line 3: Aural delays the channels")] {
+        rejects(text, contains: message)
+    }
+    // Delays add up per channel; a delay shared by both channels may come before mid/side filters.
+    let delayed = try AutoEQ.parse("""
+    Delay: 1,5 ms
+    \(AutoEQ.midSideEncode)
+    Channel: L
+    Filter 1: ON PK Fc 1000 Hz Gain 1 dB Q 1
+    Channel: ALL
+    Delay: 0.5 ms
+    \(AutoEQ.midSideDecode)
+    Channel: R
+    Delay: 2ms
+    """, name: "Delays")
+    require(delayed.stereo?.leftDelayMS == 2 && delayed.stereo?.rightDelayMS == 4 && delayed.filters?[0].channel == .mid,
+            "Delays were not added per channel")
+    var exportedDelays = delayed
+    exportedDelays.filters![0].frequency = 31.125
+    let delayText = try AutoEQ.export(exportedDelays)
+    require(delayText.contains("Fc 31.1250 Hz") && delayText.hasSuffix("\(AutoEQ.midSideDecode)\nDelay: 2.0 ms\nChannel: R\nDelay: 4.0 ms\n"), delayText)
+    let restoredDelays = try AutoEQ.parse(delayText, name: "Delays")
+    require(restoredDelays.hasSameEQ(as: exportedDelays) && restoredDelays.stereo == exportedDelays.stereo, "Delays or a 3-decimal Fc changed in a round trip")
+    var trimmed = exportedDelays
+    trimmed.stereo?.leftTrimDB = -1
+    do { _ = try AutoEQ.export(trimmed); fatalError("Exported a trim as text") }
+    catch { require(error.localizedDescription.contains("stereo effects"), error.localizedDescription) }
+}
+print("PASS Equalizer APO comma decimals, delays, Fc padding, and refusal of unsupported or ambiguous syntax")

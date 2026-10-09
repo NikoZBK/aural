@@ -356,7 +356,7 @@ import ServiceManagement
     func importAutoEQ() {
         let panel = NSOpenPanel()
         panel.title = "Import AutoEQ profile"
-        panel.message = "Choose an AutoEQ ParametricEQ.txt or FixedBandEQ.txt file. Import stops processing; click Start EQ when ready."
+        panel.message = "Choose an AutoEQ ParametricEQ.txt or FixedBandEQ.txt file, an Equalizer APO configuration, or a Room EQ Wizard filter file. Import stops processing; click Start EQ when ready."
         panel.allowedContentTypes = [.plainText]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -364,7 +364,10 @@ import ServiceManagement
             let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize
             guard let size, size <= 65536 else { throw AudioFailure(message: "The profile exceeds the 64 KB limit.") }
             let data = try Data(contentsOf: url)
-            guard let text = String(data: data, encoding: .utf8) else { throw AudioFailure(message: "Use a UTF-8 AutoEQ text export.") }
+            // Like Equalizer APO, fall back to the Windows code page for files that are not UTF-8.
+            guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .windowsCP1252) else {
+                throw AudioFailure(message: "Use a UTF-8 text file.")
+            }
             let base = url.deletingPathExtension().lastPathComponent
             try importProfile(text, name: base)
         } catch { self.error = error.localizedDescription }

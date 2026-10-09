@@ -18,7 +18,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 | Loudness compensation | Optional compensation from the ISO 226:2003 equal-loudness contours that follows the macOS output volume below a per-output reference volume, with a 70–90 phon reference level. Equalizer APO's `LoudnessCorrection` is not imported or exported. |
 | Presets | Search, favorites, save, rename/duplicate/delete, undo the latest deletion, curve previews, and versioned JSON backup/restore. |
 | Audio outputs | Saved EQ settings and preset names for each output, device selection and refresh, automatic startup for the saved device, and skipping unavailable devices. Optional following of the macOS output. Running EQ resumes after sleep, on reconnection, and after a format change. |
-| Import and export | AutoEQ parametric/fixed-band text, clipboard and file import/export, `Channel: ALL/L/R`, and the mid/side `Copy` routing. Unsupported commands report the line that needs attention. |
+| Import and export | AutoEQ parametric/fixed-band text and Room EQ Wizard filter files, clipboard and file import/export, every Equalizer APO biquad filter type with its Q, bandwidth, slope and default semantics, `Channel: ALL/L/R`, the mid/side `Copy` routing, and `Delay` in ms. Unsupported commands report the line that needs attention. |
 | Menu bar and startup | Start/stop, bypass, presets, preamp, and A/B from the menu bar. Closing the window keeps EQ running and removes the Dock icon. Optional launch at login and keyboard shortcuts while Aural is active. |
 
 ## Audio processing
@@ -53,7 +53,7 @@ The working tree now provides an On/Off checkbox beside the Level meter and in t
 | Global hotkeys / MIDI | Shortcuts while Aural is active; menu-bar controls | Conflict-aware global registration and editable assignments; CoreMIDI mapping with a serialized control path. |
 | Live spectrum / measurements | EQ curve and output sample peak only | Bounded FFT telemetry outside the realtime callback, calibration, measurement metadata and validation. |
 | Hearing/test-tone workflows | No generated tones or hearing assessment | User-controlled level/ramp/mute, separate calibration flow and validated playback behavior. |
-| Full APO command language | Strict documented subset | Native equivalents for routing, includes, expressions and per-channel preamp, with explicit semantics and sandboxed file resolution. |
+| Full APO command language | Strict documented subset: every biquad filter type, channel delays and mid/side routing | Native equivalents for routing, includes, expressions and per-channel preamp, with explicit semantics and sandboxed file resolution. |
 | Other languages | English only | String catalogs, locale-aware numeric entry, translated layouts and accessibility review. |
 
 These features need more audio processing, hardware testing, or work with outside data sources before Aural can support them.
