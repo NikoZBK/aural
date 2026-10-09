@@ -36,7 +36,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>NSHumanReadableCopyright</key><string>© 2026 Nikolay Ostroukhov</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>
-<key>CFBundleVersion</key><string>26</string>
+<key>CFBundleVersion</key><string>27</string>
 <key>SUFeedURL</key><string>https://github.com/NikoZBK/aural/releases/latest/download/appcast.xml</string>
 <key>SUPublicEDKey</key><string>bepiHGdLL56z7M4YHNiO+V4uDB9umTF631XeUeRCi8Q=</string>
 <key>SUVerifyUpdateBeforeExtraction</key><true/>
