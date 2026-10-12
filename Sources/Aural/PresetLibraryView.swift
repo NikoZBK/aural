@@ -147,6 +147,13 @@ struct PresetLibraryView: View {
                     .tag(name)
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(name), \(model.factory[name] == nil ? "custom" : "built-in") preset\(model.favoritePresets.contains(name) ? ", favorite" : "")")
+                    .contextMenu {
+                        if model.factory[name] == nil {
+                            Button(role: .destructive) { model.deletePreset(name) } label: {
+                                Label("Delete preset", systemImage: "trash")
+                            }
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -171,7 +178,7 @@ struct PresetLibraryView: View {
                         .foregroundStyle(AuralStyle.secondary)
                         .accessibilityHidden(true)
                     Text("Find your sound").auralFont(size: 20, weight: .semibold)
-                    Text("Choose a preset to apply it, make a copy, or add it to your favorites.")
+                    Text("Choose a preset to apply it, make a copy, rename it, or delete it.")
                         .auralFont(size: 13).foregroundStyle(AuralStyle.secondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -240,16 +247,9 @@ struct PresetLibraryView: View {
                         .buttonStyle(AuralButtonStyle())
                         .disabled(trimmedName.isEmpty || trimmedName == name)
                 }
-                VStack(alignment: .leading, spacing: 8 * interfaceScale) {
-                    Button(role: .destructive) { model.deletePreset(name) } label: {
-                        Label("Delete preset", systemImage: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(AuralStyle.warning)
-                    Text("Deleting leaves your current EQ unchanged. You can undo the latest deletion until Aural quits.")
-                        .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text("Deleting leaves your current EQ unchanged. You can undo the latest deletion until Aural quits.")
+                    .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 Label {
                     Text("Duplicate a built-in preset to give it your own name.")
@@ -277,6 +277,14 @@ struct PresetLibraryView: View {
                 .help("Restore presets from a backup file")
                 .accessibilityLabel("Restore presets")
             Spacer()
+            Button(role: .destructive) {
+                if let name = selectedName { model.deletePreset(name) }
+            } label: {
+                Label("Delete preset", systemImage: "trash")
+            }.buttonStyle(AuralButtonStyle())
+                .foregroundStyle(AuralStyle.warning)
+                .disabled(selectedName.map { model.factory[$0] != nil } ?? true)
+                .help("Delete the selected custom preset without changing your current EQ. Built-in presets cannot be deleted.")
             Button { model.restoreDeletedPreset() } label: {
                 Label("Undo delete", systemImage: "arrow.uturn.backward")
             }.buttonStyle(AuralButtonStyle())
@@ -312,6 +320,8 @@ struct PresetMenuItems: View {
                 presetButton(name)
             }
         }
+        Divider()
+        PresetDeletionMenuItems(model: model)
     }
     private func presetButton(_ name: String) -> some View {
         Button { withAuralAnimation { model.apply(name) } } label: {
@@ -321,5 +331,32 @@ struct PresetMenuItems: View {
                 Text(name)
             }
         }
+    }
+}
+
+/// Keep deletion and its session-local undo reachable from both preset menus.
+struct PresetDeletionMenuItems: View {
+    @ObservedObject var model: Model
+    var submissions: PrecisionSubmissionCoordinator? = nil
+
+    var body: some View {
+        if let name = model.selectedPresetName, model.factory[name] == nil,
+           model.customPresets.contains(name) {
+            Button(role: .destructive) {
+                switch submissions?.submitActive() ?? .unchanged {
+                case .rejected: return
+                case .submitted where model.error != nil: return
+                default: model.deletePreset(name)
+                }
+            } label: {
+                Label("Delete preset “\(name)”", systemImage: "trash")
+            }
+            .help("Delete this saved preset without changing your current EQ")
+        }
+        Button { model.restoreDeletedPreset() } label: {
+            Label("Undo delete", systemImage: "arrow.uturn.backward")
+        }
+        .disabled(model.deletedPreset == nil)
+        .help("Restore the most recently deleted preset")
     }
 }

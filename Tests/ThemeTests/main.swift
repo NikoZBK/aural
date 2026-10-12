@@ -201,6 +201,7 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         checkAccessibility()
         try checkAudioFormatsAndSettings()
         try checkPeakProtectionSettings()
+        try checkPresetDeletion()
         try checkOutputFollowingAndLevelMatching()
         try checkBandSolo()
         try checkHistoryShortcuts()

@@ -57,7 +57,9 @@ The main window and preset menu show the selected preset. An **EDITED** badge in
 
 Selecting a preset applies it immediately, starts EQ if stopped, and turns bypass off. Switching between saved AutoEQ profiles and built-in presets keeps audio running. If a preset cannot run at the output's current sample rate, Aural explains the problem and keeps the current sound unchanged.
 
-Choose **Manage presets…** in the preset dropdown, or choose **Equalizer → Preset library…** (⇧⌘P) to search, favorite, duplicate, rename, or delete presets. Built-in presets can be duplicated and favorited; renaming and deletion apply to custom presets. **Undo delete** restores the most recent deletion until Aural quits. Deleting or renaming a saved preset does not change the active EQ.
+To delete the selected custom preset, choose **Delete preset “name”** in the preset dropdown. You can also open **Manage presets…**, or **Equalizer → Preset library…** (⇧⌘P), select a custom preset, and click **Delete preset** beside **Undo delete** at the bottom of the window. Right-clicking a custom preset in the library also offers deletion. These controls stay available without scrolling through the preset details.
+
+The library also supports search, favorites, duplication, and renaming. Built-in presets can be duplicated and favorited; renaming and deletion apply to custom presets. **Undo delete** in the library or either preset menu restores the most recent deletion until Aural quits. Deleting or renaming a saved preset does not change the active EQ.
 
 **Back up presets…** writes a versioned JSON file containing custom presets and favorites. **Restore presets…** validates the entire backup before merging; conflicting names receive numeric suffixes. Restore never replaces the current EQ or enables processing. Device selection, startup preferences, and per-device settings are not part of a preset backup.
 
@@ -186,6 +188,7 @@ Filter shapes follow the analog prototypes of the [W3C Audio EQ Cookbook](https:
 
 ## Release notes
 
+- [1.5.1](RELEASE-1.5.1.md): visible preset deletion, deletion from preset menus and the library context menu, and clear deletion/undo notices.
 - [1.5](RELEASE-1.5.0.md): steeper and gentler low- and high-pass slopes, band solo, wider Equalizer APO import, and sound settings in the main window.
 - [1.4](RELEASE-1.4.0.md): Mid/Side filters, 6 dB/octave shelves, tilt, loudness compensation, true-peak protection, and up to 64 filters.
 - [1.3](RELEASE-1.3.0.md): verified in-app updates and signed packaging.

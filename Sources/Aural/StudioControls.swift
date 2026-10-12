@@ -108,6 +108,7 @@ struct PresetSelection: View {
             group("Factory", names: model.factory.keys.sorted().filter { !model.favoritePresets.contains($0) })
             Divider()
             Button("Manage presets…") { openWindow.showAuralWindow("presets") }
+            PresetDeletionMenuItems(model: model, submissions: submissions)
         } label: {
             Text(model.selectedPresetName ?? "Custom EQ")
                 .auralFont(size: 13, weight: .medium).lineLimit(1)

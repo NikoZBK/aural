@@ -685,12 +685,13 @@ import ServiceManagement
         }) {
             workspace.renamePreset(name, to: nil)
             deletedPreset = (name, saved, favorite)
+            importNotice = "Deleted preset “\(name)”. Your current EQ is unchanged. Use Undo delete to restore it."
         }
     }
     func restoreDeletedPreset() {
         guard let deletedPreset else { error = "There is no deleted preset to restore."; return }
+        let name = settings.availablePresetName(deletedPreset.name)
         if updateLibrary({
-            let name = $0.availablePresetName(deletedPreset.name)
             $0.presets[name] = deletedPreset.profile
             if deletedPreset.favorite {
                 var favorites = $0.favoritePresets ?? []
@@ -699,6 +700,7 @@ import ServiceManagement
             }
         }) {
             self.deletedPreset = nil
+            importNotice = "Restored preset “\(name)”."
         }
     }
     func toggleFavorite(_ name: String) {
