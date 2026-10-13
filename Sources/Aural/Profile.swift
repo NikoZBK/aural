@@ -398,7 +398,7 @@ extension Settings {
         // Preserve Aural's original appearance until a theme is explicitly chosen.
         theme = try values.decodeIfPresent(AuralTheme.self, forKey: .theme) ?? .dark
         // Validate the interface style older versions saved, then drop it: every
-        // install now uses the same solid surfaces.
+        // install now uses the shared appearance, with system glass where supported.
         // The retired key is deliberately omitted when settings are next saved.
         let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         _ = try legacy.decodeIfPresent(LegacyStyle.self, forKey: .interfaceStyle)

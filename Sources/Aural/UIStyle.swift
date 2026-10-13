@@ -31,8 +31,8 @@ enum AuralStyle {
     }
     // A fixed instrument color, identical on every Mac, instead of the system accent.
     // It marks active state and data: the curve, selection, Start EQ, and the meter.
-    private static let accentLight = (red: 0.04, green: 0.47, blue: 0.60)
-    private static let accentDark = (red: 0.30, green: 0.74, blue: 0.86)
+    private static let accentLight = (red: 0.0, green: 0.40, blue: 0.47)
+    private static let accentDark = (red: 0.28, green: 0.88, blue: 0.94)
     private static let accentHighContrastLight = (red: 0.0, green: 0.36, blue: 0.47)
     private static let accentHighContrastDark = (red: 0.50, green: 0.85, blue: 0.95)
     static let accent = adaptive(light: NSColor(srgbRed: accentLight.red, green: accentLight.green, blue: accentLight.blue, alpha: 1),
@@ -58,12 +58,14 @@ enum AuralStyle {
         let luminance = 0.2126 * linear(resolved.red) + 0.7152 * linear(resolved.green) + 0.0722 * linear(resolved.blue)
         return luminance > 0.179 ? .black : .white
     }
-    static let background = adaptive(light: NSColor(srgbRed: 0.96, green: 0.96, blue: 0.96, alpha: 1),
-                                     dark: NSColor(srgbRed: 0.08, green: 0.08, blue: 0.085, alpha: 1))
+    static let background = adaptive(light: NSColor(srgbRed: 0.94, green: 0.97, blue: 0.97, alpha: 1),
+                                     dark: NSColor(srgbRed: 0.025, green: 0.05, blue: 0.075, alpha: 1))
     static let surface = adaptive(light: .white,
-                                  dark: NSColor(srgbRed: 0.10, green: 0.105, blue: 0.11, alpha: 1))
-    static let elevated = adaptive(light: NSColor(srgbRed: 0.89, green: 0.89, blue: 0.90, alpha: 1),
-                                   dark: NSColor(srgbRed: 0.16, green: 0.165, blue: 0.17, alpha: 1))
+                                  dark: NSColor(srgbRed: 0.065, green: 0.09, blue: 0.12, alpha: 1))
+    static let elevated = adaptive(light: NSColor(srgbRed: 0.88, green: 0.93, blue: 0.94, alpha: 1),
+                                   dark: NSColor(srgbRed: 0.12, green: 0.16, blue: 0.20, alpha: 1))
+    static let violet = adaptive(light: NSColor(srgbRed: 0.42, green: 0.29, blue: 0.73, alpha: 1),
+                                  dark: NSColor(srgbRed: 0.72, green: 0.66, blue: 1, alpha: 1))
     static let border = adaptive(light: .black.withAlphaComponent(0.14), dark: .white.withAlphaComponent(0.085),
                                  highContrastLight: .black.withAlphaComponent(0.6), highContrastDark: .white.withAlphaComponent(0.6))
     static let controlBorder = adaptive(light: .black.withAlphaComponent(0.5), dark: .white.withAlphaComponent(0.4),
@@ -92,8 +94,8 @@ private struct AuralAppearance: ViewModifier {
         let scheme = theme.colorScheme ?? colorScheme
         // Forward an explicit theme in the same update as the surfaces, so
         // dynamic colors never resolve against the previous appearance.
-        content.environment(\.colorScheme, scheme)
-            .background(AuralStyle.background)
+        content.background { AuralBackdrop() }
+            .environment(\.colorScheme, scheme)
             // Native controls can resolve a bridged dynamic NSColor as red in the
             // older SDK compatibility path. Tint checkboxes and segmented controls
             // with a static color for the current scheme; custom drawing uses the
@@ -102,13 +104,71 @@ private struct AuralAppearance: ViewModifier {
     }
 }
 
+/// Static ambience shared with the iOS app. It never animates with audio levels.
+private struct AuralBackdrop: View {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        ZStack {
+            AuralStyle.background
+            if contrast != .increased && !reduceTransparency {
+                RadialGradient(colors: [AuralStyle.accent.opacity(scheme == .dark ? 0.22 : 0.14), .clear],
+                               center: .topLeading, startRadius: 0, endRadius: 640)
+                RadialGradient(colors: [AuralStyle.violet.opacity(scheme == .dark ? 0.16 : 0.12), .clear],
+                               center: .bottomTrailing, startRadius: 0, endRadius: 560)
+            }
+        }.ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
+    }
+}
+
+/// Content stays outside appearance branches so drafts and focus survive a theme change.
+private struct AuralSurfaceBackground: View {
+    var emphasized = false
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.auralInterfaceScale) private var scale
+    private var decoration: Bool { contrast != .increased && !reduceTransparency }
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16 * scale, style: .continuous)
+        ZStack {
+            AuralStyle.surface.opacity(decoration ? (scheme == .dark ? 0.78 : 0.88) : 1)
+            if decoration && emphasized {
+                LinearGradient(colors: [AuralStyle.accent.opacity(0.12), .clear, AuralStyle.violet.opacity(0.07)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(AuralStyle.border))
+        .shadow(color: .black.opacity(decoration ? (scheme == .dark ? 0.12 : 0.035) : 0), radius: 12, y: 5)
+        .allowsHitTesting(false).accessibilityHidden(true)
+    }
+}
+
+/// Real system Liquid Glass on supported Macs, with opaque accessibility fallbacks.
+struct AuralChromeBackground: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.auralInterfaceScale) private var scale
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16 * scale, style: .continuous)
+        Group {
+            if #available(macOS 26.0, *), contrast != .increased, !reduceTransparency {
+                Color.clear.glassEffect(.regular, in: shape)
+            } else {
+                shape.fill(AuralStyle.surface).overlay(shape.strokeBorder(AuralStyle.border))
+            }
+        }.allowsHitTesting(false).accessibilityHidden(true)
+    }
+}
+
 private struct AuralWorkspaceSurface: ViewModifier {
     let padding: CGFloat
+    let emphasized: Bool
     @Environment(\.auralInterfaceScale) private var scale
     func body(content: Content) -> some View {
-        content.padding(padding * scale)
-            .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6 * scale))
-            .overlay(RoundedRectangle(cornerRadius: 6 * scale).strokeBorder(AuralStyle.border))
+        content.padding(padding * scale).background { AuralSurfaceBackground(emphasized: emphasized) }
     }
 }
 
@@ -116,11 +176,37 @@ extension View {
     func auralAppearance(_ theme: AuralTheme) -> some View {
         modifier(AuralAppearance(theme: theme))
     }
-    func auralWorkspaceSurface(padding: CGFloat = 12) -> some View { modifier(AuralWorkspaceSurface(padding: padding)) }
+    func auralWorkspaceSurface(padding: CGFloat = 12, emphasized: Bool = false) -> some View {
+        modifier(AuralWorkspaceSurface(padding: padding, emphasized: emphasized))
+    }
     func auralPanel(padding: CGFloat = 18) -> some View {
-        self.auralPadding(padding)
-            .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
+        auralWorkspaceSurface(padding: padding)
+    }
+}
+
+struct AuralSymbolBadge: View {
+    let systemImage: String
+    var size: CGFloat = 48
+    @Environment(\.auralInterfaceScale) private var scale
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var body: some View {
+        Image(systemName: systemImage)
+            .auralFont(size: size * 0.44, weight: .semibold)
+            .foregroundStyle(AuralStyle.violet)
+            .auralFrame(width: size, height: size)
+            .background {
+                // An opaque base keeps violet legible over native list selection colors.
+                RoundedRectangle(cornerRadius: size * 0.3 * scale, style: .continuous)
+                    .fill(AuralStyle.elevated)
+                    .overlay {
+                        if contrast != .increased && !reduceTransparency {
+                            RoundedRectangle(cornerRadius: size * 0.3 * scale, style: .continuous)
+                                .fill(AuralStyle.violet.opacity(0.08))
+                        }
+                    }
+            }
+            .accessibilityHidden(true)
     }
 }
 
@@ -132,7 +218,7 @@ struct AuralSectionLabel: View {
         HStack(spacing: 7 * interfaceScale) {
             if let systemImage { Image(systemName: systemImage).accessibilityHidden(true) }
             Text(title)
-        }.auralFont(size: 11, weight: .medium).foregroundStyle(AuralStyle.secondary)
+        }.auralFont(size: 11, weight: .semibold, design: .rounded).foregroundStyle(AuralStyle.secondary)
     }
 }
 
@@ -161,13 +247,13 @@ struct AuralButtonStyle: ButtonStyle {
     @Environment(\.auralInterfaceScale) private var scale
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .auralFont(size: 12, weight: .medium)
+            .auralFont(size: 12, weight: .semibold, design: .rounded)
             .padding(.horizontal, 10 * scale).padding(.vertical, 7 * scale)
             .foregroundStyle(prominent ? AuralStyle.accentForeground(in: environment) : Color.primary)
-            .background(prominent ? AuralStyle.accent : AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 5))
+            .background(prominent ? AuralStyle.accent : AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
             // Scoped animations keep press and focus feedback from retiming the label.
             .animation(AuralMotion.quick) { content in
-                content.overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(isFocused ? Color.primary : (prominent ? .clear : AuralStyle.controlBorder), lineWidth: isFocused ? 2 : 1))
+                content.overlay(RoundedRectangle(cornerRadius: 8 * scale, style: .continuous).strokeBorder(isFocused ? Color.primary : (prominent ? .clear : AuralStyle.controlBorder), lineWidth: isFocused ? 2 : 1))
             }
             .animation(AuralMotion.instant) { content in
                 content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
@@ -195,10 +281,10 @@ struct AuralMenuButtonStyle: ButtonStyle {
         .foregroundStyle(Color.primary)
         .padding(.horizontal, (size == .small ? 8 : 10) * scale).padding(.vertical, (size == .large ? 9 : 7) * scale)
         .auralFrame(minHeight: size == .small ? 27 : nil)
-        .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 5))
-        .contentShape(RoundedRectangle(cornerRadius: 5))
+        .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
         .animation(AuralMotion.quick) { content in
-            content.overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(isFocused ? Color.primary : AuralStyle.controlBorder, lineWidth: isFocused ? 2 : 1))
+            content.overlay(RoundedRectangle(cornerRadius: 8 * scale, style: .continuous).strokeBorder(isFocused ? Color.primary : AuralStyle.controlBorder, lineWidth: isFocused ? 2 : 1))
         }
         .animation(AuralMotion.instant) { content in
             content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)

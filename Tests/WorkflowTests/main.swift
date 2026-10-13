@@ -151,6 +151,21 @@ let duplicated = try ProfileTools.duplicateFilter(mixed, at: 0)
 require(duplicated.filters == [pass, pass, peak], "Duplicate must be inserted immediately after its source")
 let deleted = try ProfileTools.deleteFilter(duplicated, at: 1)
 require(deleted == mixed, "Delete removed the wrong filter")
+var ordered = mixed
+ordered.tilt = 1.25
+ordered.stereo = StereoSettings(leftDelayMS: 2.125)
+ordered.sourceName = "Ordered correction"
+ordered.filters?.append(ImportedFilter(kind: .lowPass, frequency: 13245.6789, gain: 0, q: 0.7123456789, enabled: true, channel: .mid, slope: .linkwitzRiley24))
+var expectedOrder = ordered
+expectedOrder.filters?.swapAt(1, 2)
+let moved = try ProfileTools.moveFilter(ordered, at: 1, by: 1)
+require(moved == expectedOrder, "Reordering must preserve exact parameters, slope, disabled state, channels, stereo, tilt and source metadata")
+require(try ProfileTools.moveFilter(moved, at: 2, by: -1) == ordered, "Moving back must restore the complete original profile")
+rejects("move before first filter") { _ = try ProfileTools.moveFilter(ordered, at: 0, by: -1) }
+rejects("move after final filter") { _ = try ProfileTools.moveFilter(ordered, at: 2, by: 1) }
+rejects("move invalid filter") { _ = try ProfileTools.moveFilter(ordered, at: Int.max, by: 1) }
+rejects("move invalid direction") { _ = try ProfileTools.moveFilter(ordered, at: 0, by: Int.max) }
+print("PASS filter reordering preserves the entire profile and rejects out-of-bounds moves")
 rejects("delete final filter") { _ = try ProfileTools.deleteFilter(Profile(filters: [peak]), at: 0) }
 rejects("negative filter index") { _ = try ProfileTools.deleteFilter(mixed, at: -1) }
 var full = try ProfileTools.addFilter(graphic31)

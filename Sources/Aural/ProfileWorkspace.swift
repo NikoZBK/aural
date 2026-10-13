@@ -223,6 +223,17 @@ enum ProfileTools {
         return try result.validated()
     }
 
+    static func moveFilter(_ profile: Profile, at index: Int, by offset: Int) throws -> Profile {
+        var result = try parametric(profile)
+        guard var filters = result.filters, filters.indices.contains(index),
+              offset == -1 || offset == 1, filters.indices.contains(index + offset) else {
+            throw AudioFailure(message: "The filter cannot move in that direction.")
+        }
+        filters.swapAt(index, index + offset)
+        result.filters = filters
+        return try result.validated()
+    }
+
     static func deleteFilter(_ profile: Profile, at index: Int) throws -> Profile {
         var result = try parametric(profile)
         guard var filters = result.filters, filters.indices.contains(index) else {

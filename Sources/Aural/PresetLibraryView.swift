@@ -58,14 +58,9 @@ struct PresetLibraryView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 14 * interfaceScale) {
-            Image(systemName: "square.stack.3d.up")
-                .auralFont(size: 23, weight: .medium)
-                .foregroundStyle(AuralStyle.secondary)
-                .auralFrame(width: 48, height: 48)
-                .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 6))
-                .accessibilityHidden(true)
+            AuralSymbolBadge(systemImage: "square.stack.3d.up")
             VStack(alignment: .leading, spacing: 4 * interfaceScale) {
-                Text("Preset library").auralFont(size: 23, weight: .semibold)
+                Text("Preset library").auralFont(size: 26, weight: .bold, design: .rounded)
                 Text("Search, compare, and organize your saved configurations.")
                     .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
@@ -129,14 +124,10 @@ struct PresetLibraryView: View {
             } else {
                 List(names, id: \.self, selection: $selected) { name in
                     HStack(spacing: 10 * interfaceScale) {
-                        Image(systemName: model.favoritePresets.contains(name) ? "star.fill" : "waveform")
+                        AuralSymbolBadge(systemImage: model.favoritePresets.contains(name) ? "star.fill" : "waveform", size: 32)
                             .auralSymbolTransition()
-                            .auralFont(size: 13)
-                            .foregroundStyle(model.favoritePresets.contains(name) ? AuralStyle.accent : AuralStyle.secondary)
-                            .auralFrame(width: 18)
-                            .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 4 * interfaceScale) {
-                            Text(name).auralFont(size: 13, weight: .medium)
+                            Text(name).auralFont(size: 13, weight: .semibold, design: .rounded)
                                 .lineLimit(1).help(name)
                             Text(model.factory[name] == nil ? "Custom preset" : "Built-in preset")
                                 .auralFont(size: 10).foregroundStyle(AuralStyle.secondary)

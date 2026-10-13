@@ -100,7 +100,10 @@ struct FilterRack: View {
                 Text("Selected filter").auralFont(size: 12).accessibilityHidden(true)
                 AuralPicker(title: "Selected filter", value: bands.first { $0.index == selectedBand }.map(Self.bandTitle) ?? "",
                             selection: Binding(get: { selectedBand }, set: { index in
-                    selectedBand = index
+                    if finishNumericEdit() {
+                        model.endProfileGesture()
+                        selectedBand = index
+                    }
                     selectionRevision += 1
                 })) {
                     ForEach(bands, id: \.index) { band in Text(Self.bandTitle(band)).tag(band.index) }
@@ -113,7 +116,8 @@ struct FilterRack: View {
                     columnHeader
                     // Switching filters is instant, like an inspector; a crossfade would
                     // briefly stack two rows.
-                    FilterRow(model: model, submissions: submissions, filter: filters[selectedBand], index: selectedBand, compact: compactRows)
+                    FilterRow(model: model, submissions: submissions, filter: filters[selectedBand], index: selectedBand, compact: compactRows,
+                              move: { moveFilter(at: selectedBand, by: $0) })
                         .transition(.identity).id(selectedBand)
                 }
             } else if model.profile.gains.indices.contains(selectedBand) {
@@ -155,12 +159,23 @@ struct FilterRack: View {
         }
     }
 
+    func moveFilter(at index: Int, by offset: Int) {
+        guard finishNumericEdit() else { return }
+        withAuralAnimation {
+            guard model.moveFilter(at: index, by: offset) else { return }
+            let destination = index + offset
+            if selectedBand == index { selectedBand = destination }
+            else if selectedBand == destination { selectedBand = index }
+        }
+    }
+
     private func rows(_ filters: [ImportedFilter]) -> some View {
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
                     ForEach(filters.indices, id: \.self) { index in
-                        FilterRow(model: model, submissions: submissions, filter: filters[index], index: index, compact: compactRows)
+                        FilterRow(model: model, submissions: submissions, filter: filters[index], index: index, compact: compactRows,
+                                  move: { moveFilter(at: index, by: $0) })
                     }
                 } header: {
                     columnHeader
@@ -197,6 +212,7 @@ private struct FilterRow: View {
     let filter: ImportedFilter
     let index: Int
     var compact = false
+    let move: (Int) -> Void
     private var number: Int { index + 1 }
     private var currentFilter: ImportedFilter {
         guard let filters = model.profile.filters, filters.indices.contains(index) else { return filter }
@@ -282,10 +298,14 @@ private struct FilterRow: View {
                         .disabled(!model.running || model.bypass)
                 }
                 Divider()
+                Button("Move up") { move(-1) }.disabled(index == 0)
+                Button("Move down") { move(1) }.disabled(index >= (model.profile.filters?.count ?? 0) - 1)
+                Divider()
                 Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.slots ?? 0) + currentFilter.slots > Profile.maxFilters)
                 Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.disabled(model.profile.filters?.count == 1)
             } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 22)
                 .accessibilityLabel("Filter \(number) actions")
+                .help("Solo, reorder, duplicate, or delete this filter. Reordering ends Solo and can change mixed left/right and mid/side processing.")
         }.auralPadding(.horizontal, 10).auralFrame(height: compact ? 78 : 39)
             .background(index.isMultiple(of: 2) ? Color.clear : AuralStyle.elevated.opacity(0.32))
             .accessibilityElement(children: .contain).accessibilityLabel("Filter \(number)")

@@ -111,15 +111,10 @@ struct PresetSelection: View {
             PresetDeletionMenuItems(model: model, submissions: submissions)
         } label: {
             Text(model.selectedPresetName ?? "Custom EQ")
-                .auralFont(size: 13, weight: .medium).lineLimit(1)
+                .auralFont(size: 23, weight: .bold, design: .rounded).lineLimit(1)
         }
-        .menuStyle(.borderlessButton)
-        .tint(.primary)
-        .auralPadding(.horizontal, 10)
+        .auralMenuButton(.large)
         .auralFrame(minWidth: 200, idealWidth: 300, maxWidth: 360)
-        .auralFrame(height: 34)
-        .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 5))
-        .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(AuralStyle.secondary.opacity(0.4)).allowsHitTesting(false))
         .accessibilityLabel("Preset")
         .accessibilityValue(model.currentPresetTitle)
         .help("\(model.currentPresetTitle)\nChoose a preset, or manage your preset library")

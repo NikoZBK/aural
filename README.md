@@ -7,21 +7,13 @@
   <a href="https://github.com/NikoZBK/aural/releases/latest"><b>Download</b></a> · macOS 14.2 or later · Apple silicon and Intel
 </p>
 
-![Aural in Dark theme with the EQ curve and the selected filter's frequency, gain, and Q controls below it](docs/screenshots/workspace.png)
+![Aural in Dark theme with Liquid Glass controls, a teal EQ curve, and all filter rows in a side panel](docs/design/desktop/dark-side-panel.png)
 
-**Faders.** Adjust gain at each filter's own frequency.
+**Light theme.** The same workspace with pale glass, a teal response curve, and exact filter controls.
 
-![Aural in Dark theme with ten gain faders below the EQ curve](docs/screenshots/faders.png)
+![Aural in Light theme with the selected filter inspector beside the EQ curve](docs/design/desktop/light-side-panel.png)
 
-**Side panel.** See every filter row next to a taller curve.
-
-![Aural in Dark theme with all ten filter rows in a panel to the right of the EQ curve](docs/screenshots/side-panel.png)
-
-**Light theme.** The same docked bars and solid surfaces in a fixed light appearance.
-
-![Aural in Light theme with the docked header, EQ curve, selected filter controls, and level bar](docs/screenshots/light.png)
-
-<sub>Aural 1.3 on macOS 27, running a demo preset based on Rock with processing stopped. Dashed purple shows the Harman reference; the solid curve shows EQ gain.</sub>
+<sub>Native desktop previews of the 1.6 design on macOS 27, with processing stopped. Dashed purple shows the Harman reference; the solid curve shows EQ gain.</sub>
 
 ## Install
 
@@ -33,7 +25,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 ## Features
 
 - **Parametric and graphic EQ.** Up to 64 filters on the left, right, or both channels, or on mid or side: peak, shelf (12 or 6 dB/octave), low- and high-pass (6 to 48 dB/octave, Butterworth or Linkwitz-Riley), band-pass, notch, and all-pass, each with the same shape at every sample rate. Ten- and 31-band layouts; each ten-band slider sets the exact level at its frequency.
-- **Edit on the curve.** Drag numbered points, type exact values, or use faders. A/B comparison and 100 steps of undo.
+- **Edit on the curve.** Drag numbered points, type exact values, or use faders. Reorder filters from their action menus. A/B comparison and 100 steps of undo.
 - **Fair comparisons.** Optional level matching plays Bypass and both A/B versions at the same estimated loudness.
 - **AutoEQ built in.** Search the online headphone catalog, preview a correction, and import it. You can also paste or import Equalizer APO text.
 - **Stereo and delay.** Balance, width, crossfeed, mono, polarity, a left/right swap, and up to 30 ms of delay.
@@ -42,7 +34,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 - **Loudness compensation.** Optional ISO 226 compensation keeps bass and treble full as you turn the volume down.
 - **Presets.** A searchable library with favorites, curve previews, and backups. Each output remembers its own preset.
 - **Follows your Mac.** Optionally switches with the macOS sound output. EQ resumes after sleep, a disconnect, or a sample-rate change.
-- **At home on macOS.** System, Light, and Dark themes with one fixed instrument color. Menu bar controls, interface zoom, and keyboard shortcuts.
+- **At home on macOS.** System, Light, and Dark themes, native Liquid Glass where supported, and readable accessibility fallbacks. Move the filter panel beside the graph. Menu bar controls, interface zoom, and keyboard shortcuts.
 
 ## Privacy
 
@@ -53,7 +45,7 @@ Audio is processed in memory on your Mac. Aural collects no telemetry and upload
 - [User guide](docs/USER-GUIDE.md): every control, file format, limitation, and build step
 - [Feature comparison](docs/PEACE-FEATURE-ROADMAP.md) with Peace and Equalizer APO
 - [Install, update, and removal](docs/INSTALL.txt)
-- [Release notes for 1.5.1](docs/RELEASE-1.5.1.md) and [earlier versions](docs/USER-GUIDE.md#release-notes)
+- [Release notes for 1.6.0](docs/RELEASE-1.6.0.md) and [earlier versions](docs/USER-GUIDE.md#release-notes)
 
 To build from source, run `bash scripts/test.sh && bash scripts/build.sh` with Command Line Tools or Xcode and the macOS 26 SDK or later.
 

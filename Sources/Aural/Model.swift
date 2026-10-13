@@ -342,7 +342,7 @@ import ServiceManagement
     }
     /// Plays only the part of the spectrum one band acts on (Profile.soloFilter), or the
     /// whole EQ again with nil. Solo needs running EQ without Bypass. It follows edits to
-    /// its band; Stop, Bypass, and adding or removing bands end it.
+    /// its band; Stop, Bypass, and adding, removing, or reordering bands end it.
     func setSolo(_ band: Int?) {
         guard band != soloBand else { return }
         if let band {
@@ -361,9 +361,21 @@ import ServiceManagement
     }
     /// The solo after an edit: kept while the band layout stays the same.
     private func soloKept(after next: Profile) -> Int? {
+        guard let soloBand else { return nil }
         let current = committedProfile.profile
         guard (next.filters == nil) == (current.filters == nil),
               (next.filters?.count ?? next.gains.count) == (current.filters?.count ?? current.gains.count) else { return nil }
+        // A permutation changes the meaning of a row index, including on Undo,
+        // Redo, draft application, and A/B. Do not silently solo a different band.
+        // Ordinary parameter edits keep their solo. Remove matches individually
+        // so identical duplicated filters are counted correctly.
+        if let before = current.filters, var remaining = next.filters, before != remaining {
+            for filter in before {
+                guard let index = remaining.firstIndex(of: filter) else { return soloBand }
+                remaining.remove(at: index)
+            }
+            return nil
+        }
         return soloBand
     }
     /// Level matching depends on the playing version and, while comparing, the
@@ -626,6 +638,15 @@ import ServiceManagement
     }
     func duplicateFilter(at index: Int) {
         editProfile("Duplicate filter") { try ProfileTools.duplicateFilter($0, at: index) }
+    }
+    /// Returns whether the live edit was accepted, including when saving fails.
+    /// The visible save error remains; the inspector must follow the accepted edit.
+    @discardableResult func moveFilter(at index: Int, by offset: Int) -> Bool {
+        do {
+            let next = try ProfileTools.moveFilter(profile, at: index, by: offset)
+            _ = commitProfile(ProfileSnapshot(profile: next, selectedPresetName: selectedPresetName), label: "Move filter")
+            return profile == next
+        } catch { self.error = error.localizedDescription; return false }
     }
     func deleteFilter(at index: Int) {
         editProfile("Delete filter") { try ProfileTools.deleteFilter($0, at: index) }

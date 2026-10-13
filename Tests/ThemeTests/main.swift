@@ -204,6 +204,7 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         try checkPresetDeletion()
         try checkOutputFollowingAndLevelMatching()
         try checkBandSolo()
+        try checkFilterReordering()
         try checkHistoryShortcuts()
         try checkInterfaceZoom()
         checkMeterZoom()

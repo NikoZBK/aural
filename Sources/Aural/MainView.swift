@@ -50,13 +50,13 @@ struct MainView: View {
         GeometryReader { geometry in
             let logicalWidth = geometry.size.width / model.interfaceZoom.scale
             VStack(spacing: 0) {
-                // Docked bars frame the workspace, like a mixing console's header and transport.
-                header(compact: logicalWidth < 820).background(AuralStyle.surface)
-                Divider()
+                header(compact: logicalWidth < 820)
+                    .background { AuralChromeBackground() }
+                    .auralPadding(.horizontal, 12).auralPadding(.top, 8)
                 workspace(compact: logicalWidth < 720).auralFrame(maxWidth: .infinity, maxHeight: .infinity)
-                Divider()
-                // A wide bar holds preamp, tilt, loudness, level, and protection on one row.
-                footer(compact: logicalWidth < 960).background(AuralStyle.surface)
+                footer(compact: logicalWidth < 960)
+                    .background { AuralChromeBackground() }
+                    .auralPadding(.horizontal, 12).auralPadding(.bottom, 8)
             }
         }
         .auralZoom(model)
@@ -79,7 +79,7 @@ struct MainView: View {
             HStack(spacing: 18 * interfaceScale) {
                 HStack(spacing: 8 * interfaceScale) {
                     if let image = icon.image { Image(nsImage: image).resizable().auralFrame(width: 28, height: 28).accessibilityHidden(true) }
-                    Text("Aural").auralFont(size: 15, weight: .semibold)
+                    Text("Aural").auralFont(size: 18, weight: .bold, design: .rounded)
                 }.fixedSize()
                 Divider().auralFrame(height: 28)
                 OutputSelection(model: model, submissions: submissions, compact: true)
@@ -150,7 +150,7 @@ struct MainView: View {
                         let presetLayout = compact ? AnyLayout(HStackLayout(spacing: 12 * interfaceScale)) : AnyLayout(VStackLayout(alignment: .leading, spacing: 8 * interfaceScale))
                         presetLayout {
                             HStack(spacing: 8 * interfaceScale) {
-                                AuralSectionLabel(title: "Preset")
+                                AuralSectionLabel(title: "YOUR SOUND")
                                 if !compact {
                                     Text("· \(model.profile.filters?.count ?? model.profile.gains.count) filters · \(model.profile.stereoSettings == StereoSettings() ? "Stereo neutral" : "Stereo adjusted")")
                                         .auralFont(size: 11).foregroundStyle(AuralStyle.secondary).lineLimit(1)
@@ -176,7 +176,7 @@ struct MainView: View {
                                   selectBand: selectBand, beginDrag: beginCurveDrag, changeDrag: changeCurveDrag, endDrag: endCurveDrag,
                                   minimumPlotHeight: 132)
                         .equatable().frame(maxHeight: .infinity)
-                        .auralWorkspaceSurface()
+                        .auralWorkspaceSurface(emphasized: true)
                         // Above the controls, so an inspector arriving before the curve
                         // settles is uncovered by it rather than drawn across it.
                         .zIndex(1)
@@ -224,7 +224,7 @@ struct MainView: View {
                         let height = sidePanel ? max(230, inspector.size.height / model.interfaceZoom.scale) : inspectorHeight
                         ScrollView {
                             ZStack(alignment: .topLeading) {
-                                FilterRack(model: model, submissions: submissions, selectedBand: Binding(get: { selectedBand }, set: selectBand), display: $filterDisplay,
+                                FilterRack(model: model, submissions: submissions, selectedBand: $selectedBand, display: $filterDisplay,
                                            expanded: sidePanel, compactRows: inspector.size.width / model.interfaceZoom.scale < 520)
                                     .auralFrame(height: sidePanel ? height : (filterDisplay == .selected ? 146 : 206))
                                     .opacity(detailsShown && page == .equalizer ? 1 : 0)
@@ -254,7 +254,7 @@ struct MainView: View {
                     inspectorFaded = !targetPlacement.visible
                 }
                 .onChange(of: targetPlacement) { _, target in movePlacement(to: target) }
-        }.background(AuralStyle.background)
+        }
     }
 
     private func workspaceActions(compact: Bool) -> some View {
@@ -262,8 +262,8 @@ struct MainView: View {
         return layout {
             HStack(spacing: 12 * interfaceScale) {
                 Button { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } } label: {
-                    Label("AutoEQ", systemImage: "headphones")
-                }.buttonStyle(.plain).auralFont(size: 12)
+                    Label("AutoEQ", systemImage: "headphones").foregroundStyle(AuralStyle.violet)
+                }.buttonStyle(AuralButtonStyle())
                     .help("Search online headphone correction profiles")
                 EQFileMenu(model: model, submissions: submissions)
                 eqOptions

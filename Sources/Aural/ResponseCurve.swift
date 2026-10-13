@@ -70,6 +70,7 @@ private struct InteractiveResponseCurve: View {
     @State private var holdLiveInput = false
     @State private var inputClock = InputClock()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var harmanTarget: HarmanTarget { chosenHarmanTarget ?? HarmanTarget.suggested(for: profile) }
     private var reference: HarmanReference? { showHarman && harmanReference?.target == harmanTarget ? harmanReference : nil }
@@ -224,7 +225,7 @@ private struct InteractiveResponseCurve: View {
                         let drawing = ResponsePlotDrawing(analysis: analysis, scale: scale, profile: profile,
                                                           rate: rate, bypass: bypass, channel: channel,
                                                           showFilters: showFilters, hoverFraction: hoverFraction ?? inspection.fraction, highContrast: contrast == .increased,
-                                                          referenceSamples: referenceSamples)
+                                                          referenceSamples: referenceSamples, reduceTransparency: reduceTransparency)
                         ZStack(alignment: .topLeading) {
                             ResponseCanvas(drawing: drawing)
                             .onContinuousHover { phase in
@@ -492,6 +493,7 @@ private struct ResponsePlotDrawing {
     let hoverFraction: Double?
     let highContrast: Bool
     let referenceSamples: [HarmanReference.Sample]
+    let reduceTransparency: Bool
 
     private var color: Color { bypass ? AuralStyle.secondary : AuralStyle.accent }
     private var maximumFrequency: Double { analysis.maximumFrequency }
@@ -601,9 +603,18 @@ private struct ResponsePlotDrawing {
             fill.addLine(to: CGPoint(x: right, y: y(0)))
             fill.addLine(to: CGPoint(x: left, y: y(0)))
             fill.closeSubpath()
-            context.fill(fill, with: .color(traceColor.opacity(0.045)))
+            let secondLane = isSecondLane(channel)
+            if !highContrast && !reduceTransparency {
+                context.fill(fill, with: .linearGradient(Gradient(colors: [traceColor.opacity(0.18), traceColor.opacity(0.025)]),
+                                                        startPoint: CGPoint(x: left, y: top), endPoint: CGPoint(x: left, y: bottom)))
+                // Keep the second lane dotted; a solid halo would obscure its identity.
+                if !secondLane {
+                    context.stroke(combined, with: .color(traceColor.opacity(0.07)), style: StrokeStyle(lineWidth: 12, lineCap: .round, lineJoin: .round))
+                    context.stroke(combined, with: .color(traceColor.opacity(0.13)), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+                }
+            }
             context.stroke(combined, with: .color(traceColor),
-                           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: isSecondLane(channel) ? [2, 3] : []))
+                           style: StrokeStyle(lineWidth: secondLane ? 2 : 3, lineCap: .round, lineJoin: .round, dash: secondLane ? [2, 3] : []))
         }
 
         if let hoverFraction {

@@ -2,7 +2,9 @@
 
 Checked October 2, 2026 against the official [Peace feature list](https://sourceforge.net/projects/peace-equalizer-apo-extension/), [Peace feature FAQ](https://sourceforge.net/p/peace-equalizer-apo-extension/wiki/Features%20FAQ/), and [Equalizer APO configuration reference](https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/). The tables below show what Aural supports and what still needs work. Aural does not support every APO feature or command.
 
-## Available in Aural 1.0.0
+## Available in the current macOS source
+
+Local feature audit: October 13, 2026. This inventory describes the source tree, including unreleased work; the external comparison above retains its original check date.
 
 | Feature | What Aural provides |
 | --- | --- |
@@ -10,7 +12,7 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 | Channel-specific EQ | Every filter targets stereo, left, right, mid, or side; curves and processing follow those targets. Mid/Side filters run in list order between automatic left/right ↔ mid/side conversions, as with Equalizer APO's `Copy` routing. 64 filters total across the stereo chain, so separate left and right corrections can each use up to 32 (or any split). |
 | Exact control | Edit frequency, gain, Q, type, and enabled state directly in the main window. The filter editor lets you preview a draft before applying it. |
 | Tilt | A ±6 dB tilt around 1 kHz, from a pair of 6 dB/octave shelves after the filters. It is saved with the EQ and does not count toward the 64 filters. Equalizer APO text cannot carry it, so export asks for 0 dB. |
-| Editing tools | Undo/redo, duplicate/delete/add, gain offset, gain scaling/inversion, frequency shifting, and band solo, which plays only the part of the spectrum one band acts on. The draft editor also lets you reorder filters. |
+| Editing tools | Undo/redo, duplicate/delete/add, gain offset, gain scaling/inversion, frequency shifting, and band solo, which plays only the part of the spectrum one band acts on. Move up/down is available in each main-window filter's actions menu and in the draft editor. Main-window moves submit pending numeric input, preserve exact metadata, and create a separate undo step. Changed filter order ends solo rather than silently changing the soloed band. |
 | Comparison | Edit and compare two A/B versions, including their stereo settings and preset names. Their curves appear together when they differ. Optional level matching plays Bypass and the louder version at the same K-weighted loudness estimate. A/B settings reset when changing output or quitting. |
 | EQ curves | Separate left/right curves calculated from the actual filters, individual filter curves, frequency inspection, an automatically scaled dB range, and estimated headroom. This shows how EQ changes the sound, not a live FFT analysis of the music. |
 | Stereo effects | Left/right trims, balance, width, normalized low-frequency crossfeed, mono sum, polarity inversion, left/right swap, and fractional channel delay. Defaults preserve the previous audio path. |
@@ -25,13 +27,13 @@ Checked October 2, 2026 against the official [Peace feature list](https://source
 
 Peaking, Q-based and first-order (6 dB/octave) low/high shelf, low/high pass (12 dB/octave with Q, or 6–48 dB/octave Butterworth and 24–48 dB/octave Linkwitz-Riley sections, each taking one of the 64 filter slots), band-pass, notch, and all-pass filters are implemented. Live control updates use prepared coefficients and preallocated chains. Audio callbacks allocate no memory, acquire no locks, perform no file I/O, and make no Swift/UI calls. Channel/stereo additions preserve default output and complete bypass semantics; peak protection follows its saved On/Off switch during bypass.
 
-## Added in Aural 1.1
+## Current workspace and appearance
 
-- System, Light, and Dark themes are saved across launches and applied to all windows, graphs, menus, and native file panels. Every theme uses the macOS accent color. The original dark appearance remains the default.
-- Liquid Glass is an optional, separately saved interface style on macOS 26 or later, using Apple's native material for controls and window chrome. Standard remains the default, with solid surfaces for content, older macOS, Reduce Transparency, and Increase Contrast.
-- Simple and Professional share gain bars at the current EQ's actual frequencies. Imported filter metadata stays intact; Reset EQ resets gains and preamp with one-step Undo.
-- Both mode panels prepare at startup. Response analysis and login-status checks use workers, and metering updates are isolated from the main model.
-- Native dividers resize panes in both modes and the preset library. Simple adds everyday EQ, output, and stereo controls; responsive layouts keep them reachable.
+- System, Light, and Dark themes are saved across launches and applied to windows, graphs, menus, and native file panels. Teal controls, violet accents, rounded typography, and the ambient background match the iOS design.
+- Liquid Glass is the default on macOS 26 or later, using Apple's native material for window chrome. There is no separate glass toggle. Content stays readable, with opaque fallbacks for older macOS, Reduce Transparency, and Increase Contrast.
+- One workspace exposes Selected, All rows, and Faders views at the current EQ's actual frequencies. Details can sit below the graph or to its right; the graph gives up width to the side panel. Numeric controls and stereo/delay controls remain available in both placements.
+- Native filter editors are retained across view changes. Response analysis and login-status checks use workers, and metering updates are isolated from the main model.
+- Imported metadata stays intact; Reset EQ resets gains, tilt, and preamp with one-step Undo. Exact Q, frequency, channel, type/slope, enabled state, A/B, level matching, Auto preamp, loudness, and peak protection remain reachable after the visual refresh.
 
 ## Online AutoEQ search
 

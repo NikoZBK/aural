@@ -119,13 +119,9 @@ struct AutoEQBrowserView: View {
 
     private var header: some View {
         HStack(spacing: 14 * interfaceScale) {
-            Image(systemName: "headphones")
-                .auralFont(size: 23, weight: .medium).foregroundStyle(AuralStyle.secondary)
-                .auralFrame(width: 48, height: 48)
-                .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 6))
-                .accessibilityHidden(true)
+            AuralSymbolBadge(systemImage: "headphones")
             VStack(alignment: .leading, spacing: 4 * interfaceScale) {
-                Text("AutoEQ profiles").auralFont(size: 23, weight: .semibold)
+                Text("AutoEQ profiles").auralFont(size: 26, weight: .bold, design: .rounded)
                 Text("Find your headphones, preview the correction, and import a preset.")
                     .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)
             }
