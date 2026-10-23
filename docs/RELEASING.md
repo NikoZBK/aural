@@ -45,6 +45,7 @@ Automatic checking uses Sparkle's permission prompt; automatic downloads are off
 - Run `scripts/verify-update.sh` to verify the bundled public key, feed and archive signatures, version/URL/length metadata, and rejection of a tampered archive.
 - Mount the final DMG, verify the bundled app matches the ZIP and inspect installation instructions. Check `SHA256SUMS.txt`.
 - Exercise the Sparkle update flow from an older updater-enabled build to the candidate: check, download, signature verification, install, relaunch, and settings preservation. Test cancellation and unavailable-feed behavior. Cross-compilation is not physical Intel runtime coverage.
+- Use an identity-matched Aural bundle for updater validation. The performance preview has a separate bundle identifier and settings store; its update window links to releases instead of invoking Sparkle. A production archive cannot replace that preview, and Sparkle reports the mismatch as an improperly signed update even when both Ed25519 signatures are valid. Test installation against a disposable copy of the normal app, retaining its bundle identity and signature.
 - Tag the verified commit. Prepare a draft GitHub Release with DMG, ZIP, checksums, and `appcast.xml`; verify remote asset digests before publishing.
 - Download public assets anonymously and verify hashes. Confirm the stable feed URL and every enclosure URL work. Versions before 1.3 still use the GitHub release parser and require one manual installation.
 

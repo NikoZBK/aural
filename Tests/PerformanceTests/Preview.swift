@@ -22,10 +22,23 @@ struct PerformancePreview: App {
         Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: delegate.model).auralZoom(delegate.model) }
             .defaultSize(width: 780, height: 620).windowResizability(.contentMinSize)
         Window("About Aural", id: "about") { AboutView(model: delegate.model, icon: delegate.icon).auralZoom(delegate.model) }
-        Window("Software updates", id: "updates") { UpdatesView(model: delegate.model).auralZoom(delegate.model) }
+        Window("Software updates", id: "updates") { PreviewUpdatesView().auralZoom(delegate.model).auralAppearance(delegate.model.theme) }
         Window("Keyboard shortcuts", id: "shortcuts") {
             KeyboardShortcutsView(model: delegate.model).auralZoom(delegate.model)
         }.defaultSize(width: 540, height: 600).windowResizability(.contentMinSize)
+    }
+}
+
+/// This fixture deliberately has a different bundle identity and settings store.
+/// A production archive cannot replace it through Sparkle's normal update flow.
+private struct PreviewUpdatesView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Development preview").font(.title2.weight(.semibold))
+            Text("This preview uses separate settings and cannot install updates for the regular Aural app. Download the release, or open your installed Aural app and choose Check for Updates.")
+                .fixedSize(horizontal: false, vertical: true)
+            Link("Download Aural", destination: UpdateChecker.releasesURL)
+        }.auralPadding(22).auralFrame(width: 530)
     }
 }
 @MainActor final class PreviewDelegate: NSObject, NSApplicationDelegate {
