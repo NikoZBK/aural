@@ -17,6 +17,11 @@ struct PrecisionInput {
         self.revision = revision
     }
     mutating func edit(_ text: String) { self.text = text; edited = true }
+    /// Unchanged controls may retain their display across unrelated EQ edits.
+    /// Capture the live revision before typing, while preserving an existing draft.
+    mutating func beginEditing(revision: Int) {
+        if !edited { self.revision = revision }
+    }
     mutating func accept() { edited = false }
     func submission(in range: ClosedRange<Double>, revision: Int) -> Submission {
         guard edited else { return .unchanged }

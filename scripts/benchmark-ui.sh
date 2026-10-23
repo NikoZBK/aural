@@ -13,4 +13,8 @@ xcrun swiftc -O -whole-module-optimization -parse-as-library -D AURAL_TESTING "$
     -framework CoreAudio -framework AppKit -o "$BENCH_STAGE/benchmark"
 cp "$BENCH_STAGE/benchmark" .build/ui-benchmark
 cp -R Sources/Aural/Resources/Targets "$BENCH_STAGE/Targets"
-"$BENCH_STAGE/benchmark" --benchmark-ui
+if (( $# )); then
+    "$BENCH_STAGE/benchmark" "$@"
+else
+    "$BENCH_STAGE/benchmark" --benchmark-ui
+fi

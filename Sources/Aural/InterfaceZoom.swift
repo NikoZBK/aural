@@ -1,5 +1,18 @@
 import SwiftUI
 
+/// These containers place their own children and align as a complete frame.
+/// They don't export descendant alignment guides. The Layout defaults otherwise
+/// walk and merge every descendant guide, including retained native editors.
+protocol AuralContainerLayout: Layout { }
+
+extension AuralContainerLayout {
+    func explicitAlignment(of guide: HorizontalAlignment, in bounds: CGRect, proposal: ProposedViewSize,
+                           subviews: Subviews, cache: inout Cache) -> CGFloat? { nil }
+
+    func explicitAlignment(of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize,
+                           subviews: Subviews, cache: inout Cache) -> CGFloat? { nil }
+}
+
 enum InterfaceZoomShortcut {
     case increase, decrease, reset
 
@@ -27,7 +40,7 @@ enum InterfaceZoomShortcut {
 /// Reserve the transformed size in layout instead of painting larger controls
 /// over their neighbours. Flexible content receives the remaining logical space,
 /// so the workspace's graph shrinks as text, controls, and their hit targets grow.
-struct InterfaceZoomLayout: Layout {
+struct InterfaceZoomLayout: AuralContainerLayout {
     let scale: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

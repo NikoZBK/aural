@@ -1,0 +1,951 @@
+{
+  "DSPStress": {
+    "allMeasuredCallsWithinBudget": false,
+    "bufferBudgetMicroseconds": 333.3333333333333,
+    "filters": 80,
+    "frames": 64,
+    "hardwareRouteTested": false,
+    "maximumMicroseconds": 335.0,
+    "meanMicroseconds": 53.58,
+    "p99Microseconds": 105.0,
+    "repeatedTransitions": true,
+    "sampleRate": 192000
+  },
+  "baselineMeasurements": [
+    {
+      "maximumMS": 512.3288333415985,
+      "medianMS": 512.3288333415985,
+      "name": "construct.10",
+      "p95MS": 512.3288333415985,
+      "samples": 1
+    },
+    {
+      "maximumMS": 27.025083341868594,
+      "medianMS": 21.481333329575136,
+      "name": "edit.Faders.10",
+      "p95MS": 23.65474999533035,
+      "samples": 40
+    },
+    {
+      "maximumMS": 25.24158332380466,
+      "medianMS": 20.87504166411236,
+      "name": "edit.All rows.10",
+      "p95MS": 25.04008333198726,
+      "samples": 40
+    },
+    {
+      "maximumMS": 38.75366668216884,
+      "medianMS": 22.067791665904224,
+      "name": "edit.Selected.10",
+      "p95MS": 28.371125023113564,
+      "samples": 40
+    },
+    {
+      "maximumMS": 63.33316664677113,
+      "medianMS": 45.6619166652672,
+      "name": "view-switch.10",
+      "p95MS": 53.468458325369284,
+      "samples": 6
+    },
+    {
+      "maximumMS": 90.26870832894929,
+      "medianMS": 82.26695831399411,
+      "name": "resize.10",
+      "p95MS": 82.26695831399411,
+      "samples": 3
+    },
+    {
+      "maximumMS": 30.623250000644475,
+      "medianMS": 24.241750012151897,
+      "name": "bypass.10",
+      "p95MS": 27.78641667100601,
+      "samples": 12
+    },
+    {
+      "maximumMS": 30.01149999909103,
+      "medianMS": 25.508833321509883,
+      "name": "match-level-edit.10",
+      "p95MS": 28.24958332348615,
+      "samples": 20
+    },
+    {
+      "maximumMS": 315.6523749930784,
+      "medianMS": 315.6523749930784,
+      "name": "construct.31",
+      "p95MS": 315.6523749930784,
+      "samples": 1
+    },
+    {
+      "maximumMS": 109.29966665571555,
+      "medianMS": 36.08429167070426,
+      "name": "edit.Faders.31",
+      "p95MS": 95.28241667430848,
+      "samples": 40
+    },
+    {
+      "maximumMS": 160.54933331906796,
+      "medianMS": 53.351791691966355,
+      "name": "edit.All rows.31",
+      "p95MS": 136.36900001438335,
+      "samples": 40
+    },
+    {
+      "maximumMS": 60.907458333531395,
+      "medianMS": 43.977916677249596,
+      "name": "edit.Selected.31",
+      "p95MS": 51.70475001796149,
+      "samples": 40
+    },
+    {
+      "maximumMS": 116.19183333823457,
+      "medianMS": 91.34929164429195,
+      "name": "view-switch.31",
+      "p95MS": 101.17041665944271,
+      "samples": 6
+    },
+    {
+      "maximumMS": 70.44637500075623,
+      "medianMS": 67.70395833882503,
+      "name": "resize.31",
+      "p95MS": 67.70395833882503,
+      "samples": 3
+    },
+    {
+      "maximumMS": 52.955458348151296,
+      "medianMS": 51.02745833573863,
+      "name": "bypass.31",
+      "p95MS": 51.80420834221877,
+      "samples": 12
+    },
+    {
+      "maximumMS": 50.23274998529814,
+      "medianMS": 42.9767083551269,
+      "name": "match-level-edit.31",
+      "p95MS": 48.66158330696635,
+      "samples": 20
+    },
+    {
+      "maximumMS": 493.2166666549165,
+      "medianMS": 493.2166666549165,
+      "name": "construct.64",
+      "p95MS": 493.2166666549165,
+      "samples": 1
+    },
+    {
+      "maximumMS": 119.04275001143105,
+      "medianMS": 77.85987498937175,
+      "name": "edit.Faders.64",
+      "p95MS": 114.70733332680538,
+      "samples": 40
+    },
+    {
+      "maximumMS": 145.0643749849405,
+      "medianMS": 86.90799999749288,
+      "name": "edit.All rows.64",
+      "p95MS": 113.60187499667518,
+      "samples": 40
+    },
+    {
+      "maximumMS": 91.13058331422508,
+      "medianMS": 76.64291668334045,
+      "name": "edit.Selected.64",
+      "p95MS": 87.79287501238286,
+      "samples": 40
+    },
+    {
+      "maximumMS": 195.22787499590777,
+      "medianMS": 176.7599166778382,
+      "name": "view-switch.64",
+      "p95MS": 193.6290833109524,
+      "samples": 6
+    },
+    {
+      "maximumMS": 98.37541668093763,
+      "medianMS": 79.50970833189785,
+      "name": "resize.64",
+      "p95MS": 79.50970833189785,
+      "samples": 3
+    },
+    {
+      "maximumMS": 79.21650001662783,
+      "medianMS": 74.2644999991171,
+      "name": "bypass.64",
+      "p95MS": 79.21250001527369,
+      "samples": 12
+    },
+    {
+      "maximumMS": 89.83162502408959,
+      "medianMS": 78.09520832961425,
+      "name": "match-level-edit.64",
+      "p95MS": 88.04283334757201,
+      "samples": 20
+    },
+    {
+      "maximumMS": 15.762041643029079,
+      "medianMS": 9.759875014424324,
+      "name": "catalog-search.15000",
+      "p95MS": 9.793958335649222,
+      "samples": 5
+    }
+  ],
+  "cachedReferenceMeasurements": [
+    {
+      "maximumMS": 536.6520833340473,
+      "medianMS": 536.6520833340473,
+      "name": "construct.10",
+      "p95MS": 536.6520833340473,
+      "samples": 1
+    },
+    {
+      "maximumMS": 17.164333345135674,
+      "medianMS": 11.563125008251518,
+      "name": "edit.Faders.10",
+      "p95MS": 12.631749996216968,
+      "samples": 40
+    },
+    {
+      "maximumMS": 32.288124988554046,
+      "medianMS": 11.659083334961906,
+      "name": "edit.All rows.10",
+      "p95MS": 13.748458324698731,
+      "samples": 40
+    },
+    {
+      "maximumMS": 26.830791641259566,
+      "medianMS": 11.792083329055458,
+      "name": "edit.Selected.10",
+      "p95MS": 25.08241665782407,
+      "samples": 40
+    },
+    {
+      "maximumMS": 43.146500014699996,
+      "medianMS": 36.6329999815207,
+      "name": "view-switch.10",
+      "p95MS": 43.146500014699996,
+      "samples": 6
+    },
+    {
+      "maximumMS": 48.62020834116265,
+      "medianMS": 47.413833322934806,
+      "name": "resize.10",
+      "p95MS": 48.62020834116265,
+      "samples": 3
+    },
+    {
+      "maximumMS": 9.599541692296043,
+      "medianMS": 8.165750012267381,
+      "name": "bypass.10",
+      "p95MS": 9.599541692296043,
+      "samples": 12
+    },
+    {
+      "maximumMS": 13.801666646031663,
+      "medianMS": 11.608041677391157,
+      "name": "match-level-edit.10",
+      "p95MS": 12.013791681965813,
+      "samples": 20
+    },
+    {
+      "maximumMS": 12.853041669586673,
+      "medianMS": 9.143083356320858,
+      "name": "edit.compact-side-140.10",
+      "p95MS": 12.1004166721832,
+      "samples": 20
+    },
+    {
+      "maximumMS": 365.93991666450165,
+      "medianMS": 365.93991666450165,
+      "name": "construct.31",
+      "p95MS": 365.93991666450165,
+      "samples": 1
+    },
+    {
+      "maximumMS": 22.830250003607944,
+      "medianMS": 19.524541683495045,
+      "name": "edit.Faders.31",
+      "p95MS": 22.447958326665685,
+      "samples": 40
+    },
+    {
+      "maximumMS": 31.627208343707025,
+      "medianMS": 19.47279166779481,
+      "name": "edit.All rows.31",
+      "p95MS": 29.13891666685231,
+      "samples": 40
+    },
+    {
+      "maximumMS": 62.15737498132512,
+      "medianMS": 20.43441665591672,
+      "name": "edit.Selected.31",
+      "p95MS": 35.63441667938605,
+      "samples": 40
+    },
+    {
+      "maximumMS": 70.77487499918789,
+      "medianMS": 54.36458333861083,
+      "name": "view-switch.31",
+      "p95MS": 70.77487499918789,
+      "samples": 6
+    },
+    {
+      "maximumMS": 54.163583321496844,
+      "medianMS": 47.80391667736694,
+      "name": "resize.31",
+      "p95MS": 54.163583321496844,
+      "samples": 3
+    },
+    {
+      "maximumMS": 12.375166668789461,
+      "medianMS": 10.885333322221413,
+      "name": "bypass.31",
+      "p95MS": 12.375166668789461,
+      "samples": 12
+    },
+    {
+      "maximumMS": 25.34516667947173,
+      "medianMS": 19.80833333800547,
+      "name": "match-level-edit.31",
+      "p95MS": 22.95687500736676,
+      "samples": 20
+    },
+    {
+      "maximumMS": 20.66099998774007,
+      "medianMS": 15.144333330681548,
+      "name": "edit.compact-side-140.31",
+      "p95MS": 18.00116666709073,
+      "samples": 20
+    },
+    {
+      "maximumMS": 551.0716666467488,
+      "medianMS": 551.0716666467488,
+      "name": "construct.64",
+      "p95MS": 551.0716666467488,
+      "samples": 1
+    },
+    {
+      "maximumMS": 46.07050001504831,
+      "medianMS": 34.678249998250976,
+      "name": "edit.Faders.64",
+      "p95MS": 43.87687498820014,
+      "samples": 40
+    },
+    {
+      "maximumMS": 56.61208331002854,
+      "medianMS": 36.44608333706856,
+      "name": "edit.All rows.64",
+      "p95MS": 55.332583317067474,
+      "samples": 40
+    },
+    {
+      "maximumMS": 48.34941666922532,
+      "medianMS": 35.40041667292826,
+      "name": "edit.Selected.64",
+      "p95MS": 48.0694166617468,
+      "samples": 40
+    },
+    {
+      "maximumMS": 148.1563333363738,
+      "medianMS": 105.5917083285749,
+      "name": "view-switch.64",
+      "p95MS": 148.1563333363738,
+      "samples": 6
+    },
+    {
+      "maximumMS": 102.42354168440215,
+      "medianMS": 96.1174166877754,
+      "name": "resize.64",
+      "p95MS": 102.42354168440215,
+      "samples": 3
+    },
+    {
+      "maximumMS": 24.534291675081477,
+      "medianMS": 19.323374988744035,
+      "name": "bypass.64",
+      "p95MS": 24.534291675081477,
+      "samples": 12
+    },
+    {
+      "maximumMS": 35.98079166840762,
+      "medianMS": 33.4688333387021,
+      "name": "match-level-edit.64",
+      "p95MS": 35.54754165816121,
+      "samples": 20
+    },
+    {
+      "maximumMS": 43.22654166026041,
+      "medianMS": 30.760291672777385,
+      "name": "edit.compact-side-140.64",
+      "p95MS": 42.30645834468305,
+      "samples": 20
+    },
+    {
+      "maximumMS": 17.072333313990384,
+      "medianMS": 11.129124992294237,
+      "name": "catalog-search.15000",
+      "p95MS": 17.072333313990384,
+      "samples": 5
+    },
+    {
+      "maximumMS": 149.2853749950882,
+      "medianMS": 149.2853749950882,
+      "name": "open.preset-library.1000",
+      "p95MS": 149.2853749950882,
+      "samples": 1
+    },
+    {
+      "maximumMS": 47.685458324849606,
+      "medianMS": 22.546833351952955,
+      "name": "search.preset-library.1000",
+      "p95MS": 47.685458324849606,
+      "samples": 7
+    },
+    {
+      "maximumMS": 27.311625017318875,
+      "medianMS": 13.656625000294298,
+      "name": "edit.with-preset-library.1000",
+      "p95MS": 15.449791681021452,
+      "samples": 20
+    },
+    {
+      "maximumMS": 141.08550001401454,
+      "medianMS": 141.08550001401454,
+      "name": "open.autoeq.15000",
+      "p95MS": 141.08550001401454,
+      "samples": 1
+    },
+    {
+      "maximumMS": 67.47766665648669,
+      "medianMS": 37.8859166521579,
+      "name": "search.autoeq.15000",
+      "p95MS": 67.47766665648669,
+      "samples": 7
+    },
+    {
+      "maximumMS": 22.93779165484011,
+      "medianMS": 14.109166659181938,
+      "name": "edit.with-autoeq.15000",
+      "p95MS": 16.17095831898041,
+      "samples": 20
+    },
+    {
+      "maximumMS": 523.0526666564401,
+      "medianMS": 523.0526666564401,
+      "name": "open.draft-editor.64",
+      "p95MS": 523.0526666564401,
+      "samples": 1
+    },
+    {
+      "maximumMS": 85.97654168261215,
+      "medianMS": 42.367624992039055,
+      "name": "edit.with-draft-editor.64",
+      "p95MS": 69.79458333807997,
+      "samples": 20
+    },
+    {
+      "maximumMS": 198.57995831989683,
+      "medianMS": 198.57995831989683,
+      "name": "open.stereo",
+      "p95MS": 198.57995831989683,
+      "samples": 1
+    },
+    {
+      "maximumMS": 44.81616665725596,
+      "medianMS": 44.81616665725596,
+      "name": "open.settings",
+      "p95MS": 44.81616665725596,
+      "samples": 1
+    }
+  ],
+  "cachedReferenceNote": "Earlier unprofiled cached-source run before only the filtered-total presentation dependency correction. Shared-host observations varied; this is not the final-source certification run.",
+  "date": "2026-10-23",
+  "environment": {
+    "SDK": "macOS 26.5",
+    "Swift": "6.4",
+    "architecture": "arm64",
+    "build": "26A434",
+    "hardwareModel": "Mac15,13",
+    "logicalCPUs": 8,
+    "macOS": "27.0.1",
+    "memoryGiB": 16,
+    "optimization": "swiftc -O -whole-module-optimization, AURAL_TESTING"
+  },
+  "evidenceSHA256": {
+    "aural-audit-cached-after.log": "567ae95ec5903af9834d22f5c9515f34a54ed27e0dace52cbb5d7a004fa5d7f1",
+    "aural-audit-cached-before.log": "60c9e7dc9f7e418b432bd413493e00a9195059535e18cc9f8cbbec03315988ce",
+    "aural-audit-dsp.log": "29b43aa541acd4e674e448e65b5c9c54c86786469c5963d41aec515902f7da89",
+    "aural-audit-final-full-tests.log": "1ff4f1d78d8e0b8abf75d87fb795a0c539b100e40cdb03f8e5ac7e897d107b2f",
+    "aural-audit-final-production.log": "0f0ece919cc01c7f4c684fa5f9aac4ec74779f603b1dca4b3bf7810a9597e7c5",
+    "aural-audit-final.log": "ac04a3966fddce7d99977a25565f1ad5305f996a08bc63faee9049def44993e5"
+  },
+  "hostLoadSnapshot": [
+    {
+      "cpuPercent": 72.5,
+      "process": "plugin-container"
+    },
+    {
+      "cpuPercent": 65.8,
+      "process": "benchmark"
+    },
+    {
+      "cpuPercent": 47.0,
+      "process": "WindowServer"
+    },
+    {
+      "cpuPercent": 31.6,
+      "process": "com.apple.WebKit.GPU"
+    },
+    {
+      "cpuPercent": 25.0,
+      "process": "plugin-container"
+    },
+    {
+      "cpuPercent": 18.3,
+      "process": "fileproviderd"
+    },
+    {
+      "cpuPercent": 17.4,
+      "process": "webstorm"
+    },
+    {
+      "cpuPercent": 13.3,
+      "process": "Python"
+    },
+    {
+      "cpuPercent": 13.1,
+      "process": "Google Chrome for Testing Helper (GPU)"
+    },
+    {
+      "cpuPercent": 12.3,
+      "process": "com.apple.WebKit.WebContent"
+    },
+    {
+      "cpuPercent": 12.0,
+      "process": "Codex (Renderer)"
+    },
+    {
+      "cpuPercent": 11.4,
+      "process": "Google Chrome for Testing Helper (Renderer)"
+    }
+  ],
+  "idleIsolation": {
+    "audioRouteStarted": false,
+    "bandCounts": [
+      10,
+      31,
+      64
+    ],
+    "documentPublicationsPerCase": 0,
+    "meterUpdatesPerCase": 200,
+    "settlingSeconds": 1.1
+  },
+  "limits": [
+    "Intermittent stalls remain in both ordinary and maximum-filter cases; both optimized runs are preserved.",
+    "Cold construction and maximum-size draft opening remain measurable.",
+    "A prior 321 ms table edit outlier did not recur in the subsequent unprofiled cached run; absence of all future stalls is not established.",
+    "Offscreen search forces AppKit layout and emits a reentrant NSTableView delegate warning; not reproduced in the native preview check.",
+    "Shared host had unrelated CPU-heavy applications; repeats varied and profiling adds overhead.",
+    "Network, physical route latency/dropouts, GPU frame pacing, long duration thermal behavior, Intel Macs, and iOS are not certified by this audit."
+  ],
+  "livePreviewIdle": {
+    "cpuPercent": 0.2,
+    "residentMiB": 142.69,
+    "seconds": 5.01,
+    "settingsChangedDuringInterval": false
+  },
+  "measurementDefinition": {
+    "comparison": "Back-to-back document and layout timings reported separately, 90 events per band count. Comparison harness uses its existing floor((n - 1) * .95) p95 definition. Baseline broad audit used that older p95 definition; do not compare small-sample p95 directly.",
+    "median": "Sorted sample at index count / 2 (upper middle for even counts).",
+    "milliseconds": "Synchronous model action plus forced native layout/display unless named separately. Asynchronous analysis continues between events. GPU presentation is not measured.",
+    "p95": "Nearest rank: ceil(count * 0.95) - 1. Single samples are observations, not percentile estimates."
+  },
+  "measurements": [
+    {
+      "maximumMS": 741.975041659316,
+      "medianMS": 741.975041659316,
+      "name": "construct.10",
+      "p95MS": 741.975041659316,
+      "samples": 1
+    },
+    {
+      "maximumMS": 280.8577499818057,
+      "medianMS": 41.03737502009608,
+      "name": "edit.Faders.10",
+      "p95MS": 162.77475000242703,
+      "samples": 40
+    },
+    {
+      "maximumMS": 231.79716666345485,
+      "medianMS": 64.8560416593682,
+      "name": "edit.All rows.10",
+      "p95MS": 156.8719999922905,
+      "samples": 40
+    },
+    {
+      "maximumMS": 27.89645831217058,
+      "medianMS": 14.997583348304033,
+      "name": "edit.Selected.10",
+      "p95MS": 20.617708330973983,
+      "samples": 40
+    },
+    {
+      "maximumMS": 74.02483333135024,
+      "medianMS": 58.72758332407102,
+      "name": "view-switch.10",
+      "p95MS": 74.02483333135024,
+      "samples": 6
+    },
+    {
+      "maximumMS": 164.33354167384095,
+      "medianMS": 123.35733333020471,
+      "name": "resize.10",
+      "p95MS": 164.33354167384095,
+      "samples": 3
+    },
+    {
+      "maximumMS": 40.53004164597951,
+      "medianMS": 10.832625004695728,
+      "name": "bypass.10",
+      "p95MS": 40.53004164597951,
+      "samples": 12
+    },
+    {
+      "maximumMS": 20.79675000277348,
+      "medianMS": 13.783333328319713,
+      "name": "match-level-edit.10",
+      "p95MS": 19.488291669404134,
+      "samples": 20
+    },
+    {
+      "maximumMS": 46.81858333060518,
+      "medianMS": 13.46308330539614,
+      "name": "edit.compact-side-140.10",
+      "p95MS": 19.587375019909814,
+      "samples": 20
+    },
+    {
+      "maximumMS": 801.856250007404,
+      "medianMS": 801.856250007404,
+      "name": "construct.31",
+      "p95MS": 801.856250007404,
+      "samples": 1
+    },
+    {
+      "maximumMS": 36.951374990167096,
+      "medianMS": 25.2558333449997,
+      "name": "edit.Faders.31",
+      "p95MS": 32.87700001965277,
+      "samples": 40
+    },
+    {
+      "maximumMS": 41.88920833985321,
+      "medianMS": 24.63095833081752,
+      "name": "edit.All rows.31",
+      "p95MS": 33.4012083185371,
+      "samples": 40
+    },
+    {
+      "maximumMS": 46.47525001200847,
+      "medianMS": 26.68554167030379,
+      "name": "edit.Selected.31",
+      "p95MS": 36.97225000360049,
+      "samples": 40
+    },
+    {
+      "maximumMS": 86.43579165800475,
+      "medianMS": 81.89937501447275,
+      "name": "view-switch.31",
+      "p95MS": 86.43579165800475,
+      "samples": 6
+    },
+    {
+      "maximumMS": 141.90599997527897,
+      "medianMS": 123.86837499798276,
+      "name": "resize.31",
+      "p95MS": 141.90599997527897,
+      "samples": 3
+    },
+    {
+      "maximumMS": 43.024875019909814,
+      "medianMS": 14.251458313083276,
+      "name": "bypass.31",
+      "p95MS": 43.024875019909814,
+      "samples": 12
+    },
+    {
+      "maximumMS": 31.12045832676813,
+      "medianMS": 23.597583320224658,
+      "name": "match-level-edit.31",
+      "p95MS": 29.65537499403581,
+      "samples": 20
+    },
+    {
+      "maximumMS": 28.684999997494742,
+      "medianMS": 20.81841666949913,
+      "name": "edit.compact-side-140.31",
+      "p95MS": 28.401291667250916,
+      "samples": 20
+    },
+    {
+      "maximumMS": 825.208833324723,
+      "medianMS": 825.208833324723,
+      "name": "construct.64",
+      "p95MS": 825.208833324723,
+      "samples": 1
+    },
+    {
+      "maximumMS": 344.14099997957237,
+      "medianMS": 103.32266666227952,
+      "name": "edit.Faders.64",
+      "p95MS": 302.5127916771453,
+      "samples": 40
+    },
+    {
+      "maximumMS": 456.1860833200626,
+      "medianMS": 196.96550001390278,
+      "name": "edit.All rows.64",
+      "p95MS": 397.7640833181795,
+      "samples": 40
+    },
+    {
+      "maximumMS": 431.88591668149456,
+      "medianMS": 52.543124998919666,
+      "name": "edit.Selected.64",
+      "p95MS": 262.82929166336544,
+      "samples": 40
+    },
+    {
+      "maximumMS": 147.8426250105258,
+      "medianMS": 128.49816668312997,
+      "name": "view-switch.64",
+      "p95MS": 147.8426250105258,
+      "samples": 6
+    },
+    {
+      "maximumMS": 169.75512501085177,
+      "medianMS": 161.61579164327122,
+      "name": "resize.64",
+      "p95MS": 169.75512501085177,
+      "samples": 3
+    },
+    {
+      "maximumMS": 23.298166663153097,
+      "medianMS": 21.07654165592976,
+      "name": "bypass.64",
+      "p95MS": 23.298166663153097,
+      "samples": 12
+    },
+    {
+      "maximumMS": 49.15308335330337,
+      "medianMS": 40.39216667297296,
+      "name": "match-level-edit.64",
+      "p95MS": 47.89775001700036,
+      "samples": 20
+    },
+    {
+      "maximumMS": 149.82195832999423,
+      "medianMS": 60.24787499336526,
+      "name": "edit.compact-side-140.64",
+      "p95MS": 140.02262501162477,
+      "samples": 20
+    },
+    {
+      "maximumMS": 35.78520833980292,
+      "medianMS": 23.7277916749008,
+      "name": "catalog-search.15000",
+      "p95MS": 35.78520833980292,
+      "samples": 5
+    },
+    {
+      "maximumMS": 359.3175833520945,
+      "medianMS": 359.3175833520945,
+      "name": "open.preset-library.1000",
+      "p95MS": 359.3175833520945,
+      "samples": 1
+    },
+    {
+      "maximumMS": 138.0303333280608,
+      "medianMS": 35.34216666594148,
+      "name": "search.preset-library.1000",
+      "p95MS": 138.0303333280608,
+      "samples": 7
+    },
+    {
+      "maximumMS": 32.21204166766256,
+      "medianMS": 17.91666666395031,
+      "name": "edit.with-preset-library.1000",
+      "p95MS": 24.38675001030788,
+      "samples": 20
+    },
+    {
+      "maximumMS": 207.87825001752935,
+      "medianMS": 207.87825001752935,
+      "name": "open.autoeq.15000",
+      "p95MS": 207.87825001752935,
+      "samples": 1
+    },
+    {
+      "maximumMS": 161.88187498482876,
+      "medianMS": 64.72312501864508,
+      "name": "search.autoeq.15000",
+      "p95MS": 161.88187498482876,
+      "samples": 7
+    },
+    {
+      "maximumMS": 42.699624988017604,
+      "medianMS": 17.16816663974896,
+      "name": "edit.with-autoeq.15000",
+      "p95MS": 35.314375010784715,
+      "samples": 20
+    },
+    {
+      "maximumMS": 647.955250024097,
+      "medianMS": 647.955250024097,
+      "name": "open.draft-editor.64",
+      "p95MS": 647.955250024097,
+      "samples": 1
+    },
+    {
+      "maximumMS": 90.77187502407469,
+      "medianMS": 45.49612500704825,
+      "name": "edit.with-draft-editor.64",
+      "p95MS": 82.9878750082571,
+      "samples": 20
+    },
+    {
+      "maximumMS": 134.28466668119654,
+      "medianMS": 134.28466668119654,
+      "name": "open.stereo",
+      "p95MS": 134.28466668119654,
+      "samples": 1
+    },
+    {
+      "maximumMS": 96.17525001522154,
+      "medianMS": 96.17525001522154,
+      "name": "open.settings",
+      "p95MS": 96.17525001522154,
+      "samples": 1
+    }
+  ],
+  "pairedComparison": [
+    {
+      "bands": 10,
+      "maximumMS": 1.22,
+      "meanMS": 0.79,
+      "operation": "document",
+      "p95MS": 1.03,
+      "phase": "before",
+      "samples": 90
+    },
+    {
+      "bands": 10,
+      "maximumMS": 33.98,
+      "meanMS": 19.39,
+      "operation": "layout",
+      "p95MS": 22.04,
+      "phase": "before",
+      "samples": 90
+    },
+    {
+      "bands": 31,
+      "maximumMS": 1.26,
+      "meanMS": 0.95,
+      "operation": "document",
+      "p95MS": 1.14,
+      "phase": "before",
+      "samples": 90
+    },
+    {
+      "bands": 31,
+      "maximumMS": 41.18,
+      "meanMS": 36.25,
+      "operation": "layout",
+      "p95MS": 40.2,
+      "phase": "before",
+      "samples": 90
+    },
+    {
+      "bands": 10,
+      "maximumMS": 4.01,
+      "meanMS": 0.73,
+      "operation": "document",
+      "p95MS": 1.05,
+      "phase": "after",
+      "samples": 90
+    },
+    {
+      "bands": 10,
+      "maximumMS": 22.54,
+      "meanMS": 13.22,
+      "operation": "layout",
+      "p95MS": 16.47,
+      "phase": "after",
+      "samples": 90
+    },
+    {
+      "bands": 31,
+      "maximumMS": 1.02,
+      "meanMS": 0.72,
+      "operation": "document",
+      "p95MS": 0.95,
+      "phase": "after",
+      "samples": 90
+    },
+    {
+      "bands": 31,
+      "maximumMS": 31.2,
+      "meanMS": 19.01,
+      "operation": "layout",
+      "p95MS": 23.01,
+      "phase": "after",
+      "samples": 90
+    }
+  ],
+  "scope": "Native macOS action/layout CPU audit with disposable settings and stopped audio; not a universal latency or dropout certification.",
+  "sourceSHA256": {
+    "Sources/Aural/AutoEQBrowserView.swift": "fbd6e54cc3fe9c0a04f4bce5ca7a79d96e0691bb874af5edba87f073498fdbd9",
+    "Sources/Aural/AutoEQCatalog.swift": "425591c3574d7da96c0b37afabec65079519f56a5f0677af630821bcaad67bb8",
+    "Sources/Aural/EQBars.swift": "4222649b461faa85cbf274250f829405443dd1d4903890b5199dbaf969e68d0a",
+    "Sources/Aural/FilterEditor.swift": "70dfb705657ea4f21c6ec6361c401bfd1ea8c360707dad62032eec1593a06917",
+    "Sources/Aural/FilterRack.swift": "738916644ce57d0a3e0b24dbd1497183231cd1720c2e01c83cb7a0f35b88b2b2",
+    "Sources/Aural/MainView.swift": "a96a09a098e15060896a6cf02c4d332696001c2b3d2d1f91a00e8b3b675b5d27",
+    "Sources/Aural/PrecisionInput.swift": "de500274edaae224dbbc4312a756902520c9790cdc3fbe48c646d20c4c22293b",
+    "Sources/Aural/PresetLibraryView.swift": "b9f70951fb004c908505bbc62f4a5f90936b847bb5ccaae60fb77e3aa5725329",
+    "Sources/Aural/ResponseAnalysis.swift": "cf383468deb8d5e0efea93089cbf0a80d89334cc3a0673e7fd6516245b5efbd9",
+    "Sources/Aural/ResponseCurve.swift": "c89b447cb53893bebac54b4690697967c50e0505aac3938d7d2ff7e944f61393",
+    "Sources/Aural/StudioControls.swift": "b23fc748ab5f28f0016009e8138a24d21f3947d5b14b396f1be71020d2fedfdb",
+    "Sources/Aural/UIStyle.swift": "6398ed8cbb3bbac19d7350bc243c6d8f4743c66feaf07c969c4b2fa3205a7264",
+    "Tests/PerformanceTests/Audit.swift": "4c37b2f977c888e506a9b20da84775a10d629b9d8bcf777b0c8dc96ea722968c",
+    "Tests/PerformanceTests/BarChecks.swift": "1d16ea82eb6c082e1b2b1ad9c4645a0a81947ce8596f3f446ac3edb524a1576c",
+    "Tests/PerformanceTests/Benchmark.swift": "c9f73f5e97a6fc7df38cc3dab2c9a958c685438bd423c58bf421818e5fbc272b",
+    "Tests/PerformanceTests/ControlIsolationChecks.swift": "5168f6a66e32228bd439fd91c7e402774827d7614625e9fbc62c8fd668eab1db",
+    "Tests/PerformanceTests/DraftPerformanceChecks.swift": "f26343f5d4df51bd10fa8cc05a845f9a27c1cd3c83388d549ba0400a89895727",
+    "Tests/PerformanceTests/FilterBankChecks.swift": "3e87176bc6c4eeb5dda801deaeb1028b07b05303109bf7b193cb2ba312321674",
+    "Tests/PerformanceTests/LayoutCacheChecks.swift": "78116a14c61780fc916642f5cfd613c00317e461607e0c96d9f1bbe877222a37",
+    "Tests/PerformanceTests/WorkerChecks.swift": "bfe22b54a6ffa8bd1e743d0f61c5c9863d92513a78d3acfa74658ad59ac0f562",
+    "Tests/PerformanceTests/ZoomChecks.swift": "a51e3ec033b2342a33b9327afae0754b7bcc3ca12915efc68774cb91431ba2cf",
+    "Tests/PrecisionTests/main.swift": "8e99762ab2fb877385990d15f5ffae58fea61f87430f5bd9dee8d0199df2db3c",
+    "Tests/ResponseTests/main.swift": "c5acbd684c1b348946b1aae9c1e638948b2b199e0a98779120f1dbc2aaa78033",
+    "Tests/ThemeTests/main.swift": "bb77ebebd4f8a90d60c7fbaad955de6ca72054ffdcf87c9078f5413bb8777ace",
+    "scripts/benchmark-ui.sh": "30e409b20b4d89e3c97acba83e389c2702c76daa1abe402aa49daaa3c7d1da35"
+  },
+  "validation": {
+    "existingUnrelatedEditsPreserved": true,
+    "liveFilteredCountCheck": {
+      "EQStartInvoked": false,
+      "afterUnmatchedAddition": "1 of 11",
+      "before": "1 of 10",
+      "concurrentPreviewEditsRetained": true,
+      "temporaryDataRemoved": true
+    },
+    "liveNativeChecks": [
+      "Faders / All rows / Selected switching",
+      "inactive scrollbar exclusion",
+      "preset search",
+      "filter point selection"
+    ],
+    "livePreviewTableWarningsObserved": 0,
+    "offscreenAuditTableWarnings": 4,
+    "passGroups": 105,
+    "productionBuild": "passed"
+  }
+}

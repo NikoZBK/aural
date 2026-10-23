@@ -17,6 +17,10 @@ let narrowProfile = Profile(preamp: -4, filters: [narrowFilter])
 let narrow = ResponseAnalysis(profile: narrowProfile, rate: 48000, bypass: false)
 let center = narrow.frequencies.firstIndex(of: 1733)!
 require(near(narrow.combined[center], 16) && near(narrow.peak, 16), "Sampling must retain a narrow peak at its exact center")
+require(narrow.sampledValue(at: 1733, channel: .left) == narrow.left[center] &&
+        narrow.sampledValue(at: 1733, channel: .right) == narrow.right[center] &&
+        narrow.sampledValue(at: 1733, channel: .mid) == nil && narrow.sampledValue(at: 1234.567891, channel: .left) == nil,
+        "Marker lookups must reuse exact cached channel values and leave unsampled frequencies to the precise fallback")
 require(near(narrow.filters[0].values[center], 20), "Individual filter curves must exclude preamp")
 for index in stride(from: 0, to: narrow.frequencies.count, by: 23) {
     require(near(narrow.combined[index], narrowProfile.response(narrow.frequencies[index], rate: 48000)), "Sampled graph must use the audio engine's response")

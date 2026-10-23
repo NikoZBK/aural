@@ -83,6 +83,19 @@ struct AutoEQBrowserView: View {
     private struct PreviewRequest: Equatable { let id: String?; let revision: Int }
 
     var body: some View {
+        AuralEquatableContent(key: AutoEQBrowserPresentation(entries: browser.entries, loading: browser.loading,
+                                                             catalogError: browser.catalogError, preview: browser.preview,
+                                                             previewLoading: browser.previewLoading, previewError: browser.previewError,
+                                                             previewEntryID: browser.previewEntryID, loadedAt: browser.loadedAt,
+                                                             search: search, provider: provider, selectedID: selectedID,
+                                                             catalogRevision: catalogRevision, previewRevision: previewRevision,
+                                                             rate: model.responseRate, error: model.error, notice: model.importNotice,
+                                                             theme: model.theme, scale: interfaceScale)) {
+            content
+        }.equatable()
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 16 * interfaceScale) {
             header
             HSplitView {
@@ -270,4 +283,25 @@ struct AutoEQBrowserView: View {
     private func clearHiddenSelection() {
         if let selectedID, !matches.contains(where: { $0.id == selectedID }) { self.selectedID = nil }
     }
+}
+
+private struct AutoEQBrowserPresentation: Equatable {
+    let entries: [AutoEQCatalogEntry]
+    let loading: Bool
+    let catalogError: String?
+    let preview: AutoEQPreview?
+    let previewLoading: Bool
+    let previewError: String?
+    let previewEntryID: String?
+    let loadedAt: Date?
+    let search: String
+    let provider: String
+    let selectedID: String?
+    let catalogRevision: Int
+    let previewRevision: Int
+    let rate: Double
+    let error: String?
+    let notice: String?
+    let theme: AuralTheme
+    let scale: CGFloat
 }

@@ -9,6 +9,21 @@ import AppKit
 }
 
 @MainActor func checkAnalysisWorker() throws {
+    let start = ContinuousClock.now
+    var cadence = ResponseUpdateCadence()
+    require(cadence.delay(at: start) == .zero, "The first curve must be presented without a delay")
+    cadence.presented(at: start)
+    let deadline = start.advanced(by: ResponseUpdateCadence.interval)
+    for milliseconds in [1, 5, 12, 25, 32] {
+        let now = start.advanced(by: .milliseconds(milliseconds))
+        require(now.advanced(by: cadence.delay(at: now)) == deadline,
+                "Superseding curve inputs must keep the same deadline instead of starving live updates")
+    }
+    require(cadence.delay(at: deadline) == .zero && cadence.delay(at: deadline.advanced(by: .seconds(1))) == .zero,
+            "The latest curve must be eligible at its deadline, including after input stops")
+    cadence.presented(at: deadline)
+    require(cadence.delay(at: deadline) == ResponseUpdateCadence.interval,
+            "Curve rendering must remain bounded during continuous fader input")
     let worker = EQAnalysisWorker()
     let started = DispatchSemaphore(value: 0)
     let release = DispatchSemaphore(value: 0)

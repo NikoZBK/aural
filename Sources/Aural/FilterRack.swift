@@ -8,11 +8,15 @@ struct FilterRack: View {
     @Binding var display: FilterDisplay
     var expanded = false
     var compactRows = false
+    var active = true
     @State private var selectionRevision = 0
     private var count: Int { model.profile.filters?.count ?? 10 }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10 * interfaceScale) {
+            AuralEquatableContent(key: FilterHeaderKey(display: display, count: count, slots: model.profile.filters?.slots ?? count,
+                                                       graphic: model.profile.filters == nil, expanded: expanded,
+                                                       scale: interfaceScale, revision: selectionRevision)) {
             let headerLayout = expanded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10 * interfaceScale)) : AnyLayout(HStackLayout(spacing: 10 * interfaceScale))
             headerLayout {
                 Picker("Filter view", selection: Binding(get: { display }, set: { next in
@@ -35,37 +39,51 @@ struct FilterRack: View {
                     }
                 }
             }
+            }.equatable()
             // Retain the native editors across display changes. Hidden editors are
             // disabled and excluded from pointer and accessibility navigation.
+            // Their value boundary also stops document edits from rebuilding an
+            // invisible picker, row list, or bank of native fields.
             ZStack(alignment: .topLeading) {
-                EQBars(model: model, submissions: submissions, compact: true)
-                    .background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6))
+                AuralEquatableContent(key: editorKey(.faders)) {
+                    EQBarsContent(model: model, presentation: EQBarsPresentation(model: model), submissions: submissions, compact: true, showParameters: true,
+                                  active: active && display == .faders,
+                                  moveFilter: { moveFilter(at: $0, by: $1) })
+                }.equatable()
                     .opacity(display == .faders ? 1 : 0)
                     .allowsHitTesting(display == .faders)
                     .accessibilityElement(children: display == .faders ? .contain : .ignore)
                     .accessibilityHidden(display != .faders)
                     .disabled(display != .faders)
                 if let filters = model.profile.filters {
-                    rows(filters)
+                    AuralEquatableContent(key: editorKey(.rows)) { rows(filters) }.equatable()
                         .opacity(display == .rows ? 1 : 0)
                         .allowsHitTesting(display == .rows)
                         .accessibilityElement(children: display == .rows ? .contain : .ignore)
                         .accessibilityHidden(display != .rows)
                         .disabled(display != .rows)
                 }
-                selectedInspector
+                AuralEquatableContent(key: editorKey(.selected)) { selectedInspector }.equatable()
                     .opacity(display == .selected ? 1 : 0)
                     .allowsHitTesting(display == .selected)
                     .accessibilityElement(children: display == .selected ? .contain : .ignore)
                     .accessibilityHidden(display != .selected)
                     .disabled(display != .selected)
             }
-            .auralFrame(height: expanded ? nil : 168, alignment: .top)
-            .auralFrame(height: expanded ? nil : (display == .selected ? 108 : 168), alignment: .top)
+            .auralFrame(height: expanded ? nil : (display == .selected ? 108 : (display == .faders ? 300 : 168)), alignment: .top)
             .frame(maxHeight: expanded ? .infinity : nil, alignment: .top).clipped()
             .onChange(of: display) { _, _ in model.endProfileGesture() }
 
         }.onDisappear { model.endProfileGesture() }
+    }
+
+    private func editorKey(_ editor: FilterDisplay) -> RetainedFilterEditorKey {
+        let presentation = active && display == editor
+            ? FilterEditorPresentation(profile: model.profile, revision: model.editRevision, selected: selectedBand,
+                                       selectionRevision: selectionRevision, soloed: model.soloBand, canSolo: model.running && !model.bypass)
+            : nil
+        return RetainedFilterEditorKey(model: ObjectIdentifier(model), submissions: ObjectIdentifier(submissions),
+                                       expanded: expanded, compactRows: compactRows, scale: interfaceScale, presentation: presentation)
     }
 
     private var bandCount: some View {
@@ -73,6 +91,11 @@ struct FilterRack: View {
     }
 
     @ViewBuilder private var bandActions: some View {
+        if display == .faders && model.profile.filters == nil {
+            Button("Edit parameters…") { if finishNumericEdit() { model.editGraphicAsFilters() } }
+                .buttonStyle(AuralButtonStyle())
+                .help("Make the graphic bands' frequencies and Q editable, preserving their response.")
+        }
         Menu("EQ actions") {
             Menu("New EQ") {
                 Button("New flat 10-band EQ") { if finishNumericEdit() { withAuralAnimation { model.useGraphicTemplate(bands: 10) } } }
@@ -96,6 +119,10 @@ struct FilterRack: View {
     private var selectedInspector: some View {
         VStack(alignment: .leading, spacing: 12 * interfaceScale) {
             let bands = EQBarBand.bands(in: model.profile)
+            AuralEquatableContent(key: SelectedBandPickerKey(choices: bands.map { BandChoice(index: $0.index, frequency: $0.frequency, enabled: $0.filter?.enabled ?? true) },
+                                                              selected: selectedBand, revision: selectionRevision,
+                                                              soloed: model.soloBand == selectedBand, canSolo: model.running && !model.bypass,
+                                                              scale: interfaceScale)) {
             HStack(spacing: 8 * interfaceScale) {
                 Text("Selected filter").auralFont(size: 12).accessibilityHidden(true)
                 AuralPicker(title: "Selected filter", value: bands.first { $0.index == selectedBand }.map(Self.bandTitle) ?? "",
@@ -111,6 +138,7 @@ struct FilterRack: View {
                 Spacer(minLength: 0)
                 soloToggle
             }.transition(.identity).id(selectionRevision)
+            }.equatable()
             if let filters = model.profile.filters, filters.indices.contains(selectedBand) {
                 VStack(spacing: 0) {
                     columnHeader
@@ -183,7 +211,8 @@ struct FilterRack: View {
             }
         }.background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
-            .scrollIndicators(.visible)
+            .scrollDisabled(display != .rows)
+            .scrollIndicators(display == .rows ? .visible : .hidden)
     }
 
     // Sharing the scroll viewport also shares its scrollbar inset. A separate
@@ -205,14 +234,83 @@ struct FilterRack: View {
     }
 }
 
+private struct FilterEditorPresentation: Equatable {
+    let profile: Profile
+    let revision: Int
+    let selected: Int
+    let selectionRevision: Int
+    let soloed: Int?
+    let canSolo: Bool
+}
+
+private struct RetainedFilterEditorKey: Equatable {
+    let model: ObjectIdentifier
+    let submissions: ObjectIdentifier
+    let expanded: Bool
+    let compactRows: Bool
+    let scale: CGFloat
+    let presentation: FilterEditorPresentation?
+}
+
+private struct FilterHeaderKey: Equatable {
+    let display: FilterDisplay
+    let count: Int
+    let slots: Int
+    let graphic: Bool
+    let expanded: Bool
+    let scale: CGFloat
+    let revision: Int
+}
+
+private struct BandChoice: Equatable {
+    let index: Int
+    let frequency: Double
+    let enabled: Bool
+}
+
+private struct SelectedBandPickerKey: Equatable {
+    let choices: [BandChoice]
+    let selected: Int
+    let revision: Int
+    let soloed: Bool
+    let canSolo: Bool
+    let scale: CGFloat
+}
+
 private struct FilterRow: View {
-    @Environment(\.auralInterfaceScale) private var interfaceScale
-    @ObservedObject var model: Model
+    let model: Model
     let submissions: PrecisionSubmissionCoordinator
     let filter: ImportedFilter
     let index: Int
     var compact = false
     let move: (Int) -> Void
+    private let actions: FilterActionsState
+    @MainActor init(model: Model, submissions: PrecisionSubmissionCoordinator, filter: ImportedFilter, index: Int,
+                   compact: Bool = false, move: @escaping (Int) -> Void) {
+        self.model = model; self.submissions = submissions; self.filter = filter; self.index = index
+        self.compact = compact; self.move = move
+        actions = FilterActionsState(model: model, index: index, filter: filter)
+    }
+
+    var body: some View {
+        FilterRowContent(model: model, submissions: submissions, filter: filter, index: index, compact: compact,
+                         actions: actions, move: move).equatable()
+    }
+}
+
+private struct FilterRowContent: View, Equatable {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
+    let model: Model
+    let submissions: PrecisionSubmissionCoordinator
+    let filter: ImportedFilter
+    let index: Int
+    var compact = false
+    let actions: FilterActionsState
+    let move: (Int) -> Void
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.model === rhs.model && lhs.submissions === rhs.submissions && lhs.filter == rhs.filter && lhs.index == rhs.index &&
+            lhs.compact == rhs.compact && lhs.actions == rhs.actions
+    }
     private var number: Int { index + 1 }
     private var currentFilter: ImportedFilter {
         guard let filters = model.profile.filters, filters.indices.contains(index) else { return filter }
@@ -227,17 +325,7 @@ private struct FilterRow: View {
     }
     private func editFilter(_ edit: (inout ImportedFilter) -> Void) {
         guard finishNumericEdit() else { return }
-        Self.updateFilter(model: model, index: index, edit)
-    }
-    private static func updateFilter(model: Model, index: Int, _ edit: (inout ImportedFilter) -> Void) {
-        guard let filters = model.profile.filters, filters.indices.contains(index) else {
-            model.error = "The filter layout changed. Try the edit again."
-            return
-        }
-        model.endProfileGesture()
-        var next = filters[index]
-        edit(&next)
-        model.updateFilter(at: index, with: next)
+        FilterParameterEditing.update(model: model, index: index, edit)
     }
     var body: some View {
         FilterColumns(height: (compact ? 78 : 39) * interfaceScale, scale: interfaceScale, compact: compact) {
@@ -245,7 +333,7 @@ private struct FilterRow: View {
                 .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 24)
             HStack(spacing: 6 * interfaceScale) {
                 Group {
-                    if model.soloBand == index {
+                    if actions.soloed {
                         Image(systemName: "headphones").auralFont(size: 10, weight: .semibold).foregroundStyle(AuralStyle.warning)
                             .help("Filter \(number) is soloed")
                     } else {
@@ -269,11 +357,11 @@ private struct FilterRow: View {
             }.auralMenuButton(.small).auralFrame(width: 60).accessibilityLabel("Filter \(number) channel")
                 .accessibilityValue(currentFilter.effectiveChannel.label)
             PrecisionField(value: filter.frequency, range: 10...22000, label: "Filter \(number) frequency in hertz", decimals: 0, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                Self.updateFilter(model: model, index: index) { $0.frequency = value }
+                FilterParameterEditing.update(model: model, index: index) { $0.frequency = value }
             }.auralFrame(width: 79).overlay(alignment: .topLeading) { numericLabel("Hz") }
             if filter.kind.usesGain {
                 PrecisionField(value: filter.gain, range: -30...30, label: "Filter \(number) gain in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                    Self.updateFilter(model: model, index: index) { $0.gain = value }
+                    FilterParameterEditing.update(model: model, index: index) { $0.gain = value }
                 }.auralFrame(width: 66).overlay(alignment: .topLeading) { numericLabel("dB") }
             } else {
                 Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary).auralFrame(width: 66)
@@ -282,7 +370,7 @@ private struct FilterRow: View {
             }
             if filter.usesQ {
                 PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                    Self.updateFilter(model: model, index: index) { $0.q = value }
+                    FilterParameterEditing.update(model: model, index: index) { $0.q = value }
                 }.auralFrame(width: 58).overlay(alignment: .topLeading) { numericLabel("Q") }
             } else {
                 Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary).auralFrame(width: 58)
@@ -290,26 +378,12 @@ private struct FilterRow: View {
                     .help(filter.shape.fixedQHelp)
                     .overlay(alignment: .topLeading) { numericLabel("Q") }
             }
-            Menu {
-                if model.soloBand == index {
-                    Button("End solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(nil) } } }
-                } else {
-                    Button("Solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(index) } } }
-                        .disabled(!model.running || model.bypass)
-                }
-                Divider()
-                Button("Move up") { move(-1) }.disabled(index == 0)
-                Button("Move down") { move(1) }.disabled(index >= (model.profile.filters?.count ?? 0) - 1)
-                Divider()
-                Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.disabled((model.profile.filters?.slots ?? 0) + currentFilter.slots > Profile.maxFilters)
-                Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.disabled(model.profile.filters?.count == 1)
-            } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 22)
-                .accessibilityLabel("Filter \(number) actions")
-                .help("Solo, reorder, duplicate, or delete this filter. Reordering ends Solo and can change mixed left/right and mid/side processing.")
+            FilterActionsMenu(model: model, submissions: submissions, index: index, filter: currentFilter, move: move)
+                .auralFrame(width: 22)
         }.auralPadding(.horizontal, 10).auralFrame(height: compact ? 78 : 39)
             .background(index.isMultiple(of: 2) ? Color.clear : AuralStyle.elevated.opacity(0.32))
             .accessibilityElement(children: .contain).accessibilityLabel("Filter \(number)")
-            .accessibilityValue(model.soloBand == index ? "Soloed" : "")
+            .accessibilityValue(actions.soloed ? "Soloed" : "")
     }
 
     @ViewBuilder private func numericLabel(_ title: String) -> some View {
@@ -320,8 +394,104 @@ private struct FilterRow: View {
     }
 }
 
-/// The rack has fixed numeric columns and one flexible type column. Placing them
-/// directly avoids HStack's repeated minimum/ideal probes of every native field.
+/// All parameter presentations read the current filter after pending input commits.
+@MainActor enum FilterParameterEditing {
+    static func update(model: Model, index: Int, _ edit: (inout ImportedFilter) -> Void) {
+        guard let filters = model.profile.filters, filters.indices.contains(index) else {
+            model.error = "The filter layout changed. Try the edit again."
+            return
+        }
+        model.endProfileGesture()
+        var next = filters[index]
+        edit(&next)
+        model.updateFilter(at: index, with: next)
+    }
+}
+
+/// Exactly the model state that changes a filter menu's labels or availability.
+struct FilterActionsState: Equatable {
+    let soloed: Bool
+    let canSolo: Bool
+    let canMoveBack: Bool
+    let canMoveForward: Bool
+    let canDuplicate: Bool
+    let canDelete: Bool
+    @MainActor init(model: Model, index: Int, filter: ImportedFilter) {
+        soloed = model.soloBand == index
+        canSolo = model.running && !model.bypass
+        canMoveBack = index > 0
+        canMoveForward = index < (model.profile.filters?.count ?? 0) - 1
+        canDuplicate = (model.profile.filters?.slots ?? 0) + filter.slots <= Profile.maxFilters
+        canDelete = model.profile.filters?.count != 1
+    }
+}
+
+struct FilterActionsMenu: View {
+    let model: Model
+    let submissions: PrecisionSubmissionCoordinator
+    let index: Int
+    let filter: ImportedFilter
+    var move: ((Int) -> Void)? = nil
+    var horizontal = false
+    var includeChannel = false
+    private let state: FilterActionsState
+    @MainActor init(model: Model, submissions: PrecisionSubmissionCoordinator, index: Int, filter: ImportedFilter,
+                   move: ((Int) -> Void)? = nil, horizontal: Bool = false, includeChannel: Bool = false) {
+        self.model = model; self.submissions = submissions; self.index = index; self.filter = filter
+        self.move = move; self.horizontal = horizontal; self.includeChannel = includeChannel
+        state = FilterActionsState(model: model, index: index, filter: filter)
+    }
+    private var currentFilter: ImportedFilter {
+        guard let filters = model.profile.filters, filters.indices.contains(index) else { return filter }
+        return filters[index]
+    }
+    var body: some View {
+        Menu {
+            if includeChannel {
+                Menu("Channel") {
+                    ForEach(ImportedFilter.Channel.allCases, id: \.self) { channel in
+                        Button {
+                            if finishNumericEdit() {
+                                FilterParameterEditing.update(model: model, index: index) { $0.channel = channel == .stereo ? nil : channel }
+                            }
+                        } label: {
+                            if currentFilter.effectiveChannel == channel { Label(channel.label, systemImage: "checkmark") }
+                            else { Text(channel.label) }
+                        }
+                    }
+                }
+                Divider()
+            }
+            if state.soloed {
+                Button("End solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(nil) } } }
+            } else {
+                Button("Solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(index) } } }
+                    .disabled(!state.canSolo)
+            }
+            if let move {
+                Divider()
+                Button(horizontal ? "Move left" : "Move up") { move(-1) }.disabled(!state.canMoveBack)
+                Button(horizontal ? "Move right" : "Move down") { move(1) }.disabled(!state.canMoveForward)
+            }
+            Divider()
+            Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }
+                .disabled(!state.canDuplicate)
+            Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }
+                .disabled(!state.canDelete)
+        } label: { Image(systemName: "ellipsis").auralFrame(width: 22, height: 22) }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary)
+        .accessibilityLabel("Filter \(index + 1) actions")
+        .help("Solo, reorder, duplicate, or delete this filter. Reordering ends Solo and can change mixed left/right and mid/side processing.")
+    }
+    private func finishNumericEdit() -> Bool {
+        switch submissions.submitActive() {
+        case .unchanged: return true
+        case .submitted: return model.error == nil
+        case .rejected: return false
+        }
+    }
+}
+
 /// The filter type menu: each kind, with low- and high-pass slopes in submenus.
 struct FilterTypeMenu: View {
     let title: String
@@ -349,7 +519,7 @@ struct FilterTypeMenu: View {
     }
 }
 
-struct FilterColumns: Layout {
+struct FilterColumns: AuralContainerLayout {
     let height: CGFloat
     let scale: CGFloat
     var compact = false

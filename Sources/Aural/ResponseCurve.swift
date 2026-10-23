@@ -68,7 +68,7 @@ private struct InteractiveResponseCurve: View {
     @State private var harmanReference: HarmanReference?
     @State private var harmanError: String?
     @State private var holdLiveInput = false
-    @State private var inputClock = InputClock()
+    @State private var cadence = ResponsePresentationClock()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -84,6 +84,7 @@ private struct InteractiveResponseCurve: View {
         let comparison: Profile?
     }
     private struct AnalysisResult {
+        let id = UUID()
         let input: Input
         let analysis: ResponseAnalysis
     }
@@ -209,25 +210,31 @@ private struct InteractiveResponseCurve: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10 * interfaceScale) {
+            AuralEquatableContent(key: CurveHeaderPresentation(channelFilters: hasChannelFilters, midSide: hasMidSide, channel: channel,
+                                                               comparison: comparisonProfile != nil, showHarman: showHarman,
+                                                               chosenTarget: chosenHarmanTarget, suggestedTarget: HarmanTarget.suggested(for: profile),
+                                                               showFilters: showFilters, bypass: bypass, dragging: drag != nil, scale: interfaceScale)) {
             ViewThatFits(in: .horizontal) {
                 header(compact: false)
                 header(compact: true)
                 header(compact: true, stacked: true)
             }.auralFrame(minHeight: 24).fixedSize(horizontal: false, vertical: true)
+            }.equatable()
             // Canvas and curve gestures share one logical coordinate system.
             // Only this pure SwiftUI drawing scales geometrically; AppKit-backed
             // controls above and below it use explicit font and frame sizes.
             InterfaceZoomLayout(scale: interfaceScale) {
                 GeometryReader { geometry in
-                    if let analysis {
+                    if let result {
+                        let analysis = result.analysis
                         let referenceSamples = reference?.plottedSamples(maximumFrequency: maximumFrequency) ?? []
                         let scale = drag?.scale ?? analysis.scale(showFilters: showFilters, channel: channel, referenceValues: referenceSamples.map(\.decibels))
-                        let drawing = ResponsePlotDrawing(analysis: analysis, scale: scale, profile: profile,
-                                                          rate: rate, bypass: bypass, channel: channel,
+                        let drawing = ResponsePlotDrawing(id: result.id, analysis: analysis, scale: scale, profile: plotted.profile,
+                                                          rate: plotted.rate, bypass: plotted.bypass, channel: channel,
                                                           showFilters: showFilters, hoverFraction: hoverFraction ?? inspection.fraction, highContrast: contrast == .increased,
                                                           referenceSamples: referenceSamples, reduceTransparency: reduceTransparency)
                         ZStack(alignment: .topLeading) {
-                            ResponseCanvas(drawing: drawing)
+                            ResponseCanvas(drawing: drawing).equatable()
                             .onContinuousHover { phase in
                                 switch phase {
                                 case .active(let location):
@@ -332,25 +339,30 @@ private struct InteractiveResponseCurve: View {
         }
         .task(id: input) {
             let input = input
-            // A single change morphs the trace. Continuous edits from faders, sliders,
-            // held keys, and drags follow the control directly.
-            let now = ContinuousClock.now
-            let continuous = inputClock.last.map { now - $0 < .milliseconds(250) } ?? false
-            inputClock.last = now
+            let delay = cadence.delay(at: .now)
+            if delay > .zero {
+                do { try await Task.sleep(for: delay) }
+                catch {
+                    // Task.sleep only fails on cancellation; never hide another error.
+                    precondition(error is CancellationError, "Unexpected curve clock failure: \(error)")
+                    return
+                }
+            }
+            guard !Task.isCancelled else { return }
             let updated = await EQAnalysisWorker.shared.calculate {
                 ResponseAnalysis(profile: input.profile, rate: input.rate, bypass: input.bypass, comparisonProfile: input.comparison)
             }
             guard !Task.isCancelled, let updated else { return }
             let next = AnalysisResult(input: input, analysis: updated)
-            if continuous || drag != nil || reduceMotion {
+            // Display exact completed snapshots. Morphing thousands of samples for
+            // every fader tick adds animation frames after the value has moved on.
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
                 result = next
                 holdLiveInput = false
-            } else {
-                withAnimation(AuralMotion.standard) {
-                    result = next
-                    holdLiveInput = false
-                }
             }
+            cadence.presented(at: .now)
         }
 
     }
@@ -361,7 +373,8 @@ private struct InteractiveResponseCurve: View {
         let filterChannel = band.filter?.effectiveChannel ?? .stereo
         let responseChannel = filterChannel == .right || filterChannel == .side || (filterChannel == .stereo && channel == .right)
             ? lanes.second : lanes.first
-        let gain = plottedResponse(at: band.frequency, channel: responseChannel)
+        let sampled = drag == nil && !holdLiveInput ? analysis?.sampledValue(at: band.frequency, channel: responseChannel) : nil
+        let gain = sampled ?? plottedResponse(at: band.frequency, channel: responseChannel)
         let selected = selectedBand == band.index
         let states: [String?] = [selected ? "Selected" : nil, band.filter?.enabled == false ? "Bypassed" : nil]
         let help = band.filter == nil ? "Click to edit. Drag vertically to change gain." : band.filter?.kind.usesGain == false ? "Click to edit. Drag horizontally to change frequency." : "Click to edit. Drag horizontally for frequency and vertically for gain."
@@ -418,6 +431,28 @@ private struct InteractiveResponseCurve: View {
 
 }
 
+/// Scheduling bookkeeping is not a presentation change. Updating a State value
+/// after publishing the completed trace would enqueue another view transaction.
+@MainActor private final class ResponsePresentationClock {
+    private var cadence = ResponseUpdateCadence()
+    func delay(at now: ContinuousClock.Instant) -> Duration { cadence.delay(at: now) }
+    func presented(at now: ContinuousClock.Instant) { cadence.presented(at: now) }
+}
+
+private struct CurveHeaderPresentation: Equatable {
+    let channelFilters: Bool
+    let midSide: Bool
+    let channel: ResponseChannel
+    let comparison: Bool
+    let showHarman: Bool
+    let chosenTarget: HarmanTarget?
+    let suggestedTarget: HarmanTarget
+    let showFilters: Bool
+    let bypass: Bool
+    let dragging: Bool
+    let scale: CGFloat
+}
+
 private struct CurveMotion: Equatable {
     let showFilters: Bool
     let channel: ResponseChannel
@@ -427,13 +462,9 @@ private struct CurveMotion: Equatable {
     let comparison: Bool
 }
 
-private final class InputClock {
-    var last: ContinuousClock.Instant?
-}
-
 /// Canvas receives one immutable render value. Its closure never reaches back into
 /// a View's State storage, which can otherwise leave its retained drawing one edit behind.
-private struct ResponseCanvas: View, Animatable {
+private struct ResponseCanvas: View, Animatable, Equatable {
     let drawing: ResponsePlotDrawing
     private let target: PlotVector
     var animatableData: PlotVector
@@ -443,6 +474,14 @@ private struct ResponseCanvas: View, Animatable {
         self.drawing = drawing
         target = drawing.morphTarget
         animatableData = target
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        let first = lhs.drawing, second = rhs.drawing
+        return first.id == second.id && first.scale.lower == second.scale.lower && first.scale.upper == second.scale.upper &&
+            first.channel == second.channel && first.showFilters == second.showFilters && first.hoverFraction == second.hoverFraction &&
+            first.highContrast == second.highContrast && first.referenceSamples == second.referenceSamples &&
+            first.reduceTransparency == second.reduceTransparency && first.profile == second.profile && first.bypass == second.bypass
     }
 
     var body: some View {
@@ -483,6 +522,7 @@ private extension ResponseScale {
 }
 
 private struct ResponsePlotDrawing {
+    let id: UUID
     let analysis: ResponseAnalysis
     let scale: ResponseScale
     let profile: Profile

@@ -21,6 +21,14 @@ struct FilterEditor: View {
     }
 
     var body: some View {
+        AuralEquatableContent(key: DraftPresentation(draft: draft, sourceChanged: sourceChanged, error: error,
+                                                     canUndo: history.canUndo, canRedo: history.canRedo, restoring: restoringHistory,
+                                                     theme: model.theme, zoom: model.interfaceZoom, rate: model.responseRate)) {
+            content
+        }.equatable()
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 16 * interfaceScale) {
             header
             ScrollView {
@@ -148,7 +156,7 @@ struct FilterEditor: View {
                 .transition(.opacity)
             } else {
                 columnHeadings
-                VStack(spacing: 4 * interfaceScale) {
+                LazyVStack(spacing: 4 * interfaceScale) {
                     ForEach($draft.filters) { $filter in
                         if let index = draft.filters.firstIndex(where: { $0.id == filter.id }) {
                             filterRow($filter, number: index + 1)
@@ -336,4 +344,16 @@ struct FilterEditor: View {
         do { let next = try history.redo(draft); withAuralAnimation { restoreDraft(next) }; error = nil }
         catch { self.error = error.localizedDescription }
     }
+}
+
+private struct DraftPresentation: Equatable {
+    let draft: ParametricDraft
+    let sourceChanged: Bool
+    let error: String?
+    let canUndo: Bool
+    let canRedo: Bool
+    let restoring: Bool
+    let theme: AuralTheme
+    let zoom: AuralInterfaceZoom
+    let rate: Double
 }

@@ -74,5 +74,10 @@ import AppKit
     model.redoProfile()
     require(model.profile == expectedReset, "Reset EQ must support redo")
     require(!model.running && !model.route.hasResources, "Bar edits must retain the playback state")
+    try checkHorizontalFilterBank()
+    try checkRetainedEditorUpdates()
+    try checkNativeControlIsolation()
+    try checkLazyDraftEditor()
+    checkWorkspaceLayoutCache()
     print("PASS visual gain bounds, active frequencies/gains, shared mode edits, precision, drag undo, imported filter preservation, gainless filter rejection, and EQ reset/undo/redo")
 }

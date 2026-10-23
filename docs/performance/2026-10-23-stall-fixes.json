@@ -1,0 +1,1441 @@
+{
+  "baselineBinarySHA256": "7fc2cfff2b732a147e50c7b744237d311b8cdb0df451937882de978976b5052b",
+  "baselineSourceSHA256": {
+    "Sources/Aural/EQBars.swift": "4222649b461faa85cbf274250f829405443dd1d4903890b5199dbaf969e68d0a",
+    "Sources/Aural/FilterRack.swift": "738916644ce57d0a3e0b24dbd1497183231cd1720c2e01c83cb7a0f35b88b2b2",
+    "Sources/Aural/InterfaceZoom.swift": "f0c2e7537eb5c5ed934b2e96e831dcf83044ccb33847937a0f8d157773eae185",
+    "Sources/Aural/MainView.swift": "a96a09a098e15060896a6cf02c4d332696001c2b3d2d1f91a00e8b3b675b5d27",
+    "Sources/Aural/ResponseCurve.swift": "c89b447cb53893bebac54b4690697967c50e0505aac3938d7d2ff7e944f61393",
+    "Sources/Aural/UIStyle.swift": "6398ed8cbb3bbac19d7350bc243c6d8f4743c66feaf07c969c4b2fa3205a7264",
+    "Tests/PerformanceTests/BarChecks.swift": "1d16ea82eb6c082e1b2b1ad9c4645a0a81947ce8596f3f446ac3edb524a1576c",
+    "Tests/PerformanceTests/LayoutCacheChecks.swift": "78116a14c61780fc916642f5cfd613c00317e461607e0c96d9f1bbe877222a37",
+    "Tests/ThemeTests/main.swift": "bb77ebebd4f8a90d60c7fbaad955de6ca72054ffdcf87c9078f5413bb8777ace",
+    "docs/FUTURE-UPDATES.md": "eada0d9b5f8ee2836bcbc946b1fdc71f7a5037f08201e1f87500b4b770da7b0e"
+  },
+  "baselineSurfaceMeasurements": [
+    {
+      "documentMedianMS": 0.5826250126119703,
+      "filters": 10,
+      "layoutMedianMS": 10.368916642619297,
+      "maximumMS": 12.416583340382203,
+      "medianMS": 11.018249992048368,
+      "p95MS": 11.897999997017905,
+      "samples": 60,
+      "surface": "workspaceFaders"
+    },
+    {
+      "documentMedianMS": 0.5967500037513673,
+      "filters": 10,
+      "layoutMedianMS": 11.004791653249413,
+      "maximumMS": 16.688624978996813,
+      "medianMS": 11.612416652496904,
+      "p95MS": 15.050791669636965,
+      "samples": 60,
+      "surface": "workspaceRows"
+    },
+    {
+      "documentMedianMS": 0.5851666792295873,
+      "filters": 10,
+      "layoutMedianMS": 9.466999996220693,
+      "maximumMS": 18.94712500507012,
+      "medianMS": 10.020083340350538,
+      "p95MS": 12.388083327095956,
+      "samples": 60,
+      "surface": "rackFaders"
+    },
+    {
+      "documentMedianMS": 0.6299166707322001,
+      "filters": 10,
+      "layoutMedianMS": 9.840833343332633,
+      "maximumMS": 19.917166675440967,
+      "medianMS": 10.435291653266177,
+      "p95MS": 14.562583324732259,
+      "samples": 60,
+      "surface": "rackRows"
+    },
+    {
+      "documentMedianMS": 0.7739583379589021,
+      "filters": 10,
+      "layoutMedianMS": 3.9108750061132014,
+      "maximumMS": 15.275125013431534,
+      "medianMS": 4.703375016106293,
+      "p95MS": 7.426416646922007,
+      "samples": 60,
+      "surface": "bars"
+    },
+    {
+      "documentMedianMS": 0.5379583162721246,
+      "filters": 10,
+      "layoutMedianMS": 3.9822083490435034,
+      "maximumMS": 6.892125005833805,
+      "medianMS": 4.569000011542812,
+      "p95MS": 5.659874994307756,
+      "samples": 60,
+      "surface": "curve"
+    },
+    {
+      "documentMedianMS": 0.6594583101104945,
+      "filters": 31,
+      "layoutMedianMS": 15.824208327103406,
+      "maximumMS": 25.518583337543532,
+      "medianMS": 16.48900000145659,
+      "p95MS": 18.992999976035208,
+      "samples": 60,
+      "surface": "workspaceFaders"
+    },
+    {
+      "documentMedianMS": 0.6519583403132856,
+      "filters": 31,
+      "layoutMedianMS": 15.607666660798714,
+      "maximumMS": 30.455125001026317,
+      "medianMS": 16.254333342658356,
+      "p95MS": 22.109166660811752,
+      "samples": 60,
+      "surface": "workspaceRows"
+    },
+    {
+      "documentMedianMS": 0.6583333306480199,
+      "filters": 31,
+      "layoutMedianMS": 13.815499987686053,
+      "maximumMS": 23.033458332065493,
+      "medianMS": 14.544666686560959,
+      "p95MS": 16.847999999299645,
+      "samples": 60,
+      "surface": "rackFaders"
+    },
+    {
+      "documentMedianMS": 0.6203750090207905,
+      "filters": 31,
+      "layoutMedianMS": 13.000791659578681,
+      "maximumMS": 20.035083347465843,
+      "medianMS": 13.584875006927177,
+      "p95MS": 17.358999990392476,
+      "samples": 60,
+      "surface": "rackRows"
+    },
+    {
+      "documentMedianMS": 0.6920416781213135,
+      "filters": 31,
+      "layoutMedianMS": 6.459458352765068,
+      "maximumMS": 14.973833342082798,
+      "medianMS": 7.09958333754912,
+      "p95MS": 10.022166679846123,
+      "samples": 60,
+      "surface": "bars"
+    },
+    {
+      "documentMedianMS": 0.5893750058021396,
+      "filters": 31,
+      "layoutMedianMS": 5.398916691774502,
+      "maximumMS": 9.457124979235232,
+      "medianMS": 5.985791678540409,
+      "p95MS": 8.462124998914078,
+      "samples": 60,
+      "surface": "curve"
+    },
+    {
+      "documentMedianMS": 0.7273333321791142,
+      "filters": 64,
+      "layoutMedianMS": 24.594416667241603,
+      "maximumMS": 30.176500004017726,
+      "medianMS": 25.375666649779305,
+      "p95MS": 28.297666664002463,
+      "samples": 60,
+      "surface": "workspaceFaders"
+    },
+    {
+      "documentMedianMS": 0.734416680643335,
+      "filters": 64,
+      "layoutMedianMS": 25.851041689747944,
+      "maximumMS": 40.42291667428799,
+      "medianMS": 26.57979167997837,
+      "p95MS": 35.90883332071826,
+      "samples": 60,
+      "surface": "workspaceRows"
+    },
+    {
+      "documentMedianMS": 0.6542916526086628,
+      "filters": 64,
+      "layoutMedianMS": 19.449375016847625,
+      "maximumMS": 30.13483333052136,
+      "medianMS": 20.164458343060687,
+      "p95MS": 24.114458326948807,
+      "samples": 60,
+      "surface": "rackFaders"
+    },
+    {
+      "documentMedianMS": 0.6509166560135782,
+      "filters": 64,
+      "layoutMedianMS": 20.09862501290627,
+      "maximumMS": 26.030541659565642,
+      "medianMS": 20.74283332331106,
+      "p95MS": 23.999041673960164,
+      "samples": 60,
+      "surface": "rackRows"
+    },
+    {
+      "documentMedianMS": 0.6256666674744338,
+      "filters": 64,
+      "layoutMedianMS": 10.442916653119028,
+      "maximumMS": 19.28041665814817,
+      "medianMS": 11.067458341130987,
+      "p95MS": 14.727458328707144,
+      "samples": 60,
+      "surface": "bars"
+    },
+    {
+      "documentMedianMS": 0.6093333358876407,
+      "filters": 64,
+      "layoutMedianMS": 7.161749992519617,
+      "maximumMS": 9.934166679158807,
+      "medianMS": 7.80799999483861,
+      "p95MS": 9.01945834630169,
+      "samples": 60,
+      "surface": "curve"
+    }
+  ],
+  "date": "2026-10-23",
+  "environment": {
+    "SDK": "macOS 26.5",
+    "Swift": "6.4",
+    "architecture": "arm64",
+    "build": "26A434",
+    "hardwareModel": "Mac15,13",
+    "logicalCPUs": 8,
+    "macOS": "27.0.1",
+    "memoryGiB": 16,
+    "optimization": "swiftc -O -whole-module-optimization, AURAL_TESTING"
+  },
+  "evidenceSHA256": {
+    "aural-stalls-audit-after.log": "a66ddc94a02639db0015e55794df026eeb5ea45f66c4570455953ffc87ac7e1b",
+    "aural-stalls-final-native.log": "cbf9fb6206e64be25ef7d19a1b5873303b15520e35501fb714cfdf66453167b3",
+    "aural-stalls-final.log": "5fb5cf676a633c256ab8bee59752531386dd8b8e82f2cb826db3432ca01e3593",
+    "aural-stalls-full-tests.log": "aa4366efb5b0f7fd3ae947164b4a41b0ab56655b30f02cdd8d93e8a9f9154aae",
+    "aural-stalls-release.log": "4c2b890075738603247b1e9e0cdfcf9c2f8d32f10be8c432a8b9520f2254de31"
+  },
+  "finalSurfaceMeasurements": [
+    {
+      "documentMedianMS": 0.9946666832547635,
+      "filters": 10,
+      "layoutMedianMS": 14.405416673980653,
+      "maximumMS": 20.683500013547018,
+      "medianMS": 15.35508333472535,
+      "p95MS": 17.52741666859947,
+      "samples": 60,
+      "surface": "workspaceFaders"
+    },
+    {
+      "documentMedianMS": 1.060541660990566,
+      "filters": 10,
+      "layoutMedianMS": 15.94199999817647,
+      "maximumMS": 45.58987499331124,
+      "medianMS": 17.073750001145527,
+      "p95MS": 27.014666673494503,
+      "samples": 60,
+      "surface": "workspaceRows"
+    },
+    {
+      "documentMedianMS": 0.9413750085514039,
+      "filters": 10,
+      "layoutMedianMS": 6.737791671184823,
+      "maximumMS": 12.193208356620744,
+      "medianMS": 7.658541639102623,
+      "p95MS": 9.18408331926912,
+      "samples": 60,
+      "surface": "rackFaders"
+    },
+    {
+      "documentMedianMS": 1.068583340384066,
+      "filters": 10,
+      "layoutMedianMS": 15.66574999014847,
+      "maximumMS": 22.943833319004625,
+      "medianMS": 16.78758332855068,
+      "p95MS": 21.066958346636966,
+      "samples": 60,
+      "surface": "rackRows"
+    },
+    {
+      "documentMedianMS": 1.0442916536703706,
+      "filters": 10,
+      "layoutMedianMS": 6.143500009784475,
+      "maximumMS": 14.954291662434116,
+      "medianMS": 7.242624997161329,
+      "p95MS": 11.478833330329508,
+      "samples": 60,
+      "surface": "bars"
+    },
+    {
+      "documentMedianMS": 0.9111249819397926,
+      "filters": 10,
+      "layoutMedianMS": 3.6416666698642075,
+      "maximumMS": 19.684333325130865,
+      "medianMS": 4.651041672332212,
+      "p95MS": 16.14908335614018,
+      "samples": 60,
+      "surface": "curve"
+    },
+    {
+      "documentMedianMS": 1.3585833075921983,
+      "filters": 31,
+      "layoutMedianMS": 29.97441668412648,
+      "maximumMS": 47.61325000436045,
+      "medianMS": 31.839083327213302,
+      "p95MS": 44.5636666554492,
+      "samples": 60,
+      "surface": "workspaceFaders"
+    },
+    {
+      "documentMedianMS": 1.2310000020079315,
+      "filters": 31,
+      "layoutMedianMS": 25.665000022854656,
+      "maximumMS": 776.247958332533,
+      "medianMS": 26.96274998015724,
+      "p95MS": 44.28379164892249,
+      "samples": 60,
+      "surface": "workspaceRows"
+    },
+    {
+      "documentMedianMS": 1.1737083259504288,
+      "filters": 31,
+      "layoutMedianMS": 13.87358331703581,
+      "maximumMS": 24.349708313820884,
+      "medianMS": 15.043041668832302,
+      "p95MS": 18.60341668361798,
+      "samples": 60,
+      "surface": "rackFaders"
+    },
+    {
+      "documentMedianMS": 1.3950833235867321,
+      "filters": 31,
+      "layoutMedianMS": 23.76920831738971,
+      "maximumMS": 38.11808332102373,
+      "medianMS": 25.089541682973504,
+      "p95MS": 34.04491665423848,
+      "samples": 60,
+      "surface": "rackRows"
+    },
+    {
+      "documentMedianMS": 1.3455416483338922,
+      "filters": 31,
+      "layoutMedianMS": 14.436083321925253,
+      "maximumMS": 20.641958341002464,
+      "medianMS": 15.735624998342246,
+      "p95MS": 19.27550000254996,
+      "samples": 60,
+      "surface": "bars"
+    },
+    {
+      "documentMedianMS": 1.6151666641235352,
+      "filters": 31,
+      "layoutMedianMS": 20.2712916652672,
+      "maximumMS": 56.42358332988806,
+      "medianMS": 21.84758335351944,
+      "p95MS": 34.71300000092015,
+      "samples": 60,
+      "surface": "curve"
+    },
+    {
+      "documentMedianMS": 1.9080416823271662,
+      "filters": 64,
+      "layoutMedianMS": 57.38687500706874,
+      "maximumMS": 101.16066667251289,
+      "medianMS": 59.21249999664724,
+      "p95MS": 83.90170833445154,
+      "samples": 60,
+      "surface": "workspaceFaders"
+    },
+    {
+      "documentMedianMS": 2.569250005763024,
+      "filters": 64,
+      "layoutMedianMS": 88.37720833253115,
+      "maximumMS": 168.36329165380448,
+      "medianMS": 91.77179165999405,
+      "p95MS": 146.73729165224358,
+      "samples": 60,
+      "surface": "workspaceRows"
+    },
+    {
+      "documentMedianMS": 2.2726666647940874,
+      "filters": 64,
+      "layoutMedianMS": 46.22770834248513,
+      "maximumMS": 60.64787498326041,
+      "medianMS": 48.932083329418674,
+      "p95MS": 58.55729166069068,
+      "samples": 60,
+      "surface": "rackFaders"
+    },
+    {
+      "documentMedianMS": 2.4778333317954093,
+      "filters": 64,
+      "layoutMedianMS": 49.70199998933822,
+      "maximumMS": 100.8624583191704,
+      "medianMS": 52.157708327285945,
+      "p95MS": 67.67945832689293,
+      "samples": 60,
+      "surface": "rackRows"
+    },
+    {
+      "documentMedianMS": 1.9999583309981972,
+      "filters": 64,
+      "layoutMedianMS": 38.425666687544435,
+      "maximumMS": 79.72858333960176,
+      "medianMS": 41.31008335389197,
+      "p95MS": 62.01583333313465,
+      "samples": 60,
+      "surface": "bars"
+    },
+    {
+      "documentMedianMS": 2.0979583205189556,
+      "filters": 64,
+      "layoutMedianMS": 28.97366666002199,
+      "maximumMS": 72.24495834088884,
+      "medianMS": 30.90049998718314,
+      "p95MS": 68.750624981476,
+      "samples": 60,
+      "surface": "curve"
+    }
+  ],
+  "fixedBinarySHA256": "4b78bdbd1ce52ea582521acabe1f476ab3e1fee1be328f2636e4d780348618d2",
+  "limits": [
+    "The long mixed gain/frequency/Q stress run still reached 776.25 ms; shared-host timings vary and all measurements are retained.",
+    "The standard original-audit edit cases reached 27.81 ms, with side-panel and secondary-window limits recorded separately.",
+    "Cold construction and editor switching can exceed one frame.",
+    "No universal stall-free, GPU FPS, physical playback/dropout, Intel, or iOS claim.",
+    "The offscreen search harness still emits the previously recorded AppKit table warning."
+  ],
+  "originalAuditAfterFixes": [
+    {
+      "maximumMS": 344.5417500042822,
+      "medianMS": 344.5417500042822,
+      "name": "construct.10",
+      "p95MS": 344.5417500042822,
+      "samples": 1
+    },
+    {
+      "maximumMS": 9.303916682256386,
+      "medianMS": 8.000583329703659,
+      "name": "edit.Faders.10",
+      "p95MS": 9.061250020749867,
+      "samples": 40
+    },
+    {
+      "maximumMS": 10.870458325371146,
+      "medianMS": 7.599708333145827,
+      "name": "edit.All rows.10",
+      "p95MS": 9.435500018298626,
+      "samples": 40
+    },
+    {
+      "maximumMS": 11.698749993229285,
+      "medianMS": 7.328083331231028,
+      "name": "edit.Selected.10",
+      "p95MS": 8.668916678288952,
+      "samples": 40
+    },
+    {
+      "maximumMS": 38.70370832737535,
+      "medianMS": 29.17120832717046,
+      "name": "view-switch.10",
+      "p95MS": 38.70370832737535,
+      "samples": 6
+    },
+    {
+      "maximumMS": 49.39766664756462,
+      "medianMS": 48.49604167975485,
+      "name": "resize.10",
+      "p95MS": 49.39766664756462,
+      "samples": 3
+    },
+    {
+      "maximumMS": 9.051125001860783,
+      "medianMS": 7.674333348404616,
+      "name": "bypass.10",
+      "p95MS": 9.051125001860783,
+      "samples": 12
+    },
+    {
+      "maximumMS": 8.885916671715677,
+      "medianMS": 7.966999983182177,
+      "name": "match-level-edit.10",
+      "p95MS": 8.794249995844439,
+      "samples": 20
+    },
+    {
+      "maximumMS": 10.882250004215166,
+      "medianMS": 8.251708350144327,
+      "name": "edit.compact-side-140.10",
+      "p95MS": 10.850916645722464,
+      "samples": 20
+    },
+    {
+      "maximumMS": 351.81708334130235,
+      "medianMS": 351.81708334130235,
+      "name": "construct.31",
+      "p95MS": 351.81708334130235,
+      "samples": 1
+    },
+    {
+      "maximumMS": 27.80700000585057,
+      "medianMS": 14.124791661743075,
+      "name": "edit.Faders.31",
+      "p95MS": 19.83333332464099,
+      "samples": 40
+    },
+    {
+      "maximumMS": 20.088291668798774,
+      "medianMS": 12.401708314428106,
+      "name": "edit.All rows.31",
+      "p95MS": 14.47412499692291,
+      "samples": 40
+    },
+    {
+      "maximumMS": 15.148624981520697,
+      "medianMS": 12.027999997371808,
+      "name": "edit.Selected.31",
+      "p95MS": 13.640291668707505,
+      "samples": 40
+    },
+    {
+      "maximumMS": 75.4097499884665,
+      "medianMS": 50.05441667162813,
+      "name": "view-switch.31",
+      "p95MS": 75.4097499884665,
+      "samples": 6
+    },
+    {
+      "maximumMS": 56.94775001029484,
+      "medianMS": 49.091666674939916,
+      "name": "resize.31",
+      "p95MS": 56.94775001029484,
+      "samples": 3
+    },
+    {
+      "maximumMS": 13.981166644953191,
+      "medianMS": 12.664249981753528,
+      "name": "bypass.31",
+      "p95MS": 13.981166644953191,
+      "samples": 12
+    },
+    {
+      "maximumMS": 28.507541661383584,
+      "medianMS": 20.811833353945985,
+      "name": "match-level-edit.31",
+      "p95MS": 27.928041643463075,
+      "samples": 20
+    },
+    {
+      "maximumMS": 46.91466665826738,
+      "medianMS": 28.218749997904524,
+      "name": "edit.compact-side-140.31",
+      "p95MS": 46.18000000482425,
+      "samples": 20
+    },
+    {
+      "maximumMS": 466.960541671142,
+      "medianMS": 466.960541671142,
+      "name": "construct.64",
+      "p95MS": 466.960541671142,
+      "samples": 1
+    },
+    {
+      "maximumMS": 25.85841665859334,
+      "medianMS": 16.709416668163612,
+      "name": "edit.Faders.64",
+      "p95MS": 22.15408332995139,
+      "samples": 40
+    },
+    {
+      "maximumMS": 23.398749995976686,
+      "medianMS": 15.419583331095055,
+      "name": "edit.All rows.64",
+      "p95MS": 22.65637501841411,
+      "samples": 40
+    },
+    {
+      "maximumMS": 20.772249990841374,
+      "medianMS": 14.307499979622662,
+      "name": "edit.Selected.64",
+      "p95MS": 19.477333320537582,
+      "samples": 40
+    },
+    {
+      "maximumMS": 109.59691667812876,
+      "medianMS": 80.87337500182912,
+      "name": "view-switch.64",
+      "p95MS": 109.59691667812876,
+      "samples": 6
+    },
+    {
+      "maximumMS": 60.78116668504663,
+      "medianMS": 60.227374982787296,
+      "name": "resize.64",
+      "p95MS": 60.78116668504663,
+      "samples": 3
+    },
+    {
+      "maximumMS": 15.52645832998678,
+      "medianMS": 13.485625007888302,
+      "name": "bypass.64",
+      "p95MS": 15.52645832998678,
+      "samples": 12
+    },
+    {
+      "maximumMS": 15.982541663106531,
+      "medianMS": 15.045541658764705,
+      "name": "match-level-edit.64",
+      "p95MS": 15.701333351898938,
+      "samples": 20
+    },
+    {
+      "maximumMS": 31.474499992327765,
+      "medianMS": 18.064583331579342,
+      "name": "edit.compact-side-140.64",
+      "p95MS": 29.514208348700777,
+      "samples": 20
+    },
+    {
+      "maximumMS": 16.173166659427807,
+      "medianMS": 9.76658333092928,
+      "name": "catalog-search.15000",
+      "p95MS": 16.173166659427807,
+      "samples": 5
+    },
+    {
+      "maximumMS": 125.58020831784233,
+      "medianMS": 125.58020831784233,
+      "name": "open.preset-library.1000",
+      "p95MS": 125.58020831784233,
+      "samples": 1
+    },
+    {
+      "maximumMS": 39.5543749909848,
+      "medianMS": 18.562166660558432,
+      "name": "search.preset-library.1000",
+      "p95MS": 39.5543749909848,
+      "samples": 7
+    },
+    {
+      "maximumMS": 12.244333338458091,
+      "medianMS": 10.240208328468725,
+      "name": "edit.with-preset-library.1000",
+      "p95MS": 12.165958323748782,
+      "samples": 20
+    },
+    {
+      "maximumMS": 86.30945833283477,
+      "medianMS": 86.30945833283477,
+      "name": "open.autoeq.15000",
+      "p95MS": 86.30945833283477,
+      "samples": 1
+    },
+    {
+      "maximumMS": 39.39558332785964,
+      "medianMS": 31.81000001495704,
+      "name": "search.autoeq.15000",
+      "p95MS": 39.39558332785964,
+      "samples": 7
+    },
+    {
+      "maximumMS": 10.38545832852833,
+      "medianMS": 8.54408333543688,
+      "name": "edit.with-autoeq.15000",
+      "p95MS": 10.326416668249294,
+      "samples": 20
+    },
+    {
+      "maximumMS": 460.35470833885483,
+      "medianMS": 460.35470833885483,
+      "name": "open.draft-editor.64",
+      "p95MS": 460.35470833885483,
+      "samples": 1
+    },
+    {
+      "maximumMS": 57.5420833483804,
+      "medianMS": 22.813416668213904,
+      "name": "edit.with-draft-editor.64",
+      "p95MS": 46.54666667920537,
+      "samples": 20
+    },
+    {
+      "maximumMS": 80.49666666192934,
+      "medianMS": 80.49666666192934,
+      "name": "open.stereo",
+      "p95MS": 80.49666666192934,
+      "samples": 1
+    },
+    {
+      "maximumMS": 34.337874996708706,
+      "medianMS": 34.337874996708706,
+      "name": "open.settings",
+      "p95MS": 34.337874996708706,
+      "samples": 1
+    }
+  ],
+  "originalAuditBeforeFixes": [
+    {
+      "maximumMS": 741.975041659316,
+      "medianMS": 741.975041659316,
+      "name": "construct.10",
+      "p95MS": 741.975041659316,
+      "samples": 1
+    },
+    {
+      "maximumMS": 280.8577499818057,
+      "medianMS": 41.03737502009608,
+      "name": "edit.Faders.10",
+      "p95MS": 162.77475000242703,
+      "samples": 40
+    },
+    {
+      "maximumMS": 231.79716666345485,
+      "medianMS": 64.8560416593682,
+      "name": "edit.All rows.10",
+      "p95MS": 156.8719999922905,
+      "samples": 40
+    },
+    {
+      "maximumMS": 27.89645831217058,
+      "medianMS": 14.997583348304033,
+      "name": "edit.Selected.10",
+      "p95MS": 20.617708330973983,
+      "samples": 40
+    },
+    {
+      "maximumMS": 74.02483333135024,
+      "medianMS": 58.72758332407102,
+      "name": "view-switch.10",
+      "p95MS": 74.02483333135024,
+      "samples": 6
+    },
+    {
+      "maximumMS": 164.33354167384095,
+      "medianMS": 123.35733333020471,
+      "name": "resize.10",
+      "p95MS": 164.33354167384095,
+      "samples": 3
+    },
+    {
+      "maximumMS": 40.53004164597951,
+      "medianMS": 10.832625004695728,
+      "name": "bypass.10",
+      "p95MS": 40.53004164597951,
+      "samples": 12
+    },
+    {
+      "maximumMS": 20.79675000277348,
+      "medianMS": 13.783333328319713,
+      "name": "match-level-edit.10",
+      "p95MS": 19.488291669404134,
+      "samples": 20
+    },
+    {
+      "maximumMS": 46.81858333060518,
+      "medianMS": 13.46308330539614,
+      "name": "edit.compact-side-140.10",
+      "p95MS": 19.587375019909814,
+      "samples": 20
+    },
+    {
+      "maximumMS": 801.856250007404,
+      "medianMS": 801.856250007404,
+      "name": "construct.31",
+      "p95MS": 801.856250007404,
+      "samples": 1
+    },
+    {
+      "maximumMS": 36.951374990167096,
+      "medianMS": 25.2558333449997,
+      "name": "edit.Faders.31",
+      "p95MS": 32.87700001965277,
+      "samples": 40
+    },
+    {
+      "maximumMS": 41.88920833985321,
+      "medianMS": 24.63095833081752,
+      "name": "edit.All rows.31",
+      "p95MS": 33.4012083185371,
+      "samples": 40
+    },
+    {
+      "maximumMS": 46.47525001200847,
+      "medianMS": 26.68554167030379,
+      "name": "edit.Selected.31",
+      "p95MS": 36.97225000360049,
+      "samples": 40
+    },
+    {
+      "maximumMS": 86.43579165800475,
+      "medianMS": 81.89937501447275,
+      "name": "view-switch.31",
+      "p95MS": 86.43579165800475,
+      "samples": 6
+    },
+    {
+      "maximumMS": 141.90599997527897,
+      "medianMS": 123.86837499798276,
+      "name": "resize.31",
+      "p95MS": 141.90599997527897,
+      "samples": 3
+    },
+    {
+      "maximumMS": 43.024875019909814,
+      "medianMS": 14.251458313083276,
+      "name": "bypass.31",
+      "p95MS": 43.024875019909814,
+      "samples": 12
+    },
+    {
+      "maximumMS": 31.12045832676813,
+      "medianMS": 23.597583320224658,
+      "name": "match-level-edit.31",
+      "p95MS": 29.65537499403581,
+      "samples": 20
+    },
+    {
+      "maximumMS": 28.684999997494742,
+      "medianMS": 20.81841666949913,
+      "name": "edit.compact-side-140.31",
+      "p95MS": 28.401291667250916,
+      "samples": 20
+    },
+    {
+      "maximumMS": 825.208833324723,
+      "medianMS": 825.208833324723,
+      "name": "construct.64",
+      "p95MS": 825.208833324723,
+      "samples": 1
+    },
+    {
+      "maximumMS": 344.14099997957237,
+      "medianMS": 103.32266666227952,
+      "name": "edit.Faders.64",
+      "p95MS": 302.5127916771453,
+      "samples": 40
+    },
+    {
+      "maximumMS": 456.1860833200626,
+      "medianMS": 196.96550001390278,
+      "name": "edit.All rows.64",
+      "p95MS": 397.7640833181795,
+      "samples": 40
+    },
+    {
+      "maximumMS": 431.88591668149456,
+      "medianMS": 52.543124998919666,
+      "name": "edit.Selected.64",
+      "p95MS": 262.82929166336544,
+      "samples": 40
+    },
+    {
+      "maximumMS": 147.8426250105258,
+      "medianMS": 128.49816668312997,
+      "name": "view-switch.64",
+      "p95MS": 147.8426250105258,
+      "samples": 6
+    },
+    {
+      "maximumMS": 169.75512501085177,
+      "medianMS": 161.61579164327122,
+      "name": "resize.64",
+      "p95MS": 169.75512501085177,
+      "samples": 3
+    },
+    {
+      "maximumMS": 23.298166663153097,
+      "medianMS": 21.07654165592976,
+      "name": "bypass.64",
+      "p95MS": 23.298166663153097,
+      "samples": 12
+    },
+    {
+      "maximumMS": 49.15308335330337,
+      "medianMS": 40.39216667297296,
+      "name": "match-level-edit.64",
+      "p95MS": 47.89775001700036,
+      "samples": 20
+    },
+    {
+      "maximumMS": 149.82195832999423,
+      "medianMS": 60.24787499336526,
+      "name": "edit.compact-side-140.64",
+      "p95MS": 140.02262501162477,
+      "samples": 20
+    },
+    {
+      "maximumMS": 35.78520833980292,
+      "medianMS": 23.7277916749008,
+      "name": "catalog-search.15000",
+      "p95MS": 35.78520833980292,
+      "samples": 5
+    },
+    {
+      "maximumMS": 359.3175833520945,
+      "medianMS": 359.3175833520945,
+      "name": "open.preset-library.1000",
+      "p95MS": 359.3175833520945,
+      "samples": 1
+    },
+    {
+      "maximumMS": 138.0303333280608,
+      "medianMS": 35.34216666594148,
+      "name": "search.preset-library.1000",
+      "p95MS": 138.0303333280608,
+      "samples": 7
+    },
+    {
+      "maximumMS": 32.21204166766256,
+      "medianMS": 17.91666666395031,
+      "name": "edit.with-preset-library.1000",
+      "p95MS": 24.38675001030788,
+      "samples": 20
+    },
+    {
+      "maximumMS": 207.87825001752935,
+      "medianMS": 207.87825001752935,
+      "name": "open.autoeq.15000",
+      "p95MS": 207.87825001752935,
+      "samples": 1
+    },
+    {
+      "maximumMS": 161.88187498482876,
+      "medianMS": 64.72312501864508,
+      "name": "search.autoeq.15000",
+      "p95MS": 161.88187498482876,
+      "samples": 7
+    },
+    {
+      "maximumMS": 42.699624988017604,
+      "medianMS": 17.16816663974896,
+      "name": "edit.with-autoeq.15000",
+      "p95MS": 35.314375010784715,
+      "samples": 20
+    },
+    {
+      "maximumMS": 647.955250024097,
+      "medianMS": 647.955250024097,
+      "name": "open.draft-editor.64",
+      "p95MS": 647.955250024097,
+      "samples": 1
+    },
+    {
+      "maximumMS": 90.77187502407469,
+      "medianMS": 45.49612500704825,
+      "name": "edit.with-draft-editor.64",
+      "p95MS": 82.9878750082571,
+      "samples": 20
+    },
+    {
+      "maximumMS": 134.28466668119654,
+      "medianMS": 134.28466668119654,
+      "name": "open.stereo",
+      "p95MS": 134.28466668119654,
+      "samples": 1
+    },
+    {
+      "maximumMS": 96.17525001522154,
+      "medianMS": 96.17525001522154,
+      "name": "open.settings",
+      "p95MS": 96.17525001522154,
+      "samples": 1
+    }
+  ],
+  "pairedRuns": [
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 1.4735416625626385,
+          "filters": 10,
+          "layoutMedianMS": 30.78533333609812,
+          "maximumMS": 57.47933333623223,
+          "medianMS": 32.43462499813177,
+          "p95MS": 47.22029165714048,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.3147916470188648,
+          "filters": 31,
+          "layoutMedianMS": 35.068375000264496,
+          "maximumMS": 40.62525002518669,
+          "medianMS": 36.47320833988488,
+          "p95MS": 40.02337501151487,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.527874992461875,
+          "filters": 64,
+          "layoutMedianMS": 54.626625002129,
+          "maximumMS": 73.12370833824389,
+          "medianMS": 56.2320833269041,
+          "p95MS": 65.15874998876825,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        }
+      ],
+      "phase": "before",
+      "repeat": 1,
+      "surface": "workspaceFaders"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 1.128541654907167,
+          "filters": 10,
+          "layoutMedianMS": 14.376625011209399,
+          "maximumMS": 18.011500011198223,
+          "medianMS": 15.532916644588113,
+          "p95MS": 17.266583308810368,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.2249583378434181,
+          "filters": 31,
+          "layoutMedianMS": 22.49445833149366,
+          "maximumMS": 25.694291660329327,
+          "medianMS": 23.717749980278313,
+          "p95MS": 25.00358334509656,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.5940000012051314,
+          "filters": 64,
+          "layoutMedianMS": 36.67429165216163,
+          "maximumMS": 60.81958333379589,
+          "medianMS": 38.24499997426756,
+          "p95MS": 55.236833344679326,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        }
+      ],
+      "phase": "after",
+      "repeat": 1,
+      "surface": "workspaceFaders"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 1.208583329571411,
+          "filters": 10,
+          "layoutMedianMS": 22.835499985376373,
+          "maximumMS": 34.93362499284558,
+          "medianMS": 23.897833336377516,
+          "p95MS": 33.05633334093727,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.8190416449215263,
+          "filters": 31,
+          "layoutMedianMS": 50.74454165878706,
+          "maximumMS": 127.23574999836273,
+          "medianMS": 52.605624980060384,
+          "p95MS": 90.07524998742156,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.7767083190847188,
+          "filters": 64,
+          "layoutMedianMS": 66.45279168151319,
+          "maximumMS": 109.02883333619684,
+          "medianMS": 68.4952083393,
+          "p95MS": 99.22595831449144,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        }
+      ],
+      "phase": "before",
+      "repeat": 2,
+      "surface": "workspaceFaders"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 1.128208328736946,
+          "filters": 10,
+          "layoutMedianMS": 14.792250003665686,
+          "maximumMS": 24.448791664326563,
+          "medianMS": 15.956874995026737,
+          "p95MS": 18.001374992309138,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.2492499954532832,
+          "filters": 31,
+          "layoutMedianMS": 23.108791676349938,
+          "maximumMS": 34.25799999968149,
+          "medianMS": 24.393916683038697,
+          "p95MS": 27.00916668982245,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        },
+        {
+          "documentMedianMS": 1.4866666751913726,
+          "filters": 64,
+          "layoutMedianMS": 36.179791670292616,
+          "maximumMS": 43.2777083478868,
+          "medianMS": 37.55462501430884,
+          "p95MS": 41.60862500430085,
+          "samples": 60,
+          "surface": "workspaceFaders"
+        }
+      ],
+      "phase": "after",
+      "repeat": 2,
+      "surface": "workspaceFaders"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 1.4886250137351453,
+          "filters": 10,
+          "layoutMedianMS": 31.429333350388333,
+          "maximumMS": 52.15762500301935,
+          "medianMS": 32.9515416524373,
+          "p95MS": 48.722875013481826,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 1.6963333182502538,
+          "filters": 31,
+          "layoutMedianMS": 45.23437499301508,
+          "maximumMS": 81.28166667302139,
+          "medianMS": 47.98279167152941,
+          "p95MS": 63.93454168573953,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 1.8851666536647826,
+          "filters": 64,
+          "layoutMedianMS": 68.67483331006952,
+          "maximumMS": 189.6849583426956,
+          "medianMS": 70.62591664725915,
+          "p95MS": 95.66687501501292,
+          "samples": 60,
+          "surface": "workspaceRows"
+        }
+      ],
+      "phase": "before",
+      "repeat": 1,
+      "surface": "workspaceRows"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 1.106791663914919,
+          "filters": 10,
+          "layoutMedianMS": 15.823541645659134,
+          "maximumMS": 49.396958347642794,
+          "medianMS": 16.850708314450458,
+          "p95MS": 32.88166664424352,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 0.7976666674949229,
+          "filters": 31,
+          "layoutMedianMS": 13.193124992540106,
+          "maximumMS": 21.63966666557826,
+          "medianMS": 13.99541666614823,
+          "p95MS": 19.14787499117665,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 0.8713333518244326,
+          "filters": 64,
+          "layoutMedianMS": 19.21949998359196,
+          "maximumMS": 52.64941666973755,
+          "medianMS": 20.068333338713273,
+          "p95MS": 36.03258333168924,
+          "samples": 60,
+          "surface": "workspaceRows"
+        }
+      ],
+      "phase": "after",
+      "repeat": 1,
+      "surface": "workspaceRows"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 0.6388749752659351,
+          "filters": 10,
+          "layoutMedianMS": 11.430833314079791,
+          "maximumMS": 22.279708326095715,
+          "medianMS": 12.101958331186324,
+          "p95MS": 18.469458329491317,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 0.9226666879840195,
+          "filters": 31,
+          "layoutMedianMS": 23.062333319103345,
+          "maximumMS": 51.46799999056384,
+          "medianMS": 24.00049997959286,
+          "p95MS": 42.36358334310353,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 0.994666654150933,
+          "filters": 64,
+          "layoutMedianMS": 32.7322083467152,
+          "maximumMS": 78.78212499781512,
+          "medianMS": 37.60062501532957,
+          "p95MS": 72.07120832754299,
+          "samples": 60,
+          "surface": "workspaceRows"
+        }
+      ],
+      "phase": "before",
+      "repeat": 2,
+      "surface": "workspaceRows"
+    },
+    {
+      "measurements": [
+        {
+          "documentMedianMS": 0.7159583328757435,
+          "filters": 10,
+          "layoutMedianMS": 8.396583318244666,
+          "maximumMS": 17.91529165348038,
+          "medianMS": 9.125708340434358,
+          "p95MS": 12.063166679581627,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 0.8073333301581442,
+          "filters": 31,
+          "layoutMedianMS": 13.046916661551222,
+          "maximumMS": 31.394208344863728,
+          "medianMS": 13.840916653862223,
+          "p95MS": 19.408749998547137,
+          "samples": 60,
+          "surface": "workspaceRows"
+        },
+        {
+          "documentMedianMS": 0.9367083548568189,
+          "filters": 64,
+          "layoutMedianMS": 21.800791670102626,
+          "maximumMS": 39.47162500116974,
+          "medianMS": 22.729041666025296,
+          "p95MS": 34.35800000443123,
+          "samples": 60,
+          "surface": "workspaceRows"
+        }
+      ],
+      "phase": "after",
+      "repeat": 2,
+      "surface": "workspaceRows"
+    }
+  ],
+  "pairedSummary": [
+    {
+      "afterMaximumMS": 24.448791664326563,
+      "afterMedianRangeMS": [
+        15.532916644588113,
+        15.956874995026737
+      ],
+      "beforeMaximumMS": 57.47933333623223,
+      "beforeMedianRangeMS": [
+        23.897833336377516,
+        32.43462499813177
+      ],
+      "filters": 10,
+      "reductionInMeanOfRunMediansPercent": 44.10009331986814,
+      "surface": "workspaceFaders"
+    },
+    {
+      "afterMaximumMS": 34.25799999968149,
+      "afterMedianRangeMS": [
+        23.717749980278313,
+        24.393916683038697
+      ],
+      "beforeMaximumMS": 127.23574999836273,
+      "beforeMedianRangeMS": [
+        36.47320833988488,
+        52.605624980060384
+      ],
+      "filters": 31,
+      "reductionInMeanOfRunMediansPercent": 45.98978806725735,
+      "surface": "workspaceFaders"
+    },
+    {
+      "afterMaximumMS": 60.81958333379589,
+      "afterMedianRangeMS": [
+        37.55462501430884,
+        38.24499997426756
+      ],
+      "beforeMaximumMS": 109.02883333619684,
+      "beforeMedianRangeMS": [
+        56.2320833269041,
+        68.4952083393
+      ],
+      "filters": 64,
+      "reductionInMeanOfRunMediansPercent": 39.22771514077946,
+      "surface": "workspaceFaders"
+    },
+    {
+      "afterMaximumMS": 49.396958347642794,
+      "afterMedianRangeMS": [
+        9.125708340434358,
+        16.850708314450458
+      ],
+      "beforeMaximumMS": 52.15762500301935,
+      "beforeMedianRangeMS": [
+        12.101958331186324,
+        32.9515416524373
+      ],
+      "filters": 10,
+      "reductionInMeanOfRunMediansPercent": 42.34317719083553,
+      "surface": "workspaceRows"
+    },
+    {
+      "afterMaximumMS": 31.394208344863728,
+      "afterMedianRangeMS": [
+        13.840916653862223,
+        13.99541666614823
+      ],
+      "beforeMaximumMS": 81.28166667302139,
+      "beforeMedianRangeMS": [
+        24.00049997959286,
+        47.98279167152941
+      ],
+      "filters": 31,
+      "reductionInMeanOfRunMediansPercent": 61.32945204156073,
+      "surface": "workspaceRows"
+    },
+    {
+      "afterMaximumMS": 52.64941666973755,
+      "afterMedianRangeMS": [
+        20.068333338713273,
+        22.729041666025296
+      ],
+      "beforeMaximumMS": 189.6849583426956,
+      "beforeMedianRangeMS": [
+        37.60062501532957,
+        70.62591664725915
+      ],
+      "filters": 64,
+      "reductionInMeanOfRunMediansPercent": 60.455749257732606,
+      "surface": "workspaceRows"
+    }
+  ],
+  "scope": "Native desktop filter/fader editing; stopped audio and disposable settings. CPU action/layout time, not GPU frame pacing or hardware playback latency.",
+  "sourceSHA256": {
+    "Sources/Aural/About.swift": "e5f6e2df606946b3ba81ad3437575dbf1852f178072bcab97407b68df03f13d8",
+    "Sources/Aural/Accessibility.swift": "150e8760ad69f32af75dc4af5a4afc2630f232ff64ddff4b4454b21972a87f28",
+    "Sources/Aural/AppIcon.swift": "0a991aaeba3955072d07e74660ebd4dd34d5eb59d0555f2f30d1ccd646122089",
+    "Sources/Aural/Audio.swift": "cc9ed94d2f428d43f0947ad51bf59233d10ddf9b6244767c2f4768d7ce8bd377",
+    "Sources/Aural/AudioMeter.swift": "7231654a9014b34fb8c5e4bd12b9b01317043a66e179dce57793fdfba4a2246a",
+    "Sources/Aural/Aural.swift": "6013f34758e187c756bf46a8d18a8e0af5a1f87697e5d9ee1fde18ebfdbc9c6e",
+    "Sources/Aural/AutoEQ.swift": "4527b993549a94773513c6f5a596e8a50d00b7e0f034de2bd30298e513b2e8f0",
+    "Sources/Aural/AutoEQBrowserView.swift": "fbd6e54cc3fe9c0a04f4bce5ca7a79d96e0691bb874af5edba87f073498fdbd9",
+    "Sources/Aural/AutoEQCatalog.swift": "425591c3574d7da96c0b37afabec65079519f56a5f0677af630821bcaad67bb8",
+    "Sources/Aural/CurveEditing.swift": "f53317dfa298f54913c6a9f404fef7fd1b7e3e650744c4efb31abcae9513a82e",
+    "Sources/Aural/EQAnalysisWorker.swift": "ed08f17dbc43328a6109e21342f42179daeb6cdd147e8ec3a9f4fd1a1da7af78",
+    "Sources/Aural/EQBars.swift": "3f4b9e95e16cb5bd6a1601abd4a0bc2b3918536ebce9292a3396c114a23bd63d",
+    "Sources/Aural/EasyModeView.swift": "49ff70b78556e896096a85c82451395bcd2608e3e73e0b5e823be8c259495ef3",
+    "Sources/Aural/FilterDraft.swift": "289b2e054ea59a12371b29e6593caf7409b953644740e16cf746c8a76c642822",
+    "Sources/Aural/FilterEditor.swift": "70dfb705657ea4f21c6ec6361c401bfd1ea8c360707dad62032eec1593a06917",
+    "Sources/Aural/FilterRack.swift": "0984b9deba22bd24f39f5614b174c1c2ba1755f869185b26d8887b8521738eb2",
+    "Sources/Aural/GraphicEQ.swift": "b142d10ae66b02ac0455d3dc8f98d6e730898e533a3323ed9286152dc4c3a15c",
+    "Sources/Aural/HarmanReference.swift": "da2aaa67d45eb5ccf9e970f5fa774d0698c55379d81f7e581922fcd8057a583a",
+    "Sources/Aural/Headroom.swift": "53493bdeb304ca143eb4b4ff8384e53781a53b4fb03cb0bc3016df39d066e5d5",
+    "Sources/Aural/HistoryShortcuts.swift": "0687d8d34251645b55827916602b5544e50134f0a6c74bcc00ce5a3beb1ec2af",
+    "Sources/Aural/InterfaceLoadingView.swift": "3ef964a6b47849d7a073d4a45e7fdbddd9f5be746cd0e4f9741586cf9e629394",
+    "Sources/Aural/InterfacePanelHost.swift": "b40ff912beb7dcc24395c0cf5e574359b1efc8154aa6b57a4e19388dc099209d",
+    "Sources/Aural/InterfaceZoom.swift": "d6b12d9d8d711cd263f8dcf59918da8a4c9e636ff0a3a058bd9d8361f4f74f3a",
+    "Sources/Aural/KeyboardShortcutsView.swift": "ab22e6de95cf5f6d4327f56ec64ad80a3666e86aeb1df101722e5960f0f8a6ff",
+    "Sources/Aural/LevelMatch.swift": "140a3eeba4ecc69304deab8df5c16b9a3de356272450b628c72f2d24188a9ec0",
+    "Sources/Aural/Logging.swift": "0c40ea840fc98e4c5ab6007f1e917d66d694ecee9f73bd5e77cdf3763fa54b29",
+    "Sources/Aural/Loudness.swift": "b48f9eb6416ecf4b92334ba954237f16ff10f2caeaa2f0cb8bb5c3d44fe1e5ce",
+    "Sources/Aural/MainView.swift": "86d5dad61afab8920d6c556ed59a41e7e42b7a2195273e6dfb909a4b079020f7",
+    "Sources/Aural/Model.swift": "28b75f6961ba7a65629d2a729c0642c17e7c07642f920e9a65154b4c5f055dbc",
+    "Sources/Aural/Motion.swift": "688e154fcd7e32f420584e6ad9f7401ebcd657134f2a7e912ea4950682beb2b5",
+    "Sources/Aural/PrecisionInput.swift": "de500274edaae224dbbc4312a756902520c9790cdc3fbe48c646d20c4c22293b",
+    "Sources/Aural/PresetLibrary.swift": "81196f0b8b63a704ba8d266881d7fd45bc4663d3494e1d29da2b6a2daf67ccd9",
+    "Sources/Aural/PresetLibraryView.swift": "b9f70951fb004c908505bbc62f4a5f90936b847bb5ccaae60fb77e3aa5725329",
+    "Sources/Aural/Profile.swift": "ae773a16d101065f6c6968772980ee82c8f42edb6a71e7b918a525653322d7bb",
+    "Sources/Aural/ProfileDSP.swift": "c7b71e1348e78e88e3523de8f648a3754408f4e8012cbb37020c212ea2cbf8ff",
+    "Sources/Aural/ProfileWorkspace.swift": "83ad9a3109c5d02a51e5329917fe189a823ec9be01b5979159d99b197b5f6260",
+    "Sources/Aural/ReleaseInfo.swift": "b7c7ab53369c5c38956e29d1057f3d39b97767716a061dee70207d4870d5bdd5",
+    "Sources/Aural/ResponseAnalysis.swift": "cf383468deb8d5e0efea93089cbf0a80d89334cc3a0673e7fd6516245b5efbd9",
+    "Sources/Aural/ResponseCurve.swift": "b853367f487a5fce7f6a4456a679c58cc8c504e1e28aa506ad9c16a999e80ecc",
+    "Sources/Aural/SimpleListeningControls.swift": "a3b2bd58f4cb363d3226109256ddbbc60ca714f15e22da3857b40c2bf3a07289",
+    "Sources/Aural/Startup.swift": "5743f7b844503268cdff9130b4da597ef42a1f87a9f161162c4ea16f60cefae1",
+    "Sources/Aural/StereoPanel.swift": "7b1b7db7b1dfabb91bf2c84b0f1bca087a86b8961697cbdd13af01657dc3e4d3",
+    "Sources/Aural/StudioControls.swift": "b23fc748ab5f28f0016009e8138a24d21f3947d5b14b396f1be71020d2fedfdb",
+    "Sources/Aural/UIStyle.swift": "83abe064a291f612c17cf47cdddbd91b6f389a42ba762622ad438ab35b5e905a",
+    "Sources/Aural/Updates.swift": "8f0dbdcea9eb4e767bc0d2198538fad67ed06ecf196c6962cba51c7b7d389efb",
+    "Sources/Aural/WindowPresence.swift": "ee691becce1a3e4e9635f45fcee91517c3cc9942bff14b9ae54af733d0541b9f",
+    "Sources/DSP/DSP.c": "41d99684e38f25d69832754252d642b94be7d5694d0aae2721dd27b9bc585cd0",
+    "Sources/DSP/include/DSP.h": "98d41ff6c98ac2335b97c6891333b5106066e560f69d1696df8a0a4c4be95d11",
+    "Tests/BridgeTests/main.swift": "52907fa3c1f10b44a5860cbe39e46fc7c8e9de8e41a14b785874bbd33638731d",
+    "Tests/DSPTests/benchmark.c": "89baf4eb92d6610c1a4129ed3093e0e547baff5614963664201cc14f86d12a51",
+    "Tests/DSPTests/engine.c": "7d721ad65282f56269abdb258394c0c1c70e06281a6a873a5d0df9d6d4f090ff",
+    "Tests/DSPTests/response.c": "f407394b39b75e05a63c6b1a879480a8db398b57abd9d99888d24d5f795e6b85",
+    "Tests/DSPTests/state.c": "c95d85df0a7f66a356b25425aea56ae94f0f5e2b212d96a70847b8976442bb03",
+    "Tests/DSPTests/test.c": "e81e1af0e817dff9519c738ce1bec8754d2d3d1fcfcb4ec9becb8c10effb79ae",
+    "Tests/HeadroomTests/main.swift": "ddc786177f7fe3a3742c7b15d5270e73cc97fca0798c5d8e1086aeb0e080323f",
+    "Tests/IconTests/main.swift": "6471d347ab80fc81d7faecf11ca6d54437e7d9bbd34965dd5ea1aaf97341f476",
+    "Tests/ImportTests/main.swift": "a6e6797c3e0602e533d8dc46809095b8220a620249f8d714e33975027416aa72",
+    "Tests/PerformanceTests/AccentChecks.swift": "6c01c871979675045af1c7b9b055b4b61cb3d037df8d0e2fca0be24f4864f150",
+    "Tests/PerformanceTests/AccessibilityChecks.swift": "872c0f61552fd8493c71dc5dc03f4d04b993a9a34f3fa89ba69ababae7375433",
+    "Tests/PerformanceTests/AudioChecks.swift": "77b470b82508c039a8df48b39fde8589b8eec3381dc8f663808c095e940253ab",
+    "Tests/PerformanceTests/Audit.swift": "4c37b2f977c888e506a9b20da84775a10d629b9d8bcf777b0c8dc96ea722968c",
+    "Tests/PerformanceTests/BarChecks.swift": "ba437e70e377e7da7e1e1ba37825f8173f9143a5a7d2b26f0f53a7236f4ee41a",
+    "Tests/PerformanceTests/Benchmark.swift": "c9f73f5e97a6fc7df38cc3dab2c9a958c685438bd423c58bf421818e5fbc272b",
+    "Tests/PerformanceTests/CatalogChecks.swift": "df4136a9ed7a1b67b9fd15dd6d2dbb4ef75ee58ade0f86a20c0b38cdf86eabc1",
+    "Tests/PerformanceTests/Checks.swift": "d5ac54641791d24fd4eabdc7d38087ccc96c25d165d8c4d4870dba62ddffc957",
+    "Tests/PerformanceTests/ControlIsolationChecks.swift": "5168f6a66e32228bd439fd91c7e402774827d7614625e9fbc62c8fd668eab1db",
+    "Tests/PerformanceTests/CurveChecks.swift": "15313af11a7c2b953607f9bd8bf5aafdb12b662858fbe506062ced84e2e923ff",
+    "Tests/PerformanceTests/DraftPerformanceChecks.swift": "f26343f5d4df51bd10fa8cc05a845f9a27c1cd3c83388d549ba0400a89895727",
+    "Tests/PerformanceTests/FilterBankChecks.swift": "3e87176bc6c4eeb5dda801deaeb1028b07b05303109bf7b193cb2ba312321674",
+    "Tests/PerformanceTests/FilterOrderChecks.swift": "9b5902bda240a13a54b5a6fb89d7c7f83a74dbdd2ec6664fc7c99a249a9cc1b4",
+    "Tests/PerformanceTests/HistoryChecks.swift": "131498a646294254a0f9435f7955841b19a8c11bb0cdcb9d97bd630b84201a19",
+    "Tests/PerformanceTests/InteractionBenchmark.swift": "1fda7d2efe61615be82f81e8886b99dba2abe6dc2c7da1e925c9a71dd0d8cfcf",
+    "Tests/PerformanceTests/LayoutCacheChecks.swift": "f502e83f27921afd8488a9e59b535504f1d0923b1711e0cbe66c8823755237f7",
+    "Tests/PerformanceTests/PaneChecks.swift": "f60b73148e831ed94f402d5c4291c3d57eea89d43f1a9ca48752d435510d1516",
+    "Tests/PerformanceTests/PanelChecks.swift": "e2bfdd4d69a8f55910183948cf94efa68ec6d3329213683bf0ace8a665d376a2",
+    "Tests/PerformanceTests/PeakProtectionPreview.swift": "40341b1380d746e84fd582fbbf73c548388221ad50939958014976febddb9ae7",
+    "Tests/PerformanceTests/PresetChecks.swift": "c3ef42768cbb12b0e414d503ace0bd7fae92b02df1456700f42c4460fd779ea0",
+    "Tests/PerformanceTests/Preview.swift": "150f517973a2b46ab4f4adfc2608e7f2703fe999d97e765cbd936cd85f005f19",
+    "Tests/PerformanceTests/RetainedEditorChecks.swift": "db3146c939c0bd7292d01f7e181ff95dc8526f9d243bcc51e171810bf214de03",
+    "Tests/PerformanceTests/RouteChecks.swift": "5ee0b937590e0e6925ba7c5efed8181a6d62d4a0681f336795af81e40cdd9273",
+    "Tests/PerformanceTests/WorkerChecks.swift": "bfe22b54a6ffa8bd1e743d0f61c5c9863d92513a78d3acfa74658ad59ac0f562",
+    "Tests/PerformanceTests/ZoomChecks.swift": "a51e3ec033b2342a33b9327afae0754b7bcc3ca12915efc68774cb91431ba2cf",
+    "Tests/PrecisionTests/main.swift": "8e99762ab2fb877385990d15f5ffae58fea61f87430f5bd9dee8d0199df2db3c",
+    "Tests/ResponseTests/main.swift": "c5acbd684c1b348946b1aae9c1e638948b2b199e0a98779120f1dbc2aaa78033",
+    "Tests/ThemeTests/main.swift": "6e3571c3ae669024bb54c6c430a4effefeecae83946714047c28eba08e945e56",
+    "Tests/WindowTests/main.swift": "17f9ac10f412dab22892e15662f95eab7bbbceef482e1448e2590f8b8209bffd",
+    "Tests/WorkflowTests/main.swift": "881683564e0b8a91a74a7986256836321e40b89bbc6fe27b61da8ceb0b39bf8e"
+  },
+  "validation": {
+    "installedAppReplaced": false,
+    "nativePreview": {
+      "EQRemainedStopped": true,
+      "curveReadoutUpdated": true,
+      "exactFieldsUpdated": true,
+      "faderAXSetValue": true,
+      "keyboardIncrement": true,
+      "perOutputProfilesPreserved": true,
+      "screenshotChecked": true,
+      "twoStepUndoRestoredOriginal": true,
+      "viewSwitchingAndInactiveScrollbars": true
+    },
+    "offscreenTableWarnings": 4,
+    "passGroups": 107,
+    "releaseBuild": "passed",
+    "swiftUIStateMutationWarnings": 0,
+    "unrelatedOriginalFilesVerified": 110
+  }
+}

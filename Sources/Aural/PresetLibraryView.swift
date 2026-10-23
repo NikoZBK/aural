@@ -11,29 +11,38 @@ struct PresetLibraryView: View {
     @State private var selected: String?
     @State private var newName = ""
 
-    private var names: [String] {
+    private var matchingNames: [String] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         return (Array(model.factory.keys) + model.customPresets).sorted().filter {
             (query.isEmpty || $0.localizedCaseInsensitiveContains(query)) &&
                 (!favoritesOnly || model.favoritePresets.contains($0))
         }
     }
-    private var selectedName: String? {
-        selected.flatMap { names.contains($0) ? $0 : nil }
-    }
     private var totalCount: Int { model.factory.count + model.customPresets.count }
 
     var body: some View {
+        let names = matchingNames
+        let selectedName = selected.flatMap { names.contains($0) ? $0 : nil }
+        return AuralEquatableContent(key: PresetLibraryPresentation(names: names, totalCount: totalCount, selected: selectedName, newName: newName,
+                                                                    search: search, favoritesOnly: favoritesOnly, favorites: model.favoritePresets,
+                                                                    profile: selectedName.flatMap { model.presetProfile(named: $0) }, canUndoDelete: model.deletedPreset != nil,
+                                                                    applied: model.selectedPresetName, rate: model.responseRate,
+                                                                    error: model.error, notice: model.importNotice, theme: model.theme, scale: interfaceScale)) {
+            content(names: names, selectedName: selectedName)
+        }.equatable()
+    }
+
+    private func content(names: [String], selectedName: String?) -> some View {
         VStack(alignment: .leading, spacing: 18 * interfaceScale) {
             header
             HSplitView {
-                library
+                library(names: names)
                     .auralFrame(minWidth: 280, idealWidth: 310, maxWidth: .infinity, maxHeight: .infinity)
-                detail
+                detail(selectedName: selectedName)
                     .auralPadding(.leading, 12)
                     .auralFrame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity).layoutPriority(1)
             }.auralFrame(minHeight: 290, maxHeight: .infinity)
-            footer
+            footer(selectedName: selectedName)
             if let error = model.error {
                 AuralNotice(message: error, isError: true)
                     .transition(.auralReveal(.bottom, reduceMotion: reduceMotion))
@@ -71,7 +80,7 @@ struct PresetLibraryView: View {
         }
     }
 
-    private var library: some View {
+    private func library(names: [String]) -> some View {
         VStack(alignment: .leading, spacing: 14 * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "YOUR PRESETS", systemImage: "tray.full")
@@ -155,7 +164,7 @@ struct PresetLibraryView: View {
         .auralPanel(padding: 16)
     }
 
-    private var detail: some View {
+    private func detail(selectedName: String?) -> some View {
         ZStack {
             if let name = selectedName {
                 ScrollView {
@@ -252,7 +261,7 @@ struct PresetLibraryView: View {
         }
     }
 
-    private var footer: some View {
+    private func footer(selectedName: String?) -> some View {
         HStack(spacing: 10 * interfaceScale) {
             Button { openWindow.showAuralWindow("autoeq") } label: {
                 Label("AutoEQ…", systemImage: "headphones")
@@ -289,6 +298,24 @@ struct PresetLibraryView: View {
             selected = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
+}
+
+private struct PresetLibraryPresentation: Equatable {
+    let names: [String]
+    let totalCount: Int
+    let selected: String?
+    let newName: String
+    let search: String
+    let favoritesOnly: Bool
+    let favorites: Set<String>
+    let profile: Profile?
+    let canUndoDelete: Bool
+    let applied: String?
+    let rate: Double
+    let error: String?
+    let notice: String?
+    let theme: AuralTheme
+    let scale: CGFloat
 }
 
 struct PresetMenuItems: View {

@@ -35,6 +35,10 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         if ["local.aural.performance-preview", "local.aural.performance-preview.zoom-minimum", "local.aural.performance-preview.accent", "local.aural.performance-preview.peak-protection"].contains(Bundle.main.bundleIdentifier) { PerformancePreview.main(); return }
         if CommandLine.arguments.contains("--benchmark-rack") { try runRackBenchmark(); return }
         if CommandLine.arguments.contains("--benchmark-ui") { try runUIBenchmark(); return }
+        if CommandLine.arguments.contains("--benchmark-edits") { try await runEditBenchmark(); return }
+        if CommandLine.arguments.contains("--audit-performance") { try await runPerformanceAudit(); return }
+        if CommandLine.arguments.contains("--benchmark-interactions") { try await runInteractionBenchmark(); return }
+        if CommandLine.arguments.contains("--check-retained-editors") { _ = NSApplication.shared; try checkRetainedEditorUpdates(); return }
         if CommandLine.arguments.contains("--check-history-shortcuts") { _ = NSApplication.shared; try checkHistoryShortcuts(); return }
         if CommandLine.arguments.contains("--check-interface-zoom") { _ = NSApplication.shared; try checkInterfaceZoom(); return }
         if CommandLine.arguments.contains("--check-meter-zoom") { _ = NSApplication.shared; checkMeterZoom(); return }

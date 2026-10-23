@@ -5,7 +5,7 @@ struct AutoEQCatalogEntry: Identifiable, Equatable, Sendable {
     let measurement: String
     let components: [String]
     private let searchText: String
-    var id: String { components.joined(separator: "/") }
+    let id: String
     var provider: String { components[0] }
     var collection: String { components[1] }
     var presetName: String { "\(name) · \(measurement)" }
@@ -18,6 +18,7 @@ struct AutoEQCatalogEntry: Identifiable, Equatable, Sendable {
 
     fileprivate init(name: String, measurement: String, components: [String]) {
         self.name = name; self.measurement = measurement; self.components = components
+        id = components.joined(separator: "/")
         searchText = Self.normalized("\(name) \(measurement) \(components[1])")
     }
 

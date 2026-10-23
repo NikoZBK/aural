@@ -1,6 +1,19 @@
 import Foundation
 import DSP
 
+/// Coalesce visual updates without delaying audio edits or debouncing the curve
+/// until a drag ends. Superseded requests share the next deadline, so continuous
+/// input cannot keep pushing the final trace into the future.
+struct ResponseUpdateCadence {
+    static let interval: Duration = .milliseconds(33)
+    private(set) var lastPresentation: ContinuousClock.Instant?
+    func delay(at now: ContinuousClock.Instant) -> Duration {
+        guard let lastPresentation else { return .zero }
+        return max(.zero, lastPresentation.advanced(by: Self.interval) - now)
+    }
+    mutating func presented(at now: ContinuousClock.Instant) { lastPresentation = now }
+}
+
 /// Both traces, or the first or second alone: left and right, or mid and side
 /// once the EQ has Mid/Side filters.
 enum ResponseChannel: String, CaseIterable {
@@ -31,6 +44,7 @@ struct ResponseAnalysis: Sendable {
     }
 
     let frequencies: [Double]
+    private let positions: [Double: Int]
     /// Positions of the fixed logarithmic samples in `frequencies`. They line up
     /// between analyses at the same rate, so one trace can morph into the next.
     let gridIndices: [Int]
@@ -66,6 +80,7 @@ struct ResponseAnalysis: Sendable {
         let sampledFrequencies = Array(Set(frequencies)).sorted()
         self.frequencies = sampledFrequencies
         let positions = Dictionary(sampledFrequencies.enumerated().map { ($0.element, $0.offset) }, uniquingKeysWith: { first, _ in first })
+        self.positions = positions
         gridIndices = grid.compactMap { positions[$0] }
         hasChannelFilters = (activeFilters + referenceFilters).contains { !$0.disabled && $0.channel != UInt32(EQChannelStereo) }
         let midSide = (activeFilters + referenceFilters).contains { !$0.disabled && $0.channel >= UInt32(EQChannelMid) }
@@ -130,6 +145,14 @@ struct ResponseAnalysis: Sendable {
         case .mid: return mid
         case .side: return side
         }
+    }
+
+    /// Exact cached samples include enabled filter centers. Markers can reuse
+    /// them instead of rebuilding the full coefficient chain once per point.
+    func sampledValue(at frequency: Double, channel: ImportedFilter.Channel) -> Double? {
+        guard let index = positions[frequency] else { return nil }
+        let values = values(for: channel)
+        return values.indices.contains(index) ? values[index] : nil
     }
 
     func comparisonValues(for channel: ImportedFilter.Channel) -> [Double]? {

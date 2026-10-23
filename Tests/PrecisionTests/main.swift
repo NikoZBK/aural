@@ -31,6 +31,14 @@ func require(_ condition: @autoclosure () -> Bool, _ message: String) {
         draft.edit("1234.56789")
         require(draft.submission(in: 10...22000, revision: 3) == .value(1234.56789),
                 "Whole-Hz display must still accept intentional fractional frequency input")
+        draft.restore(value: 2.123456789, decimals: 2, revision: 3)
+        draft.beginEditing(revision: 8)
+        draft.edit("2.987654321")
+        require(draft.submission(in: -30...30, revision: 8) == .value(2.987654321),
+                "A retained unchanged field must capture the live revision before the first keystroke")
+        draft.beginEditing(revision: 9)
+        require(draft.submission(in: -30...30, revision: 9) == .stale && draft.text == "2.987654321",
+                "Refocusing an existing draft must not rebase stale edits or discard the typed number")
         print("PASS untouched imported precision, explicit rounded edits, duplicate commit suppression, stale drafts, and invalid numeric input")
 
         let coordinator = PrecisionSubmissionCoordinator()

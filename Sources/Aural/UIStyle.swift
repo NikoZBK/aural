@@ -1,5 +1,15 @@
 import SwiftUI
 
+/// Keep expensive native controls intact when their visible inputs are unchanged.
+/// Actions still read the live model; environment changes flow into retained content.
+struct AuralEquatableContent<Key: Equatable, Content: View>: View, Equatable {
+    let key: Key
+    let content: () -> Content
+    init(key: Key, @ViewBuilder content: @escaping () -> Content) { self.key = key; self.content = content }
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
+    var body: some View { content() }
+}
+
 extension AuralTheme {
     var colorScheme: ColorScheme? {
         switch self {
@@ -113,10 +123,10 @@ private struct AuralBackdrop: View {
         ZStack {
             AuralStyle.background
             if contrast != .increased && !reduceTransparency {
-                RadialGradient(colors: [AuralStyle.accent.opacity(scheme == .dark ? 0.22 : 0.14), .clear],
-                               center: .topLeading, startRadius: 0, endRadius: 640)
-                RadialGradient(colors: [AuralStyle.violet.opacity(scheme == .dark ? 0.16 : 0.12), .clear],
-                               center: .bottomTrailing, startRadius: 0, endRadius: 560)
+                RadialGradient(colors: [AuralStyle.accent.opacity(scheme == .dark ? 0.28 : 0.18), .clear],
+                               center: .topLeading, startRadius: 0, endRadius: 700)
+                RadialGradient(colors: [AuralStyle.violet.opacity(scheme == .dark ? 0.22 : 0.15), .clear],
+                               center: .bottomTrailing, startRadius: 0, endRadius: 640)
             }
         }.ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
     }
@@ -131,35 +141,36 @@ private struct AuralSurfaceBackground: View {
     @Environment(\.auralInterfaceScale) private var scale
     private var decoration: Bool { contrast != .increased && !reduceTransparency }
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 16 * scale, style: .continuous)
-        ZStack {
-            AuralStyle.surface.opacity(decoration ? (scheme == .dark ? 0.78 : 0.88) : 1)
-            if decoration && emphasized {
-                LinearGradient(colors: [AuralStyle.accent.opacity(0.12), .clear, AuralStyle.violet.opacity(0.07)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
+        let shape = RoundedRectangle(cornerRadius: 20 * scale, style: .continuous)
+        Group {
+            if !decoration {
+                shape.fill(AuralStyle.surface)
+            } else if #available(macOS 26.0, *) {
+                Color.clear.glassEffect(.regular.tint((emphasized ? AuralStyle.accent : AuralStyle.surface).opacity(0.04)), in: shape)
+            } else {
+                // Material cards keep the same hierarchy on Macs predating Liquid Glass.
+                shape.fill(.ultraThinMaterial)
+                    .overlay(shape.fill(AuralStyle.surface.opacity(scheme == .dark ? 0.3 : 0.45)))
             }
         }
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(AuralStyle.border))
-        .shadow(color: .black.opacity(decoration ? (scheme == .dark ? 0.12 : 0.035) : 0), radius: 12, y: 5)
+        .overlay {
+            if decoration {
+                shape.strokeBorder(LinearGradient(colors: [.white.opacity(scheme == .dark ? 0.22 : 0.65),
+                                                           .white.opacity(0.02), AuralStyle.border],
+                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
+            } else {
+                shape.strokeBorder(AuralStyle.border)
+            }
+        }
+        .shadow(color: .black.opacity(decoration ? (scheme == .dark ? 0.18 : 0.07) : 0), radius: 18, y: 7)
         .allowsHitTesting(false).accessibilityHidden(true)
     }
 }
 
 /// Real system Liquid Glass on supported Macs, with opaque accessibility fallbacks.
 struct AuralChromeBackground: View {
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.auralInterfaceScale) private var scale
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 16 * scale, style: .continuous)
-        Group {
-            if #available(macOS 26.0, *), contrast != .increased, !reduceTransparency {
-                Color.clear.glassEffect(.regular, in: shape)
-            } else {
-                shape.fill(AuralStyle.surface).overlay(shape.strokeBorder(AuralStyle.border))
-            }
-        }.allowsHitTesting(false).accessibilityHidden(true)
+        AuralSurfaceBackground()
     }
 }
 
@@ -325,21 +336,29 @@ struct PrecisionField: View {
     let currentRevision: () -> Int
     weak var submissions: PrecisionSubmissionCoordinator? = nil
     let commit: (Double) -> Void
-    @State private var draft = PrecisionInput()
+    // Revision bookkeeping is not display state. Keeping it separate prevents
+    // every retained field from redrawing when one filter changes.
+    @State private var draft = PrecisionFieldDraft()
+    // Only user input is local display state. Formatting a new model value into
+    // State creates another render/layout transaction for every fader event.
+    @State private var text: String?
     @State private var invalid = false
     @State private var fieldID = UUID()
-    @FocusState private var focused: Bool
+    @State private var focused = false
 
     var body: some View {
-        TextField(label, text: Binding(get: { draft.text }, set: { draft.edit($0); invalid = false }))
-            .textFieldStyle(.plain).multilineTextAlignment(.trailing)
+        NativePrecisionTextField(text: Binding(get: { text ?? String(format: "%.*f", decimals, value) },
+                                              set: { text = $0; draft.input.edit($0); invalid = false }),
+                                 focused: $focused, label: label,
+                                 hint: invalid ? "Invalid number. Use \(range.lowerBound) to \(range.upperBound)." : "Press Return to apply. Escape cancels.",
+                                 beginEditing: { draft.input.beginEditing(revision: currentRevision()); focused = true },
+                                 submit: { submit() != .rejected }, cancel: restore)
             .auralFont(size: 12, design: .monospaced).monospacedDigit()
             .auralPadding(.horizontal, 7).auralFrame(height: 27)
             .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 4))
             .animation(AuralMotion.quick) { content in
                 content.overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
             }
-            .focused($focused).onSubmit { _ = submit() }
             .onChange(of: focused) { wasFocused, isFocused in
                 if isFocused { registerSubmission() }
                 else if wasFocused { _ = submit(); submissions?.deactivate(fieldID) }
@@ -351,15 +370,18 @@ struct PrecisionField: View {
             .accessibilityLabel(label)
             .accessibilityHint(invalid ? "Invalid number. Use \(range.lowerBound) to \(range.upperBound)." : "Press Return to apply. Escape cancels.")
             .help(invalid ? "Invalid \(label). Enter a number from \(range.lowerBound) to \(range.upperBound). Escape cancels." : "\(label). Press Return to apply. Escape cancels.")
-            .onExitCommand { restore(); focused = false }
     }
-    private func restore() { draft.restore(value: value, decimals: decimals, revision: revision); invalid = false }
+    private func restore() {
+        draft.input.restore(value: value, decimals: decimals, revision: currentRevision())
+        if text != nil { text = nil }
+        if invalid { invalid = false }
+    }
     private func registerSubmission() {
         if focused { submissions?.activate(fieldID, submit: submit) }
     }
     private func submit() -> PrecisionSubmissionCoordinator.Result {
         // A focus-loss callback may arrive after another control replaces the EQ.
-        switch draft.submission(in: range, revision: currentRevision()) {
+        switch draft.input.submission(in: range, revision: currentRevision()) {
         case .stale: restore(); return .rejected
         case .unchanged: invalid = false; return .unchanged
         case .invalid:
@@ -368,10 +390,101 @@ struct PrecisionField: View {
             AccessibilityNotification.Announcement("Invalid \(label). Enter a number from \(range.lowerBound) to \(range.upperBound). Press Escape to cancel.").post()
             return .rejected
         case .value(let number):
-            draft.accept()
+            draft.input.accept()
+            // End native editing before the model publishes its rounded display.
+            // Otherwise AppKit can echo that display text back as another edit.
+            focused = false
             commit(number)
             invalid = false
             return .submitted
         }
+    }
+}
+
+private final class PrecisionFieldDraft {
+    var input = PrecisionInput()
+}
+
+/// AppKit distinguishes user text edits from programmatic display updates. That
+/// prevents a newly formatted value from coming back through SwiftUI as typed input.
+private struct NativePrecisionTextField: NSViewRepresentable {
+    @Binding var text: String
+    @Binding var focused: Bool
+    let label: String
+    let hint: String
+    let beginEditing: () -> Void
+    let submit: () -> Bool
+    let cancel: () -> Void
+    @Environment(\.auralInterfaceScale) private var scale
+    @Environment(\.isEnabled) private var enabled
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = PrecisionNativeTextField()
+        field.beganFocus = { [weak coordinator = context.coordinator] in coordinator?.parent.beginEditing() }
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.alignment = .right
+        field.isEditable = true
+        field.isSelectable = true
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        field.delegate = context.coordinator
+        return field
+    }
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        let font = NSFont.monospacedSystemFont(ofSize: 12 * scale, weight: .regular)
+        // AppKit invalidates text layout even for redundant font assignments.
+        // A gain edit must not remeasure every retained numeric field.
+        if field.font != font { field.font = font }
+        if field.textColor != .labelColor { field.textColor = .labelColor }
+        if field.isEnabled != enabled { field.isEnabled = enabled }
+        if field.stringValue != text { field.stringValue = text }
+        if field.accessibilityLabel() != label { field.setAccessibilityLabel(label) }
+        if field.accessibilityHelp() != hint { field.setAccessibilityHelp(hint) }
+        if !focused, field.currentEditor() != nil { field.window?.makeFirstResponder(nil) }
+    }
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView field: NSTextField, context: Context) -> CGSize? {
+        // These fields live in explicitly sized columns. Let AppKit determine the
+        // font's height, but never let a changing number alter the column width.
+        guard let width = proposal.width, width.isFinite else { return nil }
+        return CGSize(width: max(0, width), height: field.intrinsicContentSize.height)
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: NativePrecisionTextField
+        init(parent: NativePrecisionTextField) { self.parent = parent }
+        func controlTextDidBeginEditing(_ notification: Notification) { parent.beginEditing() }
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSTextField else {
+                assertionFailure("A precision edit must come from its native text field")
+                return
+            }
+            parent.text = field.stringValue
+        }
+        func controlTextDidEndEditing(_ notification: Notification) { parent.focused = false }
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                if parent.submit() { control.window?.makeFirstResponder(nil) }
+                return true
+            }
+            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.cancel()
+                control.window?.makeFirstResponder(nil)
+                return true
+            }
+            return false
+        }
+    }
+}
+
+private final class PrecisionNativeTextField: NSTextField {
+    var beganFocus: (() -> Void)?
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { beganFocus?() }
+        return accepted
     }
 }

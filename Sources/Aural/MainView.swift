@@ -9,7 +9,7 @@ struct MainView: View {
     @State private var showFilterEditor = false
     @State private var page = StudioPage.equalizer
     @State private var selectedBand = 0
-    @State private var filterDisplay = FilterDisplay.selected
+    @State private var filterDisplay = FilterDisplay.faders
     @State private var dragRevision: Int?
     @State private var dragOutput: String?
     @State private var selectionRevision = 0
@@ -45,6 +45,13 @@ struct MainView: View {
     private var placement: InspectorPlacement { shownPlacement ?? targetPlacement }
     // This view applies zoom to its own body, so the environment above it still reads 1.
     private var interfaceScale: CGFloat { model.interfaceZoom.scale }
+    private var filterInspectorHeight: CGFloat {
+        switch filterDisplay {
+        case .selected: return 146
+        case .rows: return 206
+        case .faders: return 352
+        }
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -94,6 +101,9 @@ struct MainView: View {
     }
 
     private var listeningControls: some View {
+        AuralEquatableContent(key: ListeningControlsKey(status: status, matching: model.matchLevels, bypass: model.bypass,
+                                                        processing: processingOn, selected: model.selected != nil,
+                                                        settings: showStartup, scale: interfaceScale)) {
         HStack(spacing: 12 * interfaceScale) {
             Label {
                 Text(status).contentTransition(.interpolate)
@@ -134,16 +144,21 @@ struct MainView: View {
                 .popover(isPresented: $showStartup) { StartupSettings(model: model).auralZoom(model) }
         }.fixedSize(horizontal: false, vertical: true)
             .auralAnimation(AuralMotion.quick, value: [model.running, model.bypass, model.waitingForOutput, model.soloBand != nil])
+        }.equatable()
     }
 
     private func workspace(compact: Bool) -> some View {
         GeometryReader { geometry in
             let sidePanel = placement.side
             let detailsShown = placement.visible
-            let panelWidth = AuralWorkspaceLayout.sidePanelWidth(in: geometry.size.width - 40 * interfaceScale, scale: interfaceScale)
+            let panelWidth = AuralWorkspaceLayout.sidePanelWidth(in: geometry.size.width - 24 * interfaceScale, scale: interfaceScale)
+            let inspectorContentHeight: CGFloat = sidePanel
+                ? (page == .equalizer && filterDisplay == .faders ? 400 : 230)
+                : (page == .stereo ? 230 : filterInspectorHeight)
+            let minimumInspectorHeight: CGFloat = detailsShown ? (inspectorContentHeight + 22) * interfaceScale : 0
             ScrollView {
-                AuralWorkspaceLayout(availableHeight: max(0, geometry.size.height - 40 * interfaceScale),
-                                     minimumInspectorHeight: detailsShown ? 80 * interfaceScale : 0,
+                AuralWorkspaceLayout(availableHeight: max(0, geometry.size.height - 24 * interfaceScale),
+                                     minimumInspectorHeight: minimumInspectorHeight,
                                      sidePanelWidth: sidePanel ? panelWidth : nil, scale: interfaceScale) {
                     let toolbarLayout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12 * interfaceScale)) : AnyLayout(HStackLayout(alignment: .top, spacing: 20 * interfaceScale))
                     toolbarLayout {
@@ -170,6 +185,7 @@ struct MainView: View {
                         workspaceActions(compact: compact)
                             .auralFrame(maxWidth: .infinity, alignment: .trailing)
                     }.auralAnimation(AuralMotion.quick, value: model.isPresetModified)
+                        .auralWorkspaceSurface(padding: 14)
                     VStack { SessionNotices(model: model) }
                     ResponseCurve(profile: model.profile, rate: model.responseRate, bypass: model.bypass, running: model.running,
                                   levelMatch: model.levelMatch, comparisonProfile: model.otherComparisonProfile, selectedBand: detailsVisible ? selectedBand : nil,
@@ -186,47 +202,52 @@ struct MainView: View {
                     Color.clear.auralWorkspaceSurface(padding: 0)
                         .allowsHitTesting(false).accessibilityHidden(true)
                         .auralRelocation(sidePanel, hidden: controlsFaded)
-                    HStack(spacing: 8 * interfaceScale) {
+                    let inspectorToolbar = sidePanel && panelWidth / interfaceScale < 480
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10 * interfaceScale))
+                        : AnyLayout(HStackLayout(spacing: 12 * interfaceScale))
+                    inspectorToolbar {
                         // Sized to its segments, which macOS may draw equal and wider than a fixed frame.
                         Picker("Controls", selection: Binding(get: { page }, set: changePage)) {
                             Text("Filters").tag(StudioPage.equalizer)
                             Text("Stereo & delay").tag(StudioPage.stereo)
                         }.pickerStyle(.segmented).labelsHidden().fixedSize().transition(.identity).id(selectionRevision)
-                        Spacer(minLength: 0)
-                        Menu {
-                            FilterPanelPositionPicker(model: model).pickerStyle(.inline)
-                        } label: {
-                            Image(systemName: model.filterPanelPosition.symbol)
-                                .auralFrame(width: 28, height: 24)
-                        }.menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).fixedSize()
-                            .accessibilityLabel("Filter panel position")
-                            .accessibilityValue(model.filterPanelPosition.label)
-                            .help("Place editing controls below or to the right of the graph. Your choice is remembered.")
-                        Button { setDetailsVisible(!detailsVisible) } label: {
-                            // One chevron turns, like a Finder disclosure triangle. The title
-                            // swaps at once, like a menu item; morphing it would redraw text
-                            // on the CPU during every frame of the reflow.
-                            Label {
-                                Text(detailsVisible ? "Hide details" : "Show details")
-                            } icon: {
-                                Image(systemName: "chevron.right").rotationEffect(.degrees(detailsVisible ? 90 : 0))
-                                    .auralAnimation(AuralMotion.quick, value: detailsVisible)
-                            }.labelStyle(PanelDisclosureLabelStyle(iconOnly: sidePanel))
-                        }.buttonStyle(AuralButtonStyle())
-                            .accessibilityLabel(detailsVisible ? "Hide details" : "Show details")
-                            .help("Show or hide editing controls. Your current sound stays active.")
+                        HStack(spacing: 8 * interfaceScale) {
+                            Spacer(minLength: 0)
+                            Menu {
+                                FilterPanelPositionPicker(model: model).pickerStyle(.inline)
+                            } label: {
+                                Label("Panel", systemImage: model.filterPanelPosition.symbol)
+                            }.auralMenuButton().fixedSize()
+                                .accessibilityLabel("Filter panel position")
+                                .accessibilityValue(model.filterPanelPosition.label)
+                                .help("Place editing controls below or to the right of the graph. Your choice is remembered.")
+                            Button { setDetailsVisible(!detailsVisible) } label: {
+                                // Keep one rotating chevron through disclosure changes.
+                                Label {
+                                    Text(detailsVisible ? "Hide details" : "Show details")
+                                } icon: {
+                                    Image(systemName: "chevron.right").rotationEffect(.degrees(detailsVisible ? 90 : 0))
+                                        .auralAnimation(AuralMotion.quick, value: detailsVisible)
+                                }
+                            }.buttonStyle(AuralButtonStyle()).fixedSize()
+                                .accessibilityLabel(detailsVisible ? "Hide details" : "Show details")
+                                .help("Show or hide editing controls. Your current sound stays active.")
+                        }
                     }
-                    .auralPadding(.horizontal, 12).auralPadding(.vertical, 8)
+                    .auralPadding(.horizontal, 14).auralPadding(.vertical, 10)
                     .auralRelocation(sidePanel, hidden: controlsFaded)
-                    let inspectorHeight: CGFloat = detailsShown ? (page == .stereo ? 230 : (filterDisplay == .selected ? 146 : 206)) : 0
+                    let inspectorHeight: CGFloat = detailsShown ? (page == .stereo ? 230 : filterInspectorHeight) : 0
                     let editorsActive = detailsShown && detailsVisible && page == .equalizer
                     GeometryReader { inspector in
-                        let height = sidePanel ? max(230, inspector.size.height / model.interfaceZoom.scale) : inspectorHeight
-                        ScrollView {
-                            ZStack(alignment: .topLeading) {
+                        let height = sidePanel ? max(inspectorContentHeight, inspector.size.height / interfaceScale) : inspectorHeight
+                        // The workspace owns overflow; the table and faders own their
+                        // own scroll axes. A second vertical viewport here produces
+                        // competing scrollbars as the retained editors change height.
+                        ZStack(alignment: .topLeading) {
                                 FilterRack(model: model, submissions: submissions, selectedBand: $selectedBand, display: $filterDisplay,
-                                           expanded: sidePanel, compactRows: inspector.size.width / model.interfaceZoom.scale < 520)
-                                    .auralFrame(height: sidePanel ? height : (filterDisplay == .selected ? 146 : 206))
+                                           expanded: sidePanel, compactRows: inspector.size.width / model.interfaceZoom.scale < 520,
+                                           active: editorsActive)
+                                    .auralFrame(height: sidePanel ? height : filterInspectorHeight)
                                     .opacity(detailsShown && page == .equalizer ? 1 : 0)
                                     .allowsHitTesting(editorsActive)
                                     .accessibilityElement(children: editorsActive ? .contain : .ignore)
@@ -236,9 +257,8 @@ struct MainView: View {
                                     StereoPanel(model: model, submissions: submissions, stacked: sidePanel).auralFrame(height: height)
                                         .transition(.opacity)
                                 }
-                            }
-                            .auralFrame(height: height, alignment: .top)
-                        }.scrollIndicators(.visible).clipped()
+                        }
+                        .auralFrame(height: height, alignment: .top).clipped()
                     }
                     .frame(minHeight: detailsShown ? 40 : 0, idealHeight: inspectorHeight * model.interfaceZoom.scale,
                            maxHeight: sidePanel ? .infinity : inspectorHeight * model.interfaceZoom.scale, alignment: .top)
@@ -246,7 +266,7 @@ struct MainView: View {
                     // Separates the tabs from what they show, and leaves with the details.
                     .overlay(alignment: .top) { if detailsShown { Divider() } }
                     .auralRelocation(placement, hidden: inspectorFaded)
-                }.auralPadding(20)
+                }.auralPadding(12)
             }.clipped()
                 .auralAnimation(value: workspaceMotion)
                 .onAppear {
@@ -258,9 +278,18 @@ struct MainView: View {
     }
 
     private func workspaceActions(compact: Bool) -> some View {
-        let layout = compact ? AnyLayout(HStackLayout(spacing: 16 * interfaceScale)) : AnyLayout(VStackLayout(alignment: .trailing, spacing: 8 * interfaceScale))
-        return layout {
+        let layout = AnyLayout(VStackLayout(alignment: compact ? .leading : .trailing, spacing: 8 * interfaceScale))
+        return AuralEquatableContent(key: WorkspaceActionsKey(compact: compact, undo: model.undoLabel, redo: model.redoLabel,
+                                                              canUndo: model.canUndo, canRedo: model.canRedo,
+                                                              comparison: model.comparisonSlot, matching: model.matchLevels,
+                                                              scale: interfaceScale, revision: selectionRevision)) {
+          layout {
             HStack(spacing: 12 * interfaceScale) {
+                Button { if submitPendingInput() { openWindow.showAuralWindow("presets") } } label: {
+                    Label("Presets", systemImage: "square.stack")
+                }.buttonStyle(AuralButtonStyle())
+                    .accessibilityLabel("Open preset library")
+                    .help("Search, organize, and back up presets (⇧⌘P)")
                 Button { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } } label: {
                     Label("AutoEQ", systemImage: "headphones").foregroundStyle(AuralStyle.violet)
                 }.buttonStyle(AuralButtonStyle())
@@ -268,7 +297,6 @@ struct MainView: View {
                 EQFileMenu(model: model, submissions: submissions)
                 eqOptions
             }
-            if compact { Divider().auralFrame(height: 20) }
             HStack(spacing: 12 * interfaceScale) {
                 HStack(spacing: 4 * interfaceScale) {
                     Button { if submitPendingInput() { withAuralAnimation { model.undoProfile() } } } label: { Image(systemName: "arrow.uturn.backward") }
@@ -281,7 +309,8 @@ struct MainView: View {
                 Divider().auralFrame(height: 20)
                 comparisonControls
             }.fixedSize()
-        }
+          }
+        }.equatable()
     }
 
     private var comparisonControls: some View {
@@ -312,8 +341,8 @@ struct MainView: View {
             Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }
             Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }
             Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }
-        } label: { Image(systemName: "ellipsis").auralFrame(width: 28, height: 24).contentShape(Rectangle()) }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 28)
+        } label: { Label("More", systemImage: "ellipsis") }
+            .auralMenuButton().fixedSize()
             .accessibilityLabel("EQ options").help("Comparison actions, draft editing, and clipboard")
     }
 
@@ -459,17 +488,29 @@ struct MainView: View {
     }
 }
 
-private struct PanelDisclosureLabelStyle: LabelStyle {
-    let iconOnly: Bool
-    func makeBody(configuration: Configuration) -> some View {
-        HStack {
-            configuration.icon
-            if !iconOnly { configuration.title }
-        }
-    }
+private enum StudioPage { case equalizer, stereo }
+
+private struct ListeningControlsKey: Equatable {
+    let status: String
+    let matching: Bool
+    let bypass: Bool
+    let processing: Bool
+    let selected: Bool
+    let settings: Bool
+    let scale: CGFloat
 }
 
-private enum StudioPage { case equalizer, stereo }
+private struct WorkspaceActionsKey: Equatable {
+    let compact: Bool
+    let undo: String
+    let redo: String
+    let canUndo: Bool
+    let canRedo: Bool
+    let comparison: ComparisonSlot
+    let matching: Bool
+    let scale: CGFloat
+    let revision: Int
+}
 
 /// Where the inspector sits. Hidden details have no side placement, so moving the
 /// panel while they are hidden doesn't move anything.
@@ -489,27 +530,50 @@ private struct WorkspaceMotion: Equatable {
 /// left over. The inspector can scroll before the outer workspace needs to.
 /// Keeping one layout and one scroll view also retains focused native editors.
 /// The card spans the inspector's tabs and the inspector, below or beside the curve.
-struct AuralWorkspaceLayout: Layout {
+struct AuralWorkspaceLayout: AuralContainerLayout {
     let availableHeight: CGFloat
     let minimumInspectorHeight: CGFloat
     var sidePanelWidth: CGFloat? = nil
     var scale: CGFloat = 1
-    private var spacing: CGFloat { 10 * scale }
+    private var spacing: CGFloat { 12 * scale }
     /// Between the curve and the inspector card, in either placement.
-    private var surfaceGap: CGFloat { 20 * scale }
+    private var surfaceGap: CGFloat { 12 * scale }
 
-    static func sidePanelWidth(in width: CGFloat, scale: CGFloat) -> CGFloat {
-        min(max(544 * scale, width * 0.43), width - 260 * scale - 20 * scale)
+    struct MeasurementKey: Equatable {
+        let width: CGFloat
+        let height: CGFloat
+        let inspector: CGFloat
+        let side: CGFloat?
+        let scale: CGFloat
+    }
+    struct Cache {
+        var key: MeasurementKey?
+        var frames: [CGRect] = []
+    }
+    func makeCache(subviews: Subviews) -> Cache { Cache() }
+    func updateCache(_ cache: inout Cache, subviews: Subviews) { cache.key = nil }
+
+    private func frames(width: CGFloat, subviews: Subviews, cache: inout Cache) -> [CGRect] {
+        let key = MeasurementKey(width: width, height: availableHeight, inspector: minimumInspectorHeight, side: sidePanelWidth, scale: scale)
+        if cache.key != key {
+            cache.frames = measureFrames(width: width, subviews: subviews)
+            cache.key = key
+        }
+        return cache.frames
     }
 
-    private func frames(width: CGFloat, subviews: Subviews) -> [CGRect] {
+    static func sidePanelWidth(in width: CGFloat, scale: CGFloat) -> CGFloat {
+        min(max(544 * scale, width * 0.43), width - 260 * scale - 12 * scale)
+    }
+
+    private func measureFrames(width: CGFloat, subviews: Subviews) -> [CGRect] {
         precondition(subviews.count == 6, "Workspace layout requires toolbar, notices, curve, card, tabs, and inspector")
         func height(_ index: Int, width: CGFloat) -> CGFloat {
             subviews[index].sizeThatFits(ProposedViewSize(width: width, height: nil)).height
         }
         let toolbar = height(0, width: width)
         let notices = height(1, width: width)
-        let top = toolbar + notices + spacing * 2
+        let top = toolbar + spacing + (notices > 0 ? notices + spacing : 0)
         let curve, tabs, inspector: CGRect
         if let sidePanelWidth {
             let curveWidth = max(0, width - sidePanelWidth - surfaceGap)
@@ -536,13 +600,13 @@ struct AuralWorkspaceLayout: Layout {
         ]
     }
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
         let width = proposal.width ?? 900
-        return CGSize(width: width, height: frames(width: width, subviews: subviews).map(\.maxY).max() ?? 0)
+        return CGSize(width: width, height: frames(width: width, subviews: subviews, cache: &cache).map(\.maxY).max() ?? 0)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        for (subview, frame) in zip(subviews, frames(width: bounds.width, subviews: subviews)) {
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        for (subview, frame) in zip(subviews, frames(width: bounds.width, subviews: subviews, cache: &cache)) {
             subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), anchor: .topLeading,
                           proposal: ProposedViewSize(frame.size))
         }

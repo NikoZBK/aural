@@ -97,11 +97,15 @@ struct PresetBrowser: View {
 }
 
 struct PresetSelection: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
+        AuralEquatableContent(key: PresetSelectionKey(factory: model.factory.keys.sorted(), custom: model.customPresets,
+                                                      favorites: model.favoritePresets, title: model.currentPresetTitle,
+                                                      selected: model.selectedPresetName, scale: interfaceScale)) {
         Menu {
             group("Favorites", names: model.favoritePresets.sorted())
             group("My presets", names: model.customPresets.filter { !model.favoritePresets.contains($0) })
@@ -118,6 +122,7 @@ struct PresetSelection: View {
         .accessibilityLabel("Preset")
         .accessibilityValue(model.currentPresetTitle)
         .help("\(model.currentPresetTitle)\nChoose a preset, or manage your preset library")
+        }.equatable()
     }
 
     @ViewBuilder private func group(_ title: String, names: [String]) -> some View {
@@ -141,8 +146,17 @@ struct PresetSelection: View {
     }
 }
 
+private struct PresetSelectionKey: Equatable {
+    let factory: [String]
+    let custom: [String]
+    let favorites: Set<String>
+    let title: String
+    let selected: String?
+    let scale: CGFloat
+}
+
 struct EQFileMenu: View {
-    @ObservedObject var model: Model
+    let model: Model
     @Environment(\.openWindow) private var openWindow
     let submissions: PrecisionSubmissionCoordinator
     var body: some View {
@@ -354,6 +368,9 @@ struct OutputSelection: View {
     var comfortable = false
     var compact = false
     @ViewBuilder var body: some View {
+        AuralEquatableContent(key: OutputSelectionKey(devices: model.devices, selected: model.selectedUID, running: model.running,
+                                                      rate: model.responseRate, comfortable: comfortable, compact: compact,
+                                                      scale: interfaceScale, revision: selectionRevision)) {
         if compact {
             HStack(spacing: 7 * interfaceScale) {
                 Text("Output").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
@@ -362,6 +379,7 @@ struct OutputSelection: View {
                     .buttonStyle(.plain).accessibilityLabel("Refresh outputs").help("Refresh audio devices")
             }
         } else { expanded }
+        }.equatable()
     }
     private var devicePicker: some View {
         AuralPicker(title: "Output device", value: model.selected?.name ?? "Select an output",
@@ -394,6 +412,17 @@ struct OutputSelection: View {
         model.select(uid)
         if model.selectedUID != uid { selectionRevision += 1 }
     }
+}
+
+private struct OutputSelectionKey: Equatable {
+    let devices: [OutputDevice]
+    let selected: String
+    let running: Bool
+    let rate: Double
+    let comfortable: Bool
+    let compact: Bool
+    let scale: CGFloat
+    let revision: Int
 }
 
 struct StudioMeter: View {

@@ -41,9 +41,11 @@ import SwiftUI
             layout.frame = NSRect(x: 0, y: 0, width: 900, height: height)
             layout.layoutSubtreeIfNeeded()
             let frames = probes.map { $0.convert($0.bounds, to: layout) }
-            let rows = [frames[0], frames[1], frames[2], frames[4]]
+            let rows = [frames[0], frames[1], frames[2], frames[4]].filter { !$0.isEmpty }
             for (above, below) in zip(rows, rows.dropFirst()) {
-                require(below.minY >= above.maxY + 10 * scale - 0.1, "Zoom layout must keep every row separate even when it needs to scroll")
+                // Native view frames snap to pixels at fractional interface zoom.
+                require(below.minY >= above.maxY + 12 * scale - 1,
+                        "Zoom layout must keep visible cards separate even when it needs to scroll: scale \(scale), height \(height), \(frames)")
             }
             require(abs(frames[5].minY - frames[4].maxY) < 1 && frames[3].insetBy(dx: -1, dy: -1).contains(frames[4].union(frames[5])) &&
                     frames[4].union(frames[5]).insetBy(dx: -1, dy: -1).contains(frames[3]),
@@ -148,6 +150,14 @@ import SwiftUI
     }
     require(field.stringValue == pending && field.currentEditor() === editor && model.profile == profile,
             "Resizing, panel placement, and zoom bounds must keep the pending draft focused without changing EQ")
+    // Glass appearance changes stay behind the retained editors.
+    for theme in [AuralTheme.light, .dark, .system] {
+        model.setTheme(theme)
+        flush()
+        require(editorIDs.isSubset(of: Set(fields(in: host).filter(\.isEditable).map(ObjectIdentifier.init))) &&
+                field.stringValue == pending && field.currentEditor() === editor && model.profile == profile,
+                "Glass card theme changes must retain focused numeric drafts and leave EQ unchanged")
+    }
     print("PASS zoom key variants, bounds, migration, persistence, failed saves, retained focused drafts, workspace sizes, history, and audio neutrality")
 }
 
@@ -194,7 +204,7 @@ import SwiftUI
     print("PASS level meter fills its track in proportion at every interface zoom")
 }
 
-private struct ZoomLayoutProbe: NSViewRepresentable {
+struct ZoomLayoutProbe: NSViewRepresentable {
     let view: NSView
     func makeNSView(context: Context) -> NSView { view }
     func updateNSView(_ view: NSView, context: Context) { }
@@ -257,7 +267,7 @@ private struct ZoomLayoutProbe: NSViewRepresentable {
             layout.frame = NSRect(x: 0, y: 0, width: width, height: 700)
             layout.layoutSubtreeIfNeeded()
             let frames = probes.map { $0.convert($0.bounds, to: layout) }
-            require(abs(frames[2].maxX + 20 * scale - frames[5].minX) < 1 && abs(frames[5].maxX - width) < 1,
+            require(abs(frames[2].maxX + 12 * scale - frames[5].minX) < 1 && abs(frames[5].maxX - width) < 1,
                     "The graph must shrink to leave a separate right-hand panel: \(frames)")
             require(abs(frames[2].maxY - 700) < 1 && abs(frames[5].maxY - 700) < 1 && frames[5].height > 206 * scale,
                     "The side inspector must use the remaining height rather than the four-row cap")

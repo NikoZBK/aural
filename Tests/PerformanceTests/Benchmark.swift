@@ -88,6 +88,56 @@ import QuartzCore
     @Published var selected = 0
 }
 
+/// Exercise the complete document -> retained editors -> asynchronous curve path,
+/// rather than timing response arithmetic or a rack in isolation.
+@MainActor func runEditBenchmark() async throws {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("aural-edit-perf-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try! FileManager.default.removeItem(at: directory) }
+    for count in [10, 31] {
+        let model = Model(settingsFile: directory.appendingPathComponent("settings-\(count).json"), readLoginStatus: { .notRegistered })
+        model.useGraphicTemplate(bands: count)
+        if model.profile.filters == nil { model.editGraphicAsFilters() }
+        model.setInterfaceMode(.professional)
+        let original = model.profile
+        let icon = AppIconController(running: model.$running.eraseToAnyPublisher(), bypass: model.$bypass.eraseToAnyPublisher(),
+                                     loadImage: { _ in NSImage(size: NSSize(width: 16, height: 16)) }, reportError: { fatalError($0) })
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 820), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: MainView(model: model, icon: icon))
+        window.contentView = host
+        func flush() { host.layoutSubtreeIfNeeded(); window.displayIfNeeded(); CATransaction.flush() }
+        flush()
+        try await Task.sleep(for: .milliseconds(400))
+        flush()
+        var edits: [Double] = [], layouts: [Double] = []
+        model.beginProfileGesture(label: "Benchmark fader")
+        for index in 0..<90 {
+            let begin = CACurrentMediaTime()
+            model.setBandGain(at: 0, to: sin(Double(index) / 10) * 8)
+            let committed = CACurrentMediaTime()
+            flush()
+            edits.append((committed - begin) * 1000)
+            layouts.append((CACurrentMediaTime() - committed) * 1000)
+            try await Task.sleep(for: .milliseconds(8))
+        }
+        model.endProfileGesture()
+        try await Task.sleep(for: .milliseconds(400))
+        flush()
+        func report(_ name: String, _ samples: [Double]) {
+            let sorted = samples.sorted()
+            print(String(format: "Edits bands=%d %@ mean=%.2fms p95=%.2fms max=%.2fms", count, name,
+                         samples.reduce(0, +) / Double(samples.count), sorted[Int(Double(sorted.count - 1) * 0.95)], sorted.last!))
+        }
+        report("document", edits)
+        report("layout", layouts)
+        model.undoProfile()
+        require(model.profile == original && !model.running, "Continuous edits must remain one undo step and never start audio")
+        window.close()
+    }
+}
+
 private struct RackBenchmarkView: View {
     @ObservedObject var model: Model
     @ObservedObject var state: RackBenchmarkState
