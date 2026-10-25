@@ -1,18 +1,33 @@
 import CoreAudio
 import Foundation
 import DSP
-import OSLog
 
 struct CoreAudioFailure: LocalizedError {
     let status: OSStatus
     let action: String
+    var objectID: AudioObjectID? = nil
+    var isUnavailableObject: Bool { status == kAudioHardwareBadDeviceError || status == kAudioHardwareBadObjectError }
+    var statusDescription: String {
+        let code = UInt32(bitPattern: status)
+        let bytes = [24, 16, 8, 0].map { UInt8((code >> $0) & 0xff) }
+        let fourCC = bytes.allSatisfy { (32...126).contains($0) } ? String(bytes: bytes, encoding: .ascii) : nil
+        return fourCC.map { "\(status) ('\($0)')" } ?? String(status)
+    }
+    var diagnosticDescription: String {
+        "\(action): Core Audio \(statusDescription)" + (objectID.map { ", object=\($0)" } ?? "")
+    }
     var errorDescription: String? {
-        "\(action) failed (Core Audio \(status)). If access was denied, enable Aural in System Settings → Privacy & Security → Screen & System Audio Recording, then reopen it."
+        let reason = "\(action) failed (Core Audio \(statusDescription))."
+        if status == kAudioDevicePermissionsError {
+            return reason + " Enable Aural in System Settings → Privacy & Security → Screen & System Audio Recording, then reopen it."
+        }
+        if isUnavailableObject { return reason + " The audio device or route is no longer available. Reconnect the output or select another output and start EQ." }
+        return reason
     }
 }
 
-func check(_ status: OSStatus, _ action: String) throws {
-    guard status == noErr else { throw CoreAudioFailure(status: status, action: action) }
+func check(_ status: OSStatus, _ action: String, objectID: AudioObjectID? = nil) throws {
+    guard status == noErr else { throw CoreAudioFailure(status: status, action: action, objectID: objectID) }
 }
 func address(_ selector: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) -> AudioObjectPropertyAddress {
     AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
@@ -20,21 +35,21 @@ func address(_ selector: AudioObjectPropertySelector, _ scope: AudioObjectProper
 func scalar<T>(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ initial: T, scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) throws -> T {
     var value = initial, size = UInt32(MemoryLayout<T>.size), a = address(selector, scope)
     try withUnsafeMutablePointer(to: &value) { pointer in
-        try check(AudioObjectGetPropertyData(id, &a, 0, nil, &size, pointer), "Read audio property")
+        try check(AudioObjectGetPropertyData(id, &a, 0, nil, &size, pointer), "Read audio property", objectID: id)
     }
     return value
 }
 func ids(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) throws -> [AudioObjectID] {
     var a = address(selector, scope), size: UInt32 = 0
-    try check(AudioObjectGetPropertyDataSize(id, &a, 0, nil, &size), "Read audio list size")
+    try check(AudioObjectGetPropertyDataSize(id, &a, 0, nil, &size), "Read audio list size", objectID: id)
     var result = [AudioObjectID](repeating: 0, count: Int(size)/MemoryLayout<AudioObjectID>.size)
-    if size > 0 { try check(AudioObjectGetPropertyData(id, &a, 0, nil, &size, &result), "Read audio list") }
+    if size > 0 { try check(AudioObjectGetPropertyData(id, &a, 0, nil, &size, &result), "Read audio list", objectID: id) }
     return result
 }
 func audioString(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) throws -> String {
     var value: Unmanaged<CFString>?
     var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size), a = address(selector)
-    try check(AudioObjectGetPropertyData(id, &a, 0, nil, &size, &value), "Read device name")
+    try check(AudioObjectGetPropertyData(id, &a, 0, nil, &size, &value), "Read device name", objectID: id)
     guard let value else { throw AudioFailure(message: "Core Audio returned an empty device name.") }
     return value.takeRetainedValue() as String
 }
@@ -44,8 +59,27 @@ struct OutputDevice: Identifiable, Equatable {
     let name: String
 }
 
+/// Injectable HAL cleanup calls let regression tests exercise every failure path
+/// without opening a real audio route or requiring recording permission.
+struct AudioRouteCleanup {
+    var stop: (AudioObjectID, AudioDeviceIOProcID) -> OSStatus
+    var destroyCallback: (AudioObjectID, AudioDeviceIOProcID) -> OSStatus
+    var destroyAggregate: (AudioObjectID) -> OSStatus
+    var destroyTap: (AudioObjectID) -> OSStatus
+
+    static let live = AudioRouteCleanup(
+        stop: { AudioDeviceStop($0, $1) },
+        destroyCallback: { AudioDeviceDestroyIOProcID($0, $1) },
+        destroyAggregate: { AudioHardwareDestroyAggregateDevice($0) },
+        destroyTap: { id in
+            if #available(macOS 14.2, *) { return AudioHardwareDestroyProcessTap(id) }
+            return kAudioHardwareUnsupportedOperationError
+        })
+}
+
 @MainActor final class AudioRoute {
-    private static let logger = Logger(subsystem: "local.aural.equalizer", category: "AudioRoute")
+    private static let logger = AuralLog.audio
+    private let cleanup: AudioRouteCleanup
     private var tap: AudioObjectID = 0
     private var aggregate: AudioObjectID = 0
     private var proc: AudioDeviceIOProcID?
@@ -59,7 +93,8 @@ struct OutputDevice: Identifiable, Equatable {
     var loudness: [EQFilter] = []
     /// The band playing alone, after everything else. The next update or start applies it; Stop ends it.
     var solo: Int?
-    var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil }
+    var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil || dsp != nil }
+    init(cleanup: AudioRouteCleanup = .live) { self.cleanup = cleanup }
     /// What the engine runs for a profile: its filters and tilt, loudness compensation, then any solo.
     func engineFilters(for profile: Profile) -> [EQFilter] {
         var filters = profile.dspFilters(rate: sampleRate) + loudness
@@ -86,10 +121,10 @@ struct OutputDevice: Identifiable, Equatable {
                 let format = try scalar(streams[0], kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription())
                 guard format.mChannelsPerFrame == 2 else { return nil }
                 return OutputDevice(id: id, uid: uid, name: try audioString(id, kAudioObjectPropertyName))
-            } catch let failure as CoreAudioFailure where failure.status == kAudioHardwareBadDeviceError || failure.status == kAudioHardwareBadObjectError {
+            } catch let failure as CoreAudioFailure where failure.isUnavailableObject {
                 // Device/stream IDs can expire between enumeration and property
                 // reads. A disconnected device must not hide the healthy outputs.
-                logger.warning("Skipped unavailable audio device \(id, privacy: .public): \(failure.localizedDescription, privacy: .public)")
+                logger.notice("Skipped unavailable audio device \(id, privacy: .public): \(failure.diagnosticDescription, privacy: .public)")
                 return nil
             }
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -132,6 +167,7 @@ struct OutputDevice: Identifiable, Equatable {
     func start(_ output: OutputDevice, profile: Profile, bypass: Bool, peakProtectionEnabled: Bool, levelMatch: LevelMatch = .none) throws {
         try stop()
         guard #available(macOS 14.2, *) else { throw AudioFailure(message: "Aural requires macOS 14.2 or newer.") }
+        Self.logger.notice("Starting EQ: output=\(output.name, privacy: .private), device=\(output.id, privacy: .public), bypass=\(bypass, privacy: .public)")
         do {
             var pid = getpid(), ownProcess: AudioObjectID = 0
             var a = address(kAudioHardwarePropertyTranslatePIDToProcessObject)
@@ -186,10 +222,12 @@ struct OutputDevice: Identifiable, Equatable {
             self.outputStreams = outputStreams
             self.inputOffset = inputOffset
             device = output
+            Self.logger.notice("EQ started: device=\(output.id, privacy: .public), tap=\(self.tap, privacy: .public), aggregate=\(self.aggregate, privacy: .public), rate=\(self.sampleRate, privacy: .public)")
         } catch {
             let original = error.localizedDescription
+            Self.logger.error("EQ start failed: device=\(output.id, privacy: .public), tap=\(self.tap, privacy: .public), aggregate=\(self.aggregate, privacy: .public): \(AuralLog.describe(error), privacy: .public)")
             do { try stop() } catch { throw AudioFailure(message: original + " Cleanup: " + error.localizedDescription + " Quit Aural to release its route.") }
-            throw AudioFailure(message: original)
+            throw error
         }
     }
     func setPeakProtection(_ enabled: Bool) {
@@ -208,35 +246,49 @@ struct OutputDevice: Identifiable, Equatable {
             throw AudioFailure(message: "The equalizer rejected this setting because a value is out of range.")
         }
     }
-    /// Releases everything it can and throws the first failure at the end, so one
-    /// Core Audio error cannot leave the tap muting system audio. Whatever failed
-    /// stays recorded, and the next stop or start retries it.
+    /// Missing HAL objects are already released after a disconnect. Other errors
+    /// are reported after all cleanup steps, with surviving handles and their
+    /// callback engine kept for a safe retry on the next stop or start.
     func stop() throws {
         solo = nil
-        var failure: Error?
-        func attempt(_ step: () throws -> Void) -> Bool {
-            do { try step(); return true } catch { if failure == nil { failure = error }; return false }
+        let hadResources = hasResources
+        if hadResources {
+            Self.logger.notice("Stopping EQ: device=\(self.device?.id ?? 0, privacy: .public), tap=\(self.tap, privacy: .public), aggregate=\(self.aggregate, privacy: .public)")
         }
-        var callbackStopped = true
+        var failure: CoreAudioFailure?
+        func attempt(_ status: OSStatus, _ action: String, objectID: AudioObjectID, allowsStopped: Bool = false) -> Bool {
+            guard status != noErr else { return true }
+            let result = CoreAudioFailure(status: status, action: action, objectID: objectID)
+            if result.isUnavailableObject || (allowsStopped && status == kAudioHardwareNotRunningError) {
+                Self.logger.notice("Cleanup already satisfied: \(result.diagnosticDescription, privacy: .public)")
+                return true
+            }
+            Self.logger.error("Cleanup failed: \(result.diagnosticDescription, privacy: .public)")
+            if failure == nil { failure = result }
+            return false
+        }
         if let proc {
-            callbackStopped = attempt { try check(AudioDeviceStop(aggregate, proc), "Stop audio") }
-            if attempt({ try check(AudioDeviceDestroyIOProcID(aggregate, proc), "Release audio callback") }) { self.proc = nil }
+            _ = attempt(cleanup.stop(aggregate, proc), "Stop audio", objectID: aggregate, allowsStopped: true)
+            if attempt(cleanup.destroyCallback(aggregate, proc), "Release audio callback", objectID: aggregate) { self.proc = nil }
         }
-        // A callback that may still be running keeps its engine: leak it rather than free it.
-        if let dsp { if callbackStopped { eq_destroy(dsp) }; self.dsp = nil }
-        if aggregate != 0, attempt({ try check(AudioHardwareDestroyAggregateDevice(aggregate), "Release private route") }) {
+        if aggregate != 0, attempt(cleanup.destroyAggregate(aggregate), "Release private route", objectID: aggregate) {
             aggregate = 0; proc = nil // The callback belonged to the destroyed device.
         }
+        // Free only after the callback is removed or its owning device is gone.
+        // An uncertain callback keeps its context alive until cleanup can retry.
+        if proc == nil, let dsp { eq_destroy(dsp); self.dsp = nil }
         if tap != 0 {
             if #available(macOS 14.2, *) {
-                if attempt({ try check(AudioHardwareDestroyProcessTap(tap), "Release audio tap") }) { tap = 0 }
+                if attempt(cleanup.destroyTap(tap), "Release audio tap", objectID: tap) { tap = 0 }
             } else { tap = 0 }
         }
         inputStreams = []; outputStreams = []; inputOffset = 0
         device = nil
+        if hadResources { Self.logger.notice("EQ cleanup finished: resourcesRemaining=\(self.hasResources, privacy: .public)") }
         if let failure { throw failure }
     }
     #if AURAL_TESTING
+    var hasEngineForTesting: Bool { dsp != nil }
     /// A running route whose device has gone, so stopping its callback fails.
     func adoptForTesting(tap: AudioObjectID, aggregate: AudioObjectID, device: OutputDevice) {
         self.tap = tap; self.aggregate = aggregate; self.device = device
@@ -256,8 +308,9 @@ struct OutputDevice: Identifiable, Equatable {
             }
         }
         let alive = try scalar(device.id, kAudioDevicePropertyDeviceIsAlive, UInt32(0))
+        guard alive == 1 else { throw CoreAudioFailure(status: kAudioHardwareBadDeviceError, action: "Check audio output", objectID: device.id) }
         let rate = try scalar(device.id, kAudioDevicePropertyNominalSampleRate, Double(0))
-        guard alive == 1, abs(rate - sampleRate) < 1, faults == 0 else {
+        guard abs(rate - sampleRate) < 1, faults == 0 else {
             throw AudioFailure(message: "The output disconnected or its audio format changed. Processing stopped; select an output and start again.")
         }
         let inputs = try ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeInput)

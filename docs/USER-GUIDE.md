@@ -157,6 +157,10 @@ Latency depends on the device buffer size and has not been measured end to end. 
 
 If there is no output signal, check the selected output and **System Settings → Privacy & Security → Screen & System Audio Recording**. Quit and reopen after granting access. See [installation, updates, and removal](INSTALL.txt).
 
+Unplugging an output pauses EQ and shows a reconnect notice. Core Audio's `560227702 ('!dev')` means the device or route no longer exists; during shutdown, Aural finishes releasing the remaining resources and waits for the same output. **Stop EQ** cancels that wait. Other cleanup failures remain visible, and recording-permission advice is shown only for a permission error.
+
+Aural writes local audio diagnostics to macOS unified logging, under subsystem `local.aural.equalizer` and categories `AudioRoute` and `AudioLifecycle`. Logs cover route start/stop, resource IDs, sample rate, decoded Core Audio failures, output changes, sleep/wake, and reconnect attempts. Device names are private, and audio samples are never logged. Use Console to filter by the subsystem, or run `bash scripts/audio-logs.sh recent` from the source checkout for the last 20 minutes. Run `bash scripts/audio-logs.sh live` before reproducing a disconnect; press Control-C to stop. To save a report, redirect the output to a file, for example `bash scripts/audio-logs.sh recent > /tmp/aural-audio.log`.
+
 The [feature comparison](PEACE-FEATURE-ROADMAP.md) lists what Aural supports and what is still missing compared with Peace and Equalizer APO.
 
 ## Build, implementation, and tests

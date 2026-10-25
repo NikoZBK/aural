@@ -17,6 +17,10 @@ jobs:
           persist-credentials: false
       - name: Test DSP, imports, and startup
         run: bash scripts/test.sh
+      - name: Test per-app mixer prototype
+        run: bash prototypes/macos-app-mixer/scripts/test.sh
+      - name: Build per-app mixer prototype
+        run: bash prototypes/macos-app-mixer/scripts/build.sh
       - name: Package universal macOS app
         run: bash scripts/package.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

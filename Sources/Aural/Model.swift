@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreAudio
 import DSP
 import UniformTypeIdentifiers
 import ServiceManagement
@@ -52,7 +53,8 @@ import ServiceManagement
     private var startGeneration = 0
     private var systemOutputFollower = SystemOutputFollower()
     private var routeRecovery = RouteRecovery()
-    let route = AudioRoute()
+    let route: AudioRoute
+    private var lastSystemOutputFailure: String?
     private var settings = Settings()
     private var timer: Timer?
     private var ticks = 0
@@ -74,8 +76,9 @@ import ServiceManagement
         guard let selectedPresetName else { return "Custom EQ" }
         return selectedPresetName + (isPresetModified ? " · Modified" : "")
     }
-    init(settingsFile: URL? = nil, readLoginStatus: @escaping @Sendable () -> SMAppService.Status = { SMAppService.mainApp.status }) {
+    init(settingsFile: URL? = nil, readLoginStatus: @escaping @Sendable () -> SMAppService.Status = { SMAppService.mainApp.status }, route: AudioRoute? = nil) {
         self.readLoginStatus = readLoginStatus
+        self.route = route ?? AudioRoute()
         file = settingsFile ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
         do {
             if FileManager.default.fileExists(atPath: file.path) {
@@ -95,7 +98,7 @@ import ServiceManagement
             devices = try AudioRoute.devices()
             let defaultID = try AudioRoute.defaultOutput()
             let systemOutput = devices.first(where: { $0.id == defaultID })
-            systemOutputFollower = SystemOutputFollower(current: try? AudioRoute.systemOutput()?.uid)
+            systemOutputFollower = SystemOutputFollower(current: currentSystemOutput()?.uid)
             startEQAutomatically = settings.startEQAutomatically ?? false
             let followed = followSystemOutput ? systemOutput?.uid : nil
             selectedUID = followed ?? devices.first(where: { $0.uid == settings.selectedUID })?.uid ?? systemOutput?.uid ?? devices.first?.uid ?? ""
@@ -109,7 +112,10 @@ import ServiceManagement
             selectedPresetName = settings.selectedPresetName(forOutput: selectedUID)
             customPresets = settings.presets.keys.sorted()
             favoritePresets = settings.favoritePresets ?? []
-        } catch { pendingStartup = nil; startupNotice = nil; self.error = error.localizedDescription }
+        } catch {
+            pendingStartup = nil; startupNotice = nil; self.error = error.localizedDescription
+            AuralLog.lifecycle.error("Initialization failed: \(AuralLog.describe(error), privacy: .public)")
+        }
         committedProfile = ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName)
         levelMatch = levelMatch(for: profile, in: workspace)
         refreshLoudness()
@@ -292,7 +298,7 @@ import ServiceManagement
             followSystemOutput = enabled
             // Turning following on moves to the current macOS output right away.
             systemOutputFollower = SystemOutputFollower()
-            if enabled, let output = try? AudioRoute.systemOutput(), systemOutputFollower.change(to: output.uid) != nil {
+            if enabled, let output = currentSystemOutput(), systemOutputFollower.change(to: output.uid) != nil {
                 follow(output)
             }
         } catch { self.error = "Could not save output following: " + error.localizedDescription }
@@ -804,7 +810,12 @@ import ServiceManagement
     func start(resuming plan: StartupPlan? = nil) {
         pendingStartup = nil
         if plan == nil { startupNotice = nil }
-        guard let selected else { startupNotice = nil; error = "Connect and select a stereo audio output."; return }
+        guard let selected else {
+            startupNotice = nil; error = "Connect and select a stereo audio output."
+            AuralLog.lifecycle.warning("Cannot start EQ: selected output is unavailable")
+            return
+        }
+        AuralLog.lifecycle.notice("Scheduling EQ start: device=\(selected.id, privacy: .public), resuming=\(plan != nil, privacy: .public)")
         startGeneration += 1
         let generation = startGeneration
         let match = levelMatch(for: profile, in: workspace)
@@ -820,48 +831,76 @@ import ServiceManagement
                 running = true; levelMatch = match; error = nil; importNotice = nil; startupNotice = nil
             } catch {
                 running = false
-                if let retry = plan?.retry() { pendingStartup = retry }
-                else { startupNotice = nil; self.error = error.localizedDescription }
+                // Permission failures need user action; transient reconnects may retry.
+                let retry = (error as? CoreAudioFailure)?.status == kAudioDevicePermissionsError ? nil : plan?.retry()
+                if let retry {
+                    pendingStartup = retry
+                    AuralLog.lifecycle.notice("Retrying resumed EQ: attempt=\(retry.attempts, privacy: .public), device=\(selected.id, privacy: .public): \(AuralLog.describe(error), privacy: .public)")
+                } else {
+                    startupNotice = nil; self.error = error.localizedDescription
+                    AuralLog.lifecycle.error("EQ start abandoned: device=\(selected.id, privacy: .public): \(AuralLog.describe(error), privacy: .public)")
+                }
             }
         }
     }
     func stop() {
+        if running || waitingForOutput { AuralLog.lifecycle.notice("Stop requested; cancelling automatic resume") }
         startGeneration += 1
         pendingStartup = nil; startupNotice = nil
-        do { try route.stop(); running = false; meter.update(0) }
-        catch { self.error = error.localizedDescription }
+        running = false; meter.update(0)
+        do { try route.stop() }
+        catch {
+            self.error = error.localizedDescription
+            AuralLog.lifecycle.error("Stop failed: \(AuralLog.describe(error), privacy: .public)")
+        }
     }
     func refresh() {
         do { devices = try AudioRoute.devices() } catch { fail(error) }
     }
     private func fail(_ failure: Error) {
+        startGeneration += 1
         pendingStartup = nil; startupNotice = nil
         let reason = failure.localizedDescription
-        do { try route.stop(); running = false; meter.update(0); error = reason }
+        AuralLog.lifecycle.error("Audio control failed: \(AuralLog.describe(failure), privacy: .public)")
+        running = false; meter.update(0)
+        do { try route.stop(); error = reason }
         catch { self.error = reason + " Cleanup: " + error.localizedDescription + " Quit Aural to release its route." }
     }
+    /// A failed default-output read preserves playback. Log a repeated failure
+    /// once until it changes or recovers, rather than emitting it every poll.
+    private func currentSystemOutput() -> OutputDevice? {
+        do {
+            let output = try AudioRoute.systemOutput()
+            if lastSystemOutputFailure != nil { AuralLog.lifecycle.notice("Default audio output read recovered") }
+            lastSystemOutputFailure = nil
+            return output
+        } catch {
+            let reason = AuralLog.describe(error)
+            if lastSystemOutputFailure != reason {
+                AuralLog.lifecycle.warning("Keeping current output after default-output read failed: \(reason, privacy: .public)")
+                lastSystemOutputFailure = reason
+            }
+            return nil
+        }
+    }
     private func poll() {
-        meter.update(route.readMeter())
+        meter.update(running ? route.readMeter() : AudioMeterReading())
         ticks += 1
         // Follow volume changes quickly while EQ plays, and keep the controls current otherwise.
         if loudness.enabled, running || ticks % 10 == 0 { refreshLoudness() }
         guard ticks % 10 == 0 else { return }
         do {
             let current = try AudioRoute.devices()
-            if current != devices { devices = current }
+            if current != devices {
+                AuralLog.lifecycle.notice("Available outputs changed: deviceIDs=\(current.map(\.id).description, privacy: .public)")
+                devices = current
+            }
             // A failed read keeps the current output; it must never stop EQ.
-            if followSystemOutput, let output = try? AudioRoute.systemOutput(),
+            if followSystemOutput, let output = currentSystemOutput(),
                systemOutputFollower.change(to: output.uid) != nil {
                 follow(output)
             }
-            if running, selected == nil { try waitForOutput() }
-            else if running {
-                do { try route.verify() }
-                catch {
-                    guard routeRecovery.allowRestart() else { throw error }
-                    try waitForOutput(restarting: true)
-                }
-            }
+            try checkRunningRoute()
             if let plan = pendingStartup {
                 switch plan.decision(availableUIDs: current.map(\.uid), now: Date()) {
                 case .wait: break
@@ -875,18 +914,43 @@ import ServiceManagement
                 case .unavailable, .missingOutput:
                     pendingStartup = nil; startupNotice = nil
                     error = "Automatic EQ could not find the saved output within 60 seconds. Connect it, select it, and click Start EQ."
+                    AuralLog.lifecycle.warning("Automatic EQ ended without its saved output")
                 }
             }
         } catch { fail(error) }
     }
+    private func checkRunningRoute() throws {
+        guard running else { return }
+        if selected == nil { try waitForOutput(); return }
+        do { try route.verify() }
+        catch {
+            AuralLog.lifecycle.notice("Route verification failed: \(AuralLog.describe(error), privacy: .public)")
+            if let failure = error as? CoreAudioFailure, failure.isUnavailableObject, failure.objectID == route.device?.id {
+                // The device list can lag behind unplugging. This is a
+                // disconnect, not a format restart that consumes the limit.
+                try waitForOutput()
+            } else {
+                guard routeRecovery.allowRestart() else { throw error }
+                try waitForOutput(restarting: true)
+            }
+        }
+    }
+    #if AURAL_TESTING
+    func pollOutputForTesting() { ticks = 9; poll() }
+    func checkRunningRouteForTesting() {
+        do { try checkRunningRoute() } catch { fail(error) }
+    }
+    #endif
     /// Release the route and resume on this exact output when it is available.
     /// A disconnect waits for the device to return; a format change or reconnection
     /// restarts on the same device. Cancel or Stop ends the wait.
     private func waitForOutput(restarting: Bool = false) throws {
         let name = route.device?.name ?? selected?.name ?? "The output"
         let plan = StartupPlan.resume(outputUID: selectedUID, outputName: name, after: 1)
+        AuralLog.lifecycle.notice("Pausing EQ: device=\(self.route.device?.id ?? 0, privacy: .public), restarting=\(restarting, privacy: .public)")
         startGeneration += 1
-        try route.stop(); running = false; meter.update(0)
+        running = false; meter.update(0)
+        try route.stop()
         pendingStartup = plan
         startupNotice = restarting ? "The audio route to \(name) changed. Restarting EQ…"
                                    : "\(name) disconnected. EQ resumes when it reconnects."
@@ -894,6 +958,7 @@ import ServiceManagement
     /// Sleep releases the route. EQ that was running, or waiting for its output,
     /// resumes on the same output after wake.
     private func pauseForSleep() {
+        AuralLog.lifecycle.info("Sleep notification received")
         let target = running ? selectedUID : pendingStartup?.outputUID
         let name = selected?.name ?? pendingStartup?.outputName
         stop()
@@ -903,6 +968,7 @@ import ServiceManagement
         startupNotice = "EQ paused for sleep. It resumes on \(name ?? "the saved output") after wake."
     }
     private func resumeAfterWake() {
+        AuralLog.lifecycle.info("Wake notification received")
         guard var plan = pendingStartup, plan.resumes else { return }
         plan.notBefore = Date().addingTimeInterval(2)
         pendingStartup = plan
@@ -912,6 +978,7 @@ import ServiceManagement
     /// EQ on if it was running or waiting to resume. Aural never changes the default.
     private func follow(_ output: OutputDevice) {
         guard output.uid != selectedUID else { return }
+        AuralLog.lifecycle.notice("macOS output changed: device=\(output.id, privacy: .public), output=\(output.name, privacy: .private)")
         guard devices.contains(where: { $0.uid == output.uid }) else {
             importNotice = "macOS switched to \(output.name), which Aural cannot equalize. Aural supports outputs with one stereo stream, so it stays on \(selected?.name ?? "the selected output")."
             return
