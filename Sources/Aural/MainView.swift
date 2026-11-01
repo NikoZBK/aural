@@ -114,7 +114,7 @@ struct MainView: View {
                 .foregroundStyle(model.running && (model.bypass || model.soloBand != nil) ? AuralStyle.warning : Color.primary)
                 .fixedSize()
                 .accessibilityIdentifier("processing-status")
-                .help("Bypass skips EQ, preamp, and stereo effects while routing stays active. Stop releases the audio connection. Waiting means EQ resumes when its output is ready. Solo plays only one band's part of the spectrum.")
+                .help(AuralHelp.signalPath + " Waiting means audio resumes on the saved output. Solo plays only one band's part of the spectrum.")
             Spacer(minLength: 12 * interfaceScale)
             if model.soloBand != nil {
                 Button("End solo") { if submitPendingInput() { withAuralAnimation { model.setSolo(nil) } } }
@@ -139,6 +139,7 @@ struct MainView: View {
                 }
                     .auralFrame(minWidth: 78)
             }.buttonStyle(AuralButtonStyle(prominent: !processingOn)).disabled(model.selected == nil && !processingOn)
+                .help(AuralHelp.processing(processingOn))
             Button { showStartup.toggle() } label: { Image(systemName: "gearshape") }
                 .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, output, startup, About, and updates")
                 .popover(isPresented: $showStartup) { StartupSettings(model: model).auralZoom(model) }
@@ -211,6 +212,7 @@ struct MainView: View {
                             Text("Filters").tag(StudioPage.equalizer)
                             Text("Stereo & delay").tag(StudioPage.stereo)
                         }.pickerStyle(.segmented).labelsHidden().fixedSize().transition(.identity).id(selectionRevision)
+                            .help("Switch between filter editing and stereo balance, width, crossfeed, channel trims, and delay.")
                         HStack(spacing: 8 * interfaceScale) {
                             Spacer(minLength: 0)
                             Menu {
@@ -331,16 +333,16 @@ struct MainView: View {
 
     private var eqOptions: some View {
         Menu {
-            Button(model.undoLabel) { if submitPendingInput() { withAuralAnimation { model.undoProfile() } } }.disabled(!model.canUndo)
-            Button(model.redoLabel) { if submitPendingInput() { withAuralAnimation { model.redoProfile() } } }.disabled(!model.canRedo)
+            Button(model.undoLabel) { if submitPendingInput() { withAuralAnimation { model.undoProfile() } } }.disabled(!model.canUndo).help("\(model.undoLabel) (⌘Z)")
+            Button(model.redoLabel) { if submitPendingInput() { withAuralAnimation { model.redoProfile() } } }.disabled(!model.canRedo).help("\(model.redoLabel) (⇧⌘Z)")
             Divider()
-            Button("Copy current to other comparison slot") { if submitPendingInput() { withAuralAnimation { model.copyComparisonToOther() } } }
-            Button("Reset both comparisons to current EQ") { if submitPendingInput() { withAuralAnimation { model.captureComparison() } } }
+            Button("Copy current to other comparison slot") { if submitPendingInput() { withAuralAnimation { model.copyComparisonToOther() } } }.help("Replace the other A/B slot with the current EQ.")
+            Button("Reset both comparisons to current EQ") { if submitPendingInput() { withAuralAnimation { model.captureComparison() } } }.help("Replace both A/B comparison slots with the current EQ.")
             Divider()
-            Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }
-            Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }
-            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }
-            Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }
+            Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }.help("Open a draft of the current EQ. Review changes before applying them.")
+            Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.help(AuralHelp.copyEQ)
+            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.help(AuralHelp.pasteEQ)
+            Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }.help(AuralHelp.exportEQ)
         } label: { Label("More", systemImage: "ellipsis") }
             .auralMenuButton().fixedSize()
             .accessibilityLabel("EQ options").help("Comparison actions, draft editing, and clipboard")
@@ -367,7 +369,6 @@ struct MainView: View {
                         compact: true, inline: !compact)
         }
         .auralFrame(maxWidth: .infinity, alignment: .leading)
-        .help("Audio passes through preamp, filters and tilt, loudness compensation, stereo and delay, then optional peak protection. Bypass skips EQ and stereo effects; peak protection follows its On/Off switch. Stop releases the audio connection. Closing the window keeps EQ in the menu bar.")
         .auralPadding(.horizontal, 20).auralPadding(.vertical, 8)
     }
 

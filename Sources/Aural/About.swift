@@ -28,12 +28,16 @@ struct AboutView: View {
             }
             HStack(spacing: 18 * interfaceScale) {
                 Link("GitHub", destination: URL(string: "https://github.com/NikoZBK/aural")!)
+                    .help("Open Aural's source code on GitHub.")
                 Link("Report an issue", destination: URL(string: "https://github.com/NikoZBK/aural/issues")!)
+                    .help("Open Aural's GitHub issue tracker to report a problem or request a feature.")
                 Link("License", destination: URL(string: "https://github.com/NikoZBK/aural/blob/main/LICENSE")!)
+                    .help("Read Aural's MIT license on GitHub.")
             }.auralFont(size: 11)
             Text("macOS 14.2+ · Apple silicon & Intel\nBuilt with SwiftUI and Core Audio. Independent of Apple and AutoEQ.")
                 .auralFont(size: 10).foregroundStyle(.secondary).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Button("Check for Updates…") { openWindow.showAuralWindow("updates") }
+                .help(AuralHelp.updates)
             Text("Updates are verified before installation.").auralFont(size: 10).foregroundStyle(.secondary)
         }.auralPadding(26).auralFrame(width: 380).auralAppearance(model.theme)
     }

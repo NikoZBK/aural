@@ -19,27 +19,29 @@ struct StereoPanel: View {
                 layout {
                     VStack(alignment: .leading, spacing: 14 * interfaceScale) {
                         AuralSectionLabel(title: "Stereo balance")
-                        control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, spokenValue: AuralAccessibility.balance(settings.balance), decimals: 2)
+                        control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, spokenValue: AuralAccessibility.balance(settings.balance), help: AuralHelp.balance, decimals: 2)
                         HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
                             .auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
-                        control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, spokenValue: AuralAccessibility.percentage(settings.width), decimals: 2)
+                        control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, spokenValue: AuralAccessibility.percentage(settings.width), help: AuralHelp.width, decimals: 2)
                             .disabled(settings.mono)
                         Toggle("Mono", isOn: flag(\.mono)).toggleStyle(.checkbox).auralFont(size: 12)
                             .help("Sum left and right to mono before channel trims, polarity, and delay.")
-                        control("Crossfeed", value: settings.crossfeed, range: 0...1, suffix: "", keyPath: \.crossfeed, spokenValue: AuralAccessibility.percentage(settings.crossfeed), decimals: 2)
+                        control("Crossfeed", value: settings.crossfeed, range: 0...1, suffix: "", keyPath: \.crossfeed, spokenValue: AuralAccessibility.percentage(settings.crossfeed), help: AuralHelp.crossfeed, decimals: 2)
                         Text("Crossfeed blends low frequencies from the opposite channel for headphone listening.")
                             .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
                     }.auralFrame(maxWidth: .infinity).auralPanel(padding: 14)
                         .accessibilityElement(children: .contain).accessibilityLabel("Stereo balance, width, and crossfeed")
                     VStack(alignment: .leading, spacing: 14 * interfaceScale) {
                         AuralSectionLabel(title: "Left & right")
-                        control("Left trim", value: settings.leftTrimDB, range: -24...12, suffix: "dB", keyPath: \.leftTrimDB, spokenValue: AuralAccessibility.decibels(settings.leftTrimDB))
-                        control("Right trim", value: settings.rightTrimDB, range: -24...12, suffix: "dB", keyPath: \.rightTrimDB, spokenValue: AuralAccessibility.decibels(settings.rightTrimDB))
+                        control("Left trim", value: settings.leftTrimDB, range: -24...12, suffix: "dB", keyPath: \.leftTrimDB, spokenValue: AuralAccessibility.decibels(settings.leftTrimDB), help: "Adjust the left output level from −24 to +12 dB.")
+                        control("Right trim", value: settings.rightTrimDB, range: -24...12, suffix: "dB", keyPath: \.rightTrimDB, spokenValue: AuralAccessibility.decibels(settings.rightTrimDB), help: "Adjust the right output level from −24 to +12 dB.")
                         Divider().overlay(AuralStyle.border)
                         delay("Left delay", value: settings.leftDelayMS, keyPath: \.leftDelayMS)
                         delay("Right delay", value: settings.rightDelayMS, keyPath: \.rightDelayMS)
                         Toggle("Invert left polarity", isOn: flag(\.invertLeft)).toggleStyle(.checkbox)
+                            .help("Reverse the left channel's polarity. This does not swap channels.")
                         Toggle("Invert right polarity", isOn: flag(\.invertRight)).toggleStyle(.checkbox)
+                            .help("Reverse the right channel's polarity. This does not swap channels.")
                         Toggle("Swap left and right", isOn: flag(\.swapChannels)).toggleStyle(.checkbox)
                             .help("Play the left channel on the right output and the right on the left. Left and right filters, trims, delay, and polarity stay with their outputs.")
                         Text("Delay adds 0–30 ms to the selected channel. The curve shows EQ and preamp only.")
@@ -64,7 +66,7 @@ struct StereoPanel: View {
         })
     }
     private func control(_ title: String, value: Double, range: ClosedRange<Double>, suffix: String,
-                         keyPath: WritableKeyPath<StereoSettings, Double>, spokenValue: String, decimals: Int = 1) -> some View {
+                         keyPath: WritableKeyPath<StereoSettings, Double>, spokenValue: String, help: String, decimals: Int = 1) -> some View {
         VStack(spacing: 6 * interfaceScale) {
             HStack(spacing: 4 * interfaceScale) {
                 Text(title).auralFont(size: 11, weight: .medium).auralFrame(maxWidth: .infinity, alignment: .leading)
@@ -77,6 +79,7 @@ struct StereoPanel: View {
             Slider(value: numeric(keyPath), in: range,
                    onEditingChanged: { active in active ? model.beginProfileGesture(label: title) : model.endProfileGesture() })
                 .accessibilityLabel(title).accessibilityValue(spokenValue)
+                .help(help)
         }
     }
     private func delay(_ title: String, value: Double, keyPath: WritableKeyPath<StereoSettings, Double>) -> some View {
@@ -86,6 +89,7 @@ struct StereoPanel: View {
                 model.endProfileGesture()
                 var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
             }.auralFrame(width: 68)
+                .help("\(title): add 0–30 milliseconds to this output channel. Press Return to apply. Escape cancels.")
             Text("ms").auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
         }
     }

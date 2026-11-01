@@ -10,7 +10,7 @@ struct SessionNotices: View {
         if model.startupNotice != nil || model.error != nil || model.importNotice != nil {
             VStack(alignment: .leading, spacing: 8 * interfaceScale) {
                 if let notice = model.startupNotice {
-                    HStack { AuralNotice(message: notice); Button("Cancel") { model.stop() }.buttonStyle(AuralButtonStyle()) }
+                    HStack { AuralNotice(message: notice); Button("Cancel") { model.stop() }.buttonStyle(AuralButtonStyle()).help("Cancel the pending automatic EQ start.") }
                         .transition(.auralReveal(reduceMotion: reduceMotion))
                 }
                 if let message = model.error ?? model.importNotice {
@@ -18,6 +18,7 @@ struct SessionNotices: View {
                         AuralNotice(message: message, isError: model.error != nil)
                         Button { model.error = nil; model.importNotice = nil } label: { Image(systemName: "xmark") }
                             .buttonStyle(.plain).auralPadding(8).accessibilityLabel("Dismiss notice")
+                            .help("Dismiss this notice.")
                     }.transition(.auralReveal(reduceMotion: reduceMotion))
                 }
             }.transition(.auralReveal(reduceMotion: reduceMotion))
@@ -48,6 +49,7 @@ struct PresetBrowser: View {
             HStack(spacing: 6 * interfaceScale) {
                 Image(systemName: "magnifyingglass").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
                 TextField("Find a preset", text: $search).textFieldStyle(.plain).accessibilityLabel("Find a preset")
+                    .help("Filter presets by name.")
             }.auralFont(size: comfortable ? 14 : 11).auralPadding(comfortable ? 11 : 8).background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 5))
             ScrollView {
                 VStack(alignment: .leading, spacing: 4 * interfaceScale) {
@@ -84,12 +86,12 @@ struct PresetBrowser: View {
                         .auralPadding(.horizontal, comfortable ? 11 : 7).auralFrame(height: comfortable ? 42 : 32)
                         .background(model.selectedPresetName == name ? AuralStyle.elevated.opacity(0.7) : .clear, in: RoundedRectangle(cornerRadius: 4))
                         .contentShape(Rectangle())
-                }.buttonStyle(.plain).help(name).accessibilityLabel("Apply preset \(name)")
+                }.buttonStyle(.plain).help(AuralHelp.applyPreset(name)).accessibilityLabel("Apply preset \(name)")
                     .accessibilityValue(model.selectedPresetName == name ? "Selected" : "")
                     .contextMenu {
-                        Button(model.favoritePresets.contains(name) ? "Remove favorite" : "Add favorite") { model.toggleFavorite(name) }
-                        Button("Duplicate") { model.duplicatePreset(name) }
-                        Button("Manage…") { openWindow.showAuralWindow("presets") }
+                        Button(model.favoritePresets.contains(name) ? "Remove favorite" : "Add favorite") { model.toggleFavorite(name) }.help(model.favoritePresets.contains(name) ? "Remove this preset from favorites." : "Add this preset to favorites.")
+                        Button("Duplicate") { model.duplicatePreset(name) }.help("Create a separate copy of this preset.")
+                        Button("Manage…") { openWindow.showAuralWindow("presets") }.help(AuralHelp.presetLibrary)
                     }
             }
         }
@@ -111,7 +113,7 @@ struct PresetSelection: View {
             group("My presets", names: model.customPresets.filter { !model.favoritePresets.contains($0) })
             group("Factory", names: model.factory.keys.sorted().filter { !model.favoritePresets.contains($0) })
             Divider()
-            Button("Manage presets…") { openWindow.showAuralWindow("presets") }
+            Button("Manage presets…") { openWindow.showAuralWindow("presets") }.help(AuralHelp.presetLibrary)
             PresetDeletionMenuItems(model: model, submissions: submissions)
         } label: {
             Text(model.selectedPresetName ?? "Custom EQ")
@@ -139,7 +141,7 @@ struct PresetSelection: View {
                         if model.selectedPresetName == name {
                             Label(name, systemImage: "checkmark")
                         } else { Text(name) }
-                    }
+                    }.help(AuralHelp.applyPreset(name))
                 }
             }
         }
@@ -161,14 +163,14 @@ struct EQFileMenu: View {
     let submissions: PrecisionSubmissionCoordinator
     var body: some View {
         Menu {
-            Button("Search AutoEQ profiles…") { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } }
-            Button("Import AutoEQ text…") { if submitPendingInput() { model.importAutoEQ() } }
-            Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }
-            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }
-            Button("Export EQ text…") { if submitPendingInput() { model.exportEQ() } }
+            Button("Search AutoEQ profiles…") { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } }.help(AuralHelp.autoEQ)
+            Button("Import AutoEQ text…") { if submitPendingInput() { model.importAutoEQ() } }.help("Choose an Equalizer APO text file or paste AutoEQ text to import.")
+            Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.help(AuralHelp.copyEQ)
+            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.help(AuralHelp.pasteEQ)
+            Button("Export EQ text…") { if submitPendingInput() { model.exportEQ() } }.help(AuralHelp.exportEQ)
             Divider()
-            Button("Back up presets…") { model.backupPresets() }
-            Button("Restore presets…") { if submitPendingInput() { model.restorePresets() } }
+            Button("Back up presets…") { model.backupPresets() }.help("Export custom presets and favorites to a backup file.")
+            Button("Restore presets…") { if submitPendingInput() { model.restorePresets() } }.help("Import presets and favorites from a backup file.")
         } label: { Label("Files", systemImage: "folder") }.auralFont(size: 11)
             .menuStyle(.borderlessButton)
             .tint(.primary)
@@ -197,12 +199,15 @@ struct SavePresetButton: View {
             default: saving = true
             }
         }.buttonStyle(AuralButtonStyle()).accessibilityLabel("Save preset")
+            .help("Save the current EQ as a named preset.")
             .popover(isPresented: $saving) {
                 VStack(alignment: .leading, spacing: 12 * interfaceScale) {
                     Text("Save preset").auralFont(size: 13, weight: .semibold)
                     TextField("Preset name", text: $model.presetName).textFieldStyle(.roundedBorder)
+                        .help("Enter a name for the current EQ. Press Return to save.")
                         .onSubmit { save() }
                     Button("Save") { save() }.buttonStyle(AuralButtonStyle(prominent: true))
+                        .help("Save the current EQ with this preset name.")
                         .disabled(model.presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let error = model.error { AuralNotice(message: error, isError: true) }
                 }.auralPadding(18).auralFrame(width: 280).auralZoom(model)
@@ -278,6 +283,7 @@ struct PreampControls: View {
             Slider(value: Binding(get: { model.profile.preamp }, set: { value in if submitPendingInput() { model.setPreamp(value) } }), in: model.profile.preampRange,
                    onEditingChanged: { active in active ? model.beginProfileGesture(label: "Preamp") : model.endProfileGesture() })
                 .accessibilityLabel("Preamp").accessibilityValue(String(format: "%.2f decibels", model.profile.preamp))
+                .help(AuralHelp.preamp)
             HStack {
                 PrecisionField(value: model.profile.preamp, range: model.profile.preampRange, label: "Exact preamp in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
                     model.endProfileGesture()
@@ -307,6 +313,7 @@ struct TiltControls: View {
     var body: some View {
         HStack(spacing: 7 * interfaceScale) {
             Text("Tilt").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+                .help("Tilt the EQ around 1 kHz. Positive values raise the treble and lower the bass, each by up to the amount set; negative values do the reverse.")
             PrecisionField(value: model.profile.tilt, range: Profile.tiltRange, label: "Tilt in decibels", decimals: 1, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
                 model.endProfileGesture(); model.setTilt(value)
             }.auralFrame(width: 56)
@@ -314,7 +321,8 @@ struct TiltControls: View {
             Stepper("Tilt", onIncrement: { if submitPendingInput() { model.adjustTilt(0.5) } },
                     onDecrement: { if submitPendingInput() { model.adjustTilt(-0.5) } })
                 .labelsHidden().accessibilityLabel("Tilt").accessibilityValue(AuralAccessibility.decibels(model.profile.tilt))
-        }.help("Tilt the EQ around 1 kHz. Positive values raise the treble and lower the bass, each by up to the amount set; negative values do the reverse.")
+                .help("Adjust tilt in 0.5 dB steps. " + AuralHelp.tilt)
+        }
     }
     private func submitPendingInput() -> Bool {
         switch submissions.submitActive() {

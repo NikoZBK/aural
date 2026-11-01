@@ -23,6 +23,7 @@ struct SimpleListeningControls: View {
                 Slider(value: number(\.balance), in: -1...1,
                        onEditingChanged: gesture("Balance"))
                     .accessibilityLabel("Stereo balance").accessibilityValue(AuralAccessibility.balance(settings.balance))
+                    .help(AuralHelp.balance)
                 HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
                     .font(.caption).foregroundStyle(AuralStyle.secondary)
             }
@@ -36,11 +37,13 @@ struct SimpleListeningControls: View {
                 HStack { Text("Stereo width"); Spacer(); Text(String(format: "%.0f%%", settings.width * 100)).monospacedDigit().foregroundStyle(AuralStyle.secondary) }
                 Slider(value: number(\.width), in: 0...2, onEditingChanged: gesture("Stereo width"))
                     .accessibilityLabel("Stereo width").accessibilityValue(AuralAccessibility.percentage(settings.width)).disabled(settings.mono)
+                    .help(AuralHelp.width)
             }
             VStack(alignment: .leading, spacing: 6 * interfaceScale) {
                 HStack { Text("Headphone blend"); Spacer(); Text(String(format: "%.0f%%", settings.crossfeed * 100)).monospacedDigit().foregroundStyle(AuralStyle.secondary) }
                 Slider(value: number(\.crossfeed), in: 0...1, onEditingChanged: gesture("Headphone blend"))
                     .accessibilityLabel("Headphone crossfeed").accessibilityValue(AuralAccessibility.percentage(settings.crossfeed))
+                    .help(AuralHelp.crossfeed)
                 Text("Blend a little of the opposite channel for headphone listening.")
                     .font(.caption).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
             }

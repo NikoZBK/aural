@@ -29,6 +29,7 @@ struct FilterRack: View {
                     Text("All rows").tag(FilterDisplay.rows)
                     Text("Faders").tag(FilterDisplay.faders)
                 }.pickerStyle(.segmented).labelsHidden().auralFrame(width: expanded ? nil : 218).transition(.identity).id(selectionRevision)
+                    .help("Edit one selected filter, all filter rows, or gain faders. All rows makes graphic frequencies and Q editable.")
                 // A narrow side panel at large zoom keeps the band count on one line
                 // by moving it above the actions.
                 ViewThatFits(in: .horizontal) {
@@ -98,17 +99,17 @@ struct FilterRack: View {
         }
         Menu("EQ actions") {
             Menu("New EQ") {
-                Button("New flat 10-band EQ") { if finishNumericEdit() { withAuralAnimation { model.useGraphicTemplate(bands: 10) } } }
-                Button("New flat 31-band EQ") { if finishNumericEdit() { withAuralAnimation { model.useGraphicTemplate(bands: 31) } } }
-            }
+                Button("New flat 10-band EQ") { if finishNumericEdit() { withAuralAnimation { model.useGraphicTemplate(bands: 10) } } }.help("Replace the current filters with a flat 10-band graphic EQ.")
+                Button("New flat 31-band EQ") { if finishNumericEdit() { withAuralAnimation { model.useGraphicTemplate(bands: 31) } } }.help("Replace the current filters with a flat 31-band EQ.")
+            }.help("Replace the current EQ with a flat 10-band or 31-band layout.")
             Divider()
-            Button("Gains +1 dB") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: 1, offset: 1) } } }
-            Button("Gains −1 dB") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: 1, offset: -1) } } }
-            Button("Scale gains to 50%") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: 0.5, offset: 0) } } }
-            Button("Invert gains") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: -1, offset: 0) } } }
+            Button("Gains +1 dB") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: 1, offset: 1) } } }.help("Raise every adjustable band gain by 1 dB.")
+            Button("Gains −1 dB") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: 1, offset: -1) } } }.help("Lower every adjustable band gain by 1 dB.")
+            Button("Scale gains to 50%") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: 0.5, offset: 0) } } }.help("Halve every adjustable band boost and cut.")
+            Button("Invert gains") { if finishNumericEdit() { withAuralAnimation { model.transformGains(scale: -1, offset: 0) } } }.help("Turn every adjustable boost into a cut and every cut into a boost.")
             Divider()
-            Button("Shift up ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: 1.0 / 3) } } }
-            Button("Shift down ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: -1.0 / 3) } } }
+            Button("Shift up ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: 1.0 / 3) } } }.help("Raise all filter frequencies by one third of an octave.")
+            Button("Shift down ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: -1.0 / 3) } } }.help("Lower all filter frequencies by one third of an octave.")
         }.auralMenuButton().fixedSize().help("Adjust all bands together. Undo restores your previous EQ.")
         Button("Reset EQ") { if finishNumericEdit() { withAuralAnimation { model.resetEQ() } } }
             .buttonStyle(AuralButtonStyle()).help("Set band gains, tilt, and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
@@ -135,6 +136,7 @@ struct FilterRack: View {
                 })) {
                     ForEach(bands, id: \.index) { band in Text(Self.bandTitle(band)).tag(band.index) }
                 }.auralFrame(width: 170)
+                    .help("Choose the filter shown in the inspector. Its settings appear below.")
                 Spacer(minLength: 0)
                 soloToggle
             }.transition(.identity).id(selectionRevision)
@@ -331,6 +333,7 @@ private struct FilterRowContent: View, Equatable {
         FilterColumns(height: (compact ? 78 : 39) * interfaceScale, scale: interfaceScale, compact: compact) {
             Toggle("Filter \(number) enabled", isOn: Binding(get: { currentFilter.enabled }, set: { enabled in editFilter { $0.enabled = enabled } }))
                 .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 24)
+                .help("Enable or bypass filter \(number) without removing its settings.")
             HStack(spacing: 6 * interfaceScale) {
                 Group {
                     if actions.soloed {
@@ -352,10 +355,11 @@ private struct FilterRowContent: View, Equatable {
                         if currentFilter.effectiveChannel == channel {
                             Label(channel == .stereo ? "L+R" : channel.rawValue, systemImage: "checkmark")
                         } else { Text(channel == .stereo ? "L+R" : channel.rawValue) }
-                    }
+                    }.help("Apply filter \(number) to \(channel.label).")
                 }
             }.auralMenuButton(.small).auralFrame(width: 60).accessibilityLabel("Filter \(number) channel")
                 .accessibilityValue(currentFilter.effectiveChannel.label)
+                .help(AuralHelp.filterChannel(number))
             PrecisionField(value: filter.frequency, range: 10...22000, label: "Filter \(number) frequency in hertz", decimals: 0, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
                 FilterParameterEditing.update(model: model, index: index) { $0.frequency = value }
             }.auralFrame(width: 79).overlay(alignment: .topLeading) { numericLabel("Hz") }
@@ -457,26 +461,26 @@ struct FilterActionsMenu: View {
                         } label: {
                             if currentFilter.effectiveChannel == channel { Label(channel.label, systemImage: "checkmark") }
                             else { Text(channel.label) }
-                        }
+                        }.help("Apply filter \(index + 1) to \(channel.label).")
                     }
-                }
+                }.help(AuralHelp.filterChannel(index + 1))
                 Divider()
             }
             if state.soloed {
-                Button("End solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(nil) } } }
+                Button("End solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(nil) } } }.help("Play the whole EQ again.")
             } else {
-                Button("Solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(index) } } }
+                Button("Solo") { if finishNumericEdit() { withAuralAnimation { model.setSolo(index) } } }.help("Play only the part of the spectrum this filter acts on. Start EQ and turn off Bypass first.")
                     .disabled(!state.canSolo)
             }
             if let move {
                 Divider()
-                Button(horizontal ? "Move left" : "Move up") { move(-1) }.disabled(!state.canMoveBack)
-                Button(horizontal ? "Move right" : "Move down") { move(1) }.disabled(!state.canMoveForward)
+                Button(horizontal ? "Move left" : "Move up") { move(-1) }.disabled(!state.canMoveBack).help("Move this filter one position earlier in the processing order.")
+                Button(horizontal ? "Move right" : "Move down") { move(1) }.disabled(!state.canMoveForward).help("Move this filter one position later in the processing order.")
             }
             Divider()
-            Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }
+            Button("Duplicate") { if finishNumericEdit() { withAuralAnimation { model.duplicateFilter(at: index) } } }.help("Create a copy of this filter in the EQ.")
                 .disabled(!state.canDuplicate)
-            Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }
+            Button("Delete filter", role: .destructive) { if finishNumericEdit() { withAuralAnimation { model.deleteFilter(at: index) } } }.help("Remove this filter from the EQ. Undo restores it.")
                 .disabled(!state.canDelete)
         } label: { Image(systemName: "ellipsis").auralFrame(width: 22, height: 22) }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary)
@@ -505,14 +509,16 @@ struct FilterTypeMenu: View {
                     Menu {
                         ForEach(FilterShape.slopes(for: kind), id: \.self) { item($0, title: $0.slope?.label ?? "12 dB/oct with Q") }
                     } label: { checked(shape.kind == kind, title: kind.name) }
+                        .help("Choose the slope for a \(kind.name) filter.")
                 } else {
                     item(FilterShape(kind: kind), title: kind.name)
                 }
             }
-        }.auralMenuButton(.small).help(shape.label).accessibilityLabel(title).accessibilityValue(shape.label)
+        }.auralMenuButton(.small).help("\(title): \(shape.label). Choose the filter shape and, for pass filters, its slope.").accessibilityLabel(title).accessibilityValue(shape.label)
     }
     private func item(_ value: FilterShape, title: String) -> some View {
         Button { choose(value) } label: { checked(shape == value, title: title) }
+            .help("Use \(value.label) for this filter.")
     }
     @ViewBuilder private func checked(_ on: Bool, title: String) -> some View {
         if on { Label(title, systemImage: "checkmark") } else { Text(title) }

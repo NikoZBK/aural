@@ -184,13 +184,15 @@ private struct InteractiveResponseCurve: View {
                 }
                 Menu {
                     Toggle("Show Harman reference", isOn: $showHarman)
+                        .help("Show or hide the acoustic target reference without changing audio.")
                     Divider()
                     Picker("Harman target", selection: $chosenHarmanTarget) {
                         Text("Automatic (\(HarmanTarget.suggested(for: profile).label))").tag(Optional<HarmanTarget>.none)
                         ForEach(HarmanTarget.allCases, id: \.self) { target in Text(target.label).tag(Optional(target)) }
-                    }
+                    }.help("Choose an acoustic target, or let Aural select one for this profile.")
                     Divider()
                     Link("View published target data", destination: harmanTarget.sourceURL)
+                        .help("Open the published data for the selected Harman target.")
                 } label: {
                     Text("Harman").foregroundStyle(showHarman ? AuralStyle.plotColors[2] : AuralStyle.secondary)
                 }.menuStyle(.borderlessButton).tint(.primary).fixedSize().disabled(drag != nil)
@@ -244,6 +246,7 @@ private struct InteractiveResponseCurve: View {
                             }
                             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(plotFocused ? Color.primary : .clear, lineWidth: 2))
                             .focusable().focused($plotFocused)
+                            .help("Hover to inspect frequency and gain. Focus the graph and use Left or Right arrows to inspect; Escape clears inspection.")
                             .onKeyPress(.rightArrow) { inspect(by: 0.025); return .handled }
                             .onKeyPress(.leftArrow) { inspect(by: -0.025); return .handled }
                             .onExitCommand { inspection.clear(); plotFocused = false }

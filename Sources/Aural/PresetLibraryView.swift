@@ -75,6 +75,7 @@ struct PresetLibraryView: View {
             }
             Spacer()
             Button("Done") { dismiss() }
+                .help("Close the preset library.")
                 .keyboardShortcut(.cancelAction)
                 .buttonStyle(AuralButtonStyle())
         }
@@ -96,6 +97,7 @@ struct PresetLibraryView: View {
                 TextField("Search presets", text: $search)
                     .textFieldStyle(.plain)
                     .accessibilityLabel("Search presets")
+                    .help("Filter the preset library by name.")
                 if !search.isEmpty {
                     Button { search = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -113,6 +115,7 @@ struct PresetLibraryView: View {
             Toggle(isOn: $favoritesOnly) {
                 Label("Favorites only", systemImage: "star.fill")
             }.toggleStyle(.checkbox).auralFont(size: 12)
+                .help("Show only presets marked as favorites.")
 
             // Overlapping the empty state and the list lets them crossfade in place.
             ZStack {
@@ -127,6 +130,7 @@ struct PresetLibraryView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Clear filters") { search = ""; favoritesOnly = false }
+                        .help("Clear the search and show all presets, including those outside favorites.")
                         .buttonStyle(AuralButtonStyle())
                 }.auralFrame(maxWidth: .infinity, maxHeight: .infinity)
                     .auralPadding(.vertical, 20)
@@ -145,13 +149,14 @@ struct PresetLibraryView: View {
                     }
                     .auralPadding(.vertical, 5)
                     .tag(name)
+                    .help("Preview preset “\(name)” and show its library actions.")
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(name), \(model.factory[name] == nil ? "custom" : "built-in") preset\(model.favoritePresets.contains(name) ? ", favorite" : "")")
                     .contextMenu {
                         if model.factory[name] == nil {
                             Button(role: .destructive) { model.deletePreset(name) } label: {
                                 Label("Delete preset", systemImage: "trash")
-                            }
+                            }.help("Delete preset “\(name)” without changing the current EQ.")
                         }
                     }
                 }
@@ -211,6 +216,7 @@ struct PresetLibraryView: View {
                         Text("AutoEQ · \(source.name)")
                         Text("Measured by \(source.measurement)").foregroundStyle(AuralStyle.secondary)
                         Link("Original AutoEQ result", destination: source.url)
+                            .help("Open the original AutoEQ measurement and correction result.")
                     }.auralFont(size: 11).fixedSize(horizontal: false, vertical: true)
                 }
                 ResponseCurve(profile: profile, rate: model.responseRate, bypass: false, running: false)
@@ -221,6 +227,7 @@ struct PresetLibraryView: View {
                     Label("Apply preset", systemImage: "play.fill")
                         .auralFrame(maxWidth: .infinity)
                 }.buttonStyle(AuralButtonStyle(prominent: true))
+                    .help(AuralHelp.applyPreset(name))
                 Text("Applying starts EQ if it is stopped.")
                     .auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
             }
@@ -228,6 +235,7 @@ struct PresetLibraryView: View {
                 Button { model.duplicatePreset(name) } label: {
                     Label("Duplicate", systemImage: "plus.square.on.square")
                 }.buttonStyle(AuralButtonStyle())
+                    .help("Create a separate copy of preset “\(name)”.")
                 Button { withAuralAnimation(AuralMotion.quick) { model.toggleFavorite(name) } } label: {
                     Label {
                         Text(isFavorite ? "Unfavorite" : "Favorite")
@@ -235,6 +243,7 @@ struct PresetLibraryView: View {
                         Image(systemName: isFavorite ? "star.slash" : "star").auralSymbolTransition()
                     }
                 }.buttonStyle(AuralButtonStyle())
+                    .help(isFavorite ? "Remove “\(name)” from favorites." : "Add “\(name)” to favorites.")
             }
             Divider().overlay(AuralStyle.border)
             if isCustom {
@@ -243,7 +252,9 @@ struct PresetLibraryView: View {
                     TextField("Preset name", text: $newName)
                         .textFieldStyle(.roundedBorder)
                         .accessibilityLabel("New preset name")
+                        .help("Enter a new name for this custom preset, then click Rename.")
                     Button("Rename") { rename(name) }
+                        .help("Rename this saved preset using the name above.")
                         .buttonStyle(AuralButtonStyle())
                         .disabled(trimmedName.isEmpty || trimmedName == name)
                 }
@@ -326,7 +337,7 @@ struct PresetMenuItems: View {
                 ForEach(model.favoritePresets.sorted(), id: \.self) { name in
                     presetButton(name)
                 }
-            }
+            }.help("Choose a favorite preset to apply.")
             Divider()
         }
         ForEach(model.factory.keys.sorted(), id: \.self) { name in
@@ -348,7 +359,7 @@ struct PresetMenuItems: View {
             } else {
                 Text(name)
             }
-        }
+        }.help(AuralHelp.applyPreset(name))
     }
 }
 

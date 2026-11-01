@@ -118,6 +118,7 @@ private struct EQBandContent: View, Equatable {
                     Toggle("Filter \(index + 1) enabled", isOn: Binding(get: { filter.enabled }, set: { enabled in
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
                     })).labelsHidden().toggleStyle(.checkbox)
+                        .help("Enable or bypass filter \(index + 1) without removing its settings.")
                     if filter.effectiveChannel != .stereo {
                         Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
                             .help(filter.effectiveChannel.label)
@@ -229,6 +230,7 @@ private struct EQBandContent: View, Equatable {
                     }, set: { enabled in
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
                     })).labelsHidden().toggleStyle(.checkbox)
+                        .help("Enable or bypass band \(index + 1) without removing its settings.")
                     if filter.effectiveChannel != .stereo {
                         Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
                     }

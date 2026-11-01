@@ -125,6 +125,7 @@ struct FilterEditor: View {
                 .auralFrame(width: 84)
                 .accessibilityLabel("Parametric preamp in decibels")
                 .accessibilityHint("Enter a number from minus 60 to plus 24")
+                .help("Set the draft's level before its filters, from −60 to +24 dB. Changes take effect when you apply the draft.")
             Text("dB").foregroundStyle(AuralStyle.secondary)
             Divider().auralFrame(height: 30)
             Text("−60 to +24 dB")
@@ -208,15 +209,18 @@ struct FilterEditor: View {
                 Text("Mid").tag(ImportedFilter.Channel.mid)
                 Text("Side").tag(ImportedFilter.Channel.side)
             }.auralFrame(width: 66)
+                .help(AuralHelp.filterChannel(number))
             TextField("Frequency", text: filter.frequency)
                 .auralFrame(width: 122)
                 .accessibilityLabel("Filter \(number) frequency in hertz")
                 .accessibilityHint("Enter a number from 10 to 22000")
+                .help("Set filter \(number)'s frequency from 10 to 22,000 Hz in this draft.")
             if filter.wrappedValue.kind.usesGain {
                 TextField("Gain", text: filter.gain)
                     .auralFrame(width: 100)
                     .accessibilityLabel("Filter \(number) gain in decibels")
                     .accessibilityHint("Enter a number from minus 30 to plus 30")
+                    .help("Set filter \(number)'s gain from −30 to +30 dB in this draft.")
             } else {
                 Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 100)
                     .accessibilityLabel("Filter \(number) has no gain parameter")
@@ -227,6 +231,7 @@ struct FilterEditor: View {
                     .auralFrame(width: 80)
                     .accessibilityLabel("Filter \(number) Q")
                     .accessibilityHint("Enter a number from 0.05 to 50")
+                    .help("Set filter \(number)'s Q from 0.05 to 50. Higher Q makes a peak or notch narrower.")
             } else {
                 Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 80)
                     .accessibilityLabel("Filter \(number) has a fixed \(shape.slope?.label ?? "6 dB per octave") slope")
@@ -237,14 +242,17 @@ struct FilterEditor: View {
                     do { try withAuralAnimation { try draft.duplicateFilter(id) }; error = nil }
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.slots + filter.wrappedValue.slots > Profile.maxFilters)
+                    .help("Create a copy of filter \(number) in this draft.")
                 Button("Move up", systemImage: "arrow.up") {
                     do { try withAuralAnimation { try draft.moveFilter(id, by: -1) }; error = nil }
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.filters.first?.id == id)
+                    .help("Move filter \(number) one position earlier in this draft.")
                 Button("Move down", systemImage: "arrow.down") {
                     do { try withAuralAnimation { try draft.moveFilter(id, by: 1) }; error = nil }
                     catch { self.error = error.localizedDescription }
                 }.disabled(draft.filters.last?.id == id)
+                    .help("Move filter \(number) one position later in this draft.")
             } label: {
                 Image(systemName: "ellipsis.circle").auralFont(size: 15)
             }
@@ -300,11 +308,14 @@ struct FilterEditor: View {
                 Button("Undo", systemImage: "arrow.uturn.backward", action: undoDraft)
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canUndo)
                 .keyboardShortcut("z", modifiers: [.command])
+                .help("Undo the last edit in this draft (⌘Z).")
                 Button("Redo", systemImage: "arrow.uturn.forward", action: redoDraft)
                 .buttonStyle(AuralButtonStyle()).disabled(!history.canRedo)
                 .keyboardShortcut("z", modifiers: [.command, .shift])
+                .help("Redo the last undone edit in this draft (⇧⌘Z).")
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .help("Close this draft without applying its changes.")
                     .keyboardShortcut(.cancelAction).buttonStyle(AuralButtonStyle())
                 Button("Apply EQ") {
                     guard !sourceChanged else {
@@ -329,6 +340,7 @@ struct FilterEditor: View {
                     } catch { self.error = error.localizedDescription }
                 }
                 .keyboardShortcut(.defaultAction).buttonStyle(AuralButtonStyle(prominent: true)).disabled(sourceChanged)
+                .help(sourceChanged ? "Reload the current EQ before applying this draft." : "Replace the current EQ with this draft and close the editor.")
             }
             Text("Changes stay in this editor until you apply.")
                 .auralFont(size: 12).foregroundStyle(AuralStyle.secondary)

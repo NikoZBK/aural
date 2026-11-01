@@ -105,6 +105,7 @@ struct AutoEQBrowserView: View {
             }.auralFrame(minHeight: 340, maxHeight: .infinity)
             HStack {
                 Link("AutoEQ project & license", destination: URL(string: "https://github.com/jaakkopasanen/AutoEq")!)
+                    .help("Open the AutoEQ project and its license on GitHub.")
                 Spacer()
                 Text("Search stays on your Mac. Profiles download from GitHub.")
                     .foregroundStyle(AuralStyle.secondary)
@@ -140,6 +141,7 @@ struct AutoEQBrowserView: View {
             }
             Spacer()
             Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(AuralButtonStyle())
+                .help("Close the AutoEQ browser.")
         }
     }
 
@@ -157,9 +159,11 @@ struct AutoEQBrowserView: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
                 TextField("Search headphones", text: $search).textFieldStyle(.plain)
                     .accessibilityLabel("Search AutoEQ headphones")
+                    .help("Filter headphone profiles by brand or model name.")
                 if !search.isEmpty {
                     Button { search = "" } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(AuralStyle.secondary).accessibilityLabel("Clear headphone search")
+                        .help("Clear the headphone search text.")
                         .transition(.auralPop(reduceMotion: reduceMotion))
                 }
             }.auralAnimation(AuralMotion.quick, value: search.isEmpty)
@@ -170,7 +174,7 @@ struct AutoEQBrowserView: View {
                 AuralPicker(title: "Measurement source", value: provider.isEmpty ? "All sources" : provider, selection: $provider) {
                     Text("All sources").tag("")
                     ForEach(Array(Set(browser.entries.map(\.provider))).sorted(), id: \.self) { Text($0).tag($0) }
-                }
+                }.help("Show profiles from one measurement source or all sources.")
             }
             if browser.loading {
                 HStack { ProgressView().auralControlSize(.small); Text("Loading AutoEQ catalog…") }
@@ -191,6 +195,7 @@ struct AutoEQBrowserView: View {
                             if browser.entries.isEmpty { catalogRevision += 1 }
                             else { search = ""; provider = "" }
                         }.buttonStyle(AuralButtonStyle())
+                            .help(browser.entries.isEmpty ? "Retry downloading the AutoEQ catalog." : "Clear the search and measurement source to show all profiles.")
                     }
                 }.auralFrame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -228,6 +233,7 @@ struct AutoEQBrowserView: View {
                         Button { model.importOnlineAutoEQ(preview) } label: {
                             Label("Import profile", systemImage: "square.and.arrow.down").auralFrame(maxWidth: .infinity)
                         }.buttonStyle(AuralButtonStyle(prominent: true))
+                            .help("Save this profile as a preset, replace the current EQ, and stop processing. Press Start EQ when ready.")
                         }.transition(.auralReveal(.bottom, reduceMotion: reduceMotion))
                     }
                 }
@@ -256,6 +262,7 @@ struct AutoEQBrowserView: View {
                 Text("Measured by \(entry.measurement)")
                 Text(entry.collection).foregroundStyle(AuralStyle.secondary)
                 Link("View original result", destination: entry.resultURL)
+                    .help("Open this headphone's original AutoEQ result on GitHub.")
             }.auralFont(size: 12).textSelection(.enabled)
             if let preview = browser.preview, preview.entry.id == entry.id {
                 ResponseCurve(profile: preview.profile, rate: model.responseRate, bypass: false, running: false)
@@ -267,6 +274,7 @@ struct AutoEQBrowserView: View {
             } else if browser.previewEntryID == entry.id, let error = browser.previewError {
                 AuralNotice(message: error, isError: true).transition(.auralReveal(reduceMotion: reduceMotion))
                 Button("Retry download") { previewRevision += 1 }.buttonStyle(AuralButtonStyle()).transition(.opacity)
+                    .help("Retry downloading the selected headphone's correction profile.")
             } else {
                 HStack { ProgressView().auralControlSize(.small); Text("Downloading profile…") }.auralFont(size: 12)
                     .transition(.opacity)

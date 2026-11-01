@@ -56,8 +56,10 @@ struct UpdatesView: View {
             Text("Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets are preserved.")
                 .fixedSize(horizontal: false, vertical: true)
             Toggle("Automatically check for updates", isOn: Binding(get: { checker.automaticallyChecks }, set: checker.setAutomaticallyChecks))
+                .help("Periodically check for new Aural releases.")
             Toggle("Automatically download updates", isOn: Binding(get: { checker.automaticallyDownloads }, set: checker.setAutomaticallyDownloads))
                 .disabled(!checker.automaticallyChecks)
+                .help("Download available updates automatically after a check. Enable automatic checks first.")
             Text("Installing an update briefly stops EQ while Aural restarts. Start EQ automatically follows your startup setting.")
                 .auralFont(size: 11).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if let error = checker.error {
@@ -66,10 +68,12 @@ struct UpdatesView: View {
             }
             HStack {
                 Link("Releases page", destination: UpdateChecker.releasesURL)
+                    .help("Open Aural's release notes and downloads on GitHub.")
                 Spacer()
                 Button("Check for Updates…") { checker.check() }
                     .disabled(!checker.canCheckForUpdates && checker.error == nil)
                     .buttonStyle(.borderedProminent)
+                    .help("Check for a newer version of Aural now.")
             }
         }.auralAnimation(AuralMotion.quick, value: checker.error)
             .auralFont(size: 12).auralPadding(22).auralFrame(width: 530)
