@@ -1,0 +1,679 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		10347865A596D3D20EA2B5B0 /* ProviderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8610CACBFE698DFB0B8698D0 /* ProviderApp.swift */; };
+		22E2A13B49D000C2D4A2AA79 /* SourceNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 19F0D26F71A3EAEC4A1DD843 /* SourceNode.m */; };
+		25892921F0A8871CED16F158 /* RouteCore.c in Sources */ = {isa = PBXBuildFile; fileRef = 2FD93E5EBD33D9EB3B19E5C0 /* RouteCore.c */; };
+		309054B5090642C2999C2097 /* ExtensionFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9AEB265F1DD30EF777FB453 /* ExtensionFoundation.framework */; };
+		32BCDA5E5F72ACE013B806D4 /* LocalTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = A1572217A4B413288F002B60 /* LocalTransport.c */; };
+		3D694D0C2FA2071C32A22B5A /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A7F73B69AA287DA8B7558FB3 /* AVFoundation.framework */; };
+		497D607A633AC749F4EDA740 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69A75CC4BD47528933403C2F /* AudioToolbox.framework */; };
+		5B4AA6243D32EE11E449FE61 /* ProbeAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 459052F21877E5E7398DD1A0 /* ProbeAudio.swift */; };
+		63C8C8636558CBF7BAB3043B /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A8EACADFF9C62A1110D6A5E /* CoreAudio.framework */; };
+		651CB469F5FD6308AFE1CEFA /* RouteCore.c in Sources */ = {isa = PBXBuildFile; fileRef = 2FD93E5EBD33D9EB3B19E5C0 /* RouteCore.c */; };
+		7A4ADA2186AE4377677F28DA /* RouteExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FD94C24535DC42CC93A87D6 /* RouteExtension.swift */; };
+		81852673E8624678A859C1F5 /* ProbeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A957804E89F9AABB53A9F5E7 /* ProbeApp.swift */; };
+		92B961CD1B3B964B1AEC66A3 /* ProbeRenderer.c in Sources */ = {isa = PBXBuildFile; fileRef = D1AE14E461FD198F378C85EE /* ProbeRenderer.c */; };
+		98E210A64B9D4A654DDB6FF2 /* ReferenceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93D4616CA0E290FE75D0DB4 /* ReferenceSource.swift */; };
+		B0D6824FCA8593F47DEB022C /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A7003EF54E3929D78E824978 /* Network.framework */; };
+		B9A68C67DFFC504BBBD1C17B /* LocalTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = A1572217A4B413288F002B60 /* LocalTransport.c */; };
+		BF8057BE749896B722B0DB8D /* DSP.c in Sources */ = {isa = PBXBuildFile; fileRef = 655588B639A3D5CD69D2CB7C /* DSP.c */; };
+		CB78D4A2C79A25BABD35A1C6 /* RouteDriver.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DF7F6CBD1CD1EA1204ED7C2 /* RouteDriver.m */; };
+		D0530E4554AC0351BBC44003 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 69A75CC4BD47528933403C2F /* AudioToolbox.framework */; };
+		D43302E855E77B5A33942A68 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 74B3104B985C1EC57F108AA3 /* MediaPlayer.framework */; };
+		ECA24E5A09A34383448CB449 /* MediaDevice.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DE06C95C363D56A01B88C9C /* MediaDevice.framework */; };
+		ECB02DAD101BF0557872B292 /* AuralRouteExtension.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 7D53239F702686F8289E6472 /* AuralRouteExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5C50FF7E350182B6FCD0D1B6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B5BA538A28EA041BBE439F8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F94AC8640F361FE681356E43;
+			remoteInfo = AuralRouteExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7A689C385D9E771A7560E183 /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				ECB02DAD101BF0557872B292 /* AuralRouteExtension.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		19F0D26F71A3EAEC4A1DD843 /* SourceNode.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SourceNode.m; sourceTree = "<group>"; };
+		1A8EACADFF9C62A1110D6A5E /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		1DE06C95C363D56A01B88C9C /* MediaDevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaDevice.framework; path = System/Library/Frameworks/MediaDevice.framework; sourceTree = SDKROOT; };
+		2FD93E5EBD33D9EB3B19E5C0 /* RouteCore.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = RouteCore.c; sourceTree = "<group>"; };
+		459052F21877E5E7398DD1A0 /* ProbeAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeAudio.swift; sourceTree = "<group>"; };
+		4925BF4BA72D745FA6F981E1 /* RouteDriver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RouteDriver.h; sourceTree = "<group>"; };
+		4DF7F6CBD1CD1EA1204ED7C2 /* RouteDriver.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RouteDriver.m; sourceTree = "<group>"; };
+		54D77DAD21C75768E890518F /* RouteRegistration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RouteRegistration.h; sourceTree = "<group>"; };
+		5B97ECEDF3FC9F70C8066361 /* RouteCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RouteCore.h; sourceTree = "<group>"; };
+		655588B639A3D5CD69D2CB7C /* DSP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DSP.c; sourceTree = "<group>"; };
+		69A75CC4BD47528933403C2F /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		6C4CEFFFF47FA8CDE2B02EE4 /* DSP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DSP.h; sourceTree = "<group>"; };
+		74B3104B985C1EC57F108AA3 /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
+		7D53239F702686F8289E6472 /* AuralRouteExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = AuralRouteExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8610CACBFE698DFB0B8698D0 /* ProviderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderApp.swift; sourceTree = "<group>"; };
+		89322F13EF46440404335BA7 /* LocalTransport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LocalTransport.h; sourceTree = "<group>"; };
+		89CC7C2360BAD2FF1D0440DA /* Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bridging-Header.h"; sourceTree = "<group>"; };
+		8FD94C24535DC42CC93A87D6 /* RouteExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteExtension.swift; sourceTree = "<group>"; };
+		A1572217A4B413288F002B60 /* LocalTransport.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = LocalTransport.c; sourceTree = "<group>"; };
+		A7003EF54E3929D78E824978 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		A7F73B69AA287DA8B7558FB3 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		A93D4616CA0E290FE75D0DB4 /* ReferenceSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceSource.swift; sourceTree = "<group>"; };
+		A957804E89F9AABB53A9F5E7 /* ProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeApp.swift; sourceTree = "<group>"; };
+		A9AEB265F1DD30EF777FB453 /* ExtensionFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ExtensionFoundation.framework; path = System/Library/Frameworks/ExtensionFoundation.framework; sourceTree = SDKROOT; };
+		B2AA7BD80B349183C55DB4E0 /* ProbeRenderer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ProbeRenderer.h; sourceTree = "<group>"; };
+		D1AE14E461FD198F378C85EE /* ProbeRenderer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ProbeRenderer.c; sourceTree = "<group>"; };
+		DAA917F33DB41EA4B116D0B3 /* AuralRouteProvider.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AuralRouteProvider.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC20303360382E13AD7833CB /* AuralRouteTest.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AuralRouteTest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F88B6664BA379825503BE7E2 /* Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bridging-Header.h"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6418042A59D97CF0B6363672 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3D694D0C2FA2071C32A22B5A /* AVFoundation.framework in Frameworks */,
+				D43302E855E77B5A33942A68 /* MediaPlayer.framework in Frameworks */,
+				497D607A633AC749F4EDA740 /* AudioToolbox.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4B28E159A3AF4742EDB7949 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ECA24E5A09A34383448CB449 /* MediaDevice.framework in Frameworks */,
+				63C8C8636558CBF7BAB3043B /* CoreAudio.framework in Frameworks */,
+				D0530E4554AC0351BBC44003 /* AudioToolbox.framework in Frameworks */,
+				B0D6824FCA8593F47DEB022C /* Network.framework in Frameworks */,
+				309054B5090642C2999C2097 /* ExtensionFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1BCB69BBDFF4CD30458CFB95 /* Aural MacOS EQ */ = {
+			isa = PBXGroup;
+			children = (
+				55E49153AE586D8EF1FB5761 /* Sources */,
+			);
+			name = "Aural MacOS EQ";
+			path = ../..;
+			sourceTree = "<group>";
+		};
+		3A9AAD4AD10044C0A61C64FA /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A1572217A4B413288F002B60 /* LocalTransport.c */,
+				89322F13EF46440404335BA7 /* LocalTransport.h */,
+				2FD93E5EBD33D9EB3B19E5C0 /* RouteCore.c */,
+				5B97ECEDF3FC9F70C8066361 /* RouteCore.h */,
+				54D77DAD21C75768E890518F /* RouteRegistration.h */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		55E49153AE586D8EF1FB5761 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				75084F2916EFD9C5A6647CE2 /* DSP */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		75084F2916EFD9C5A6647CE2 /* DSP */ = {
+			isa = PBXGroup;
+			children = (
+				655588B639A3D5CD69D2CB7C /* DSP.c */,
+				CBA06E7B34A48B6E0E84F51D /* include */,
+			);
+			path = DSP;
+			sourceTree = "<group>";
+		};
+		8A5DCCCEA2E028F056CC1CF1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7D53239F702686F8289E6472 /* AuralRouteExtension.appex */,
+				DAA917F33DB41EA4B116D0B3 /* AuralRouteProvider.app */,
+				DC20303360382E13AD7833CB /* AuralRouteTest.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9AD170A4524723B2BD4E8393 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				69A75CC4BD47528933403C2F /* AudioToolbox.framework */,
+				A7F73B69AA287DA8B7558FB3 /* AVFoundation.framework */,
+				1A8EACADFF9C62A1110D6A5E /* CoreAudio.framework */,
+				A9AEB265F1DD30EF777FB453 /* ExtensionFoundation.framework */,
+				1DE06C95C363D56A01B88C9C /* MediaDevice.framework */,
+				74B3104B985C1EC57F108AA3 /* MediaPlayer.framework */,
+				A7003EF54E3929D78E824978 /* Network.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A11E2151F76E5281CCC0E2D6 /* Receiver */ = {
+			isa = PBXGroup;
+			children = (
+				F88B6664BA379825503BE7E2 /* Bridging-Header.h */,
+				A957804E89F9AABB53A9F5E7 /* ProbeApp.swift */,
+				459052F21877E5E7398DD1A0 /* ProbeAudio.swift */,
+				D1AE14E461FD198F378C85EE /* ProbeRenderer.c */,
+				B2AA7BD80B349183C55DB4E0 /* ProbeRenderer.h */,
+				A93D4616CA0E290FE75D0DB4 /* ReferenceSource.swift */,
+				19F0D26F71A3EAEC4A1DD843 /* SourceNode.m */,
+			);
+			path = Receiver;
+			sourceTree = "<group>";
+		};
+		BB4560126442498872358074 = {
+			isa = PBXGroup;
+			children = (
+				1BCB69BBDFF4CD30458CFB95 /* Aural MacOS EQ */,
+				DA586CDDBF57894C8B222D1A /* Extension */,
+				C72363A2B684AEDC019F2424 /* Provider */,
+				A11E2151F76E5281CCC0E2D6 /* Receiver */,
+				3A9AAD4AD10044C0A61C64FA /* Shared */,
+				9AD170A4524723B2BD4E8393 /* Frameworks */,
+				8A5DCCCEA2E028F056CC1CF1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C72363A2B684AEDC019F2424 /* Provider */ = {
+			isa = PBXGroup;
+			children = (
+				8610CACBFE698DFB0B8698D0 /* ProviderApp.swift */,
+			);
+			path = Provider;
+			sourceTree = "<group>";
+		};
+		CBA06E7B34A48B6E0E84F51D /* include */ = {
+			isa = PBXGroup;
+			children = (
+				6C4CEFFFF47FA8CDE2B02EE4 /* DSP.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		DA586CDDBF57894C8B222D1A /* Extension */ = {
+			isa = PBXGroup;
+			children = (
+				89CC7C2360BAD2FF1D0440DA /* Bridging-Header.h */,
+				4925BF4BA72D745FA6F981E1 /* RouteDriver.h */,
+				4DF7F6CBD1CD1EA1204ED7C2 /* RouteDriver.m */,
+				8FD94C24535DC42CC93A87D6 /* RouteExtension.swift */,
+			);
+			path = Extension;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7BE1EB3A930A0D8E2AEF89D6 /* AuralRouteProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 87508EA65F82EA83493F21AE /* Build configuration list for PBXNativeTarget "AuralRouteProvider" */;
+			buildPhases = (
+				D853D80F90D7326FDD778528 /* Sources */,
+				7A689C385D9E771A7560E183 /* Embed ExtensionKit Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D3D8B181BBECC013F47AB222 /* PBXTargetDependency */,
+			);
+			name = AuralRouteProvider;
+			packageProductDependencies = (
+			);
+			productName = AuralRouteProvider;
+			productReference = DAA917F33DB41EA4B116D0B3 /* AuralRouteProvider.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D19509FE9D7292842D2AF1D0 /* AuralRouteTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CA7DD1DA79C58EE1CDC09B20 /* Build configuration list for PBXNativeTarget "AuralRouteTest" */;
+			buildPhases = (
+				2B06C5A2D89D6E7AD3E06067 /* Sources */,
+				6418042A59D97CF0B6363672 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuralRouteTest;
+			packageProductDependencies = (
+			);
+			productName = AuralRouteTest;
+			productReference = DC20303360382E13AD7833CB /* AuralRouteTest.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F94AC8640F361FE681356E43 /* AuralRouteExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 51E3000B02FA417C0BC9D7EF /* Build configuration list for PBXNativeTarget "AuralRouteExtension" */;
+			buildPhases = (
+				BD6C9006F7DC88F9B22453EC /* Sources */,
+				B4B28E159A3AF4742EDB7949 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuralRouteExtension;
+			packageProductDependencies = (
+			);
+			productName = AuralRouteExtension;
+			productReference = 7D53239F702686F8289E6472 /* AuralRouteExtension.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2B5BA538A28EA041BBE439F8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					7BE1EB3A930A0D8E2AEF89D6 = {
+						ProvisioningStyle = Automatic;
+					};
+					D19509FE9D7292842D2AF1D0 = {
+						ProvisioningStyle = Automatic;
+					};
+					F94AC8640F361FE681356E43 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = C4AC1FBD5AC6E9EA546A853B /* Build configuration list for PBXProject "AuralRoutePrototype" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = BB4560126442498872358074;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 8A5DCCCEA2E028F056CC1CF1 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D19509FE9D7292842D2AF1D0 /* AuralRouteTest */,
+				7BE1EB3A930A0D8E2AEF89D6 /* AuralRouteProvider */,
+				F94AC8640F361FE681356E43 /* AuralRouteExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2B06C5A2D89D6E7AD3E06067 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BF8057BE749896B722B0DB8D /* DSP.c in Sources */,
+				B9A68C67DFFC504BBBD1C17B /* LocalTransport.c in Sources */,
+				81852673E8624678A859C1F5 /* ProbeApp.swift in Sources */,
+				5B4AA6243D32EE11E449FE61 /* ProbeAudio.swift in Sources */,
+				92B961CD1B3B964B1AEC66A3 /* ProbeRenderer.c in Sources */,
+				98E210A64B9D4A654DDB6FF2 /* ReferenceSource.swift in Sources */,
+				25892921F0A8871CED16F158 /* RouteCore.c in Sources */,
+				22E2A13B49D000C2D4A2AA79 /* SourceNode.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BD6C9006F7DC88F9B22453EC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				32BCDA5E5F72ACE013B806D4 /* LocalTransport.c in Sources */,
+				651CB469F5FD6308AFE1CEFA /* RouteCore.c in Sources */,
+				CB78D4A2C79A25BABD35A1C6 /* RouteDriver.m in Sources */,
+				7A4ADA2186AE4377677F28DA /* RouteExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D853D80F90D7326FDD778528 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10347865A596D3D20EA2B5B0 /* ProviderApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D3D8B181BBECC013F47AB222 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F94AC8640F361FE681356E43 /* AuralRouteExtension */;
+			targetProxy = 5C50FF7E350182B6FCD0D1B6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4A4863B099B9B6694890BE2B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Extension.entitlements;
+				INFOPLIST_FILE = Configuration/Extension.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider.extension";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Extension/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		4B34CF55C510F24AFD8ACB5F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				AURAL_DIAGNOSTIC_RECEIVER_IPV4 = "";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 12;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Shared",
+					"$(SRCROOT)/../../Sources/DSP/include",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fblocks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		544C7E6FE0C4ACE6562F6932 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Extension.entitlements;
+				INFOPLIST_FILE = Configuration/Extension.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider.extension";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Extension/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5FFAB6130DA8E6E12C02CB7C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				AURAL_DIAGNOSTIC_RECEIVER_IPV4 = "";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 12;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Shared",
+					"$(SRCROOT)/../../Sources/DSP/include",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fblocks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		96119F2BC981DE3E98DC6F1E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Provider.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Provider.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AAA91CD59934AAF430B579EC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Provider.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Provider.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CCC491912BC6831D212701F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Receiver.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.receiver";
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Receiver/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FD492ABA58960E7C06A3A9E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Receiver.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.receiver";
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Receiver/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		51E3000B02FA417C0BC9D7EF /* Build configuration list for PBXNativeTarget "AuralRouteExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				544C7E6FE0C4ACE6562F6932 /* Debug */,
+				4A4863B099B9B6694890BE2B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		87508EA65F82EA83493F21AE /* Build configuration list for PBXNativeTarget "AuralRouteProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAA91CD59934AAF430B579EC /* Debug */,
+				96119F2BC981DE3E98DC6F1E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C4AC1FBD5AC6E9EA546A853B /* Build configuration list for PBXProject "AuralRoutePrototype" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B34CF55C510F24AFD8ACB5F /* Debug */,
+				5FFAB6130DA8E6E12C02CB7C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CA7DD1DA79C58EE1CDC09B20 /* Build configuration list for PBXNativeTarget "AuralRouteTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD492ABA58960E7C06A3A9E5 /* Debug */,
+				CCC491912BC6831D212701F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2B5BA538A28EA041BBE439F8 /* Project object */;
+}

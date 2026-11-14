@@ -131,8 +131,12 @@ struct AudioProcessInfo: Codable {
     let identityNote: String?
     let outputDevices: [AudioObjectID]
     let runningOutput: Bool
-    @MainActor static func read(_ object: AudioObjectID) throws -> Self {
+    let instance: ProcessInstance?
+    let ownershipSource: String
+    let responsibleInstance: ProcessInstance?
+    @MainActor static func read(_ object: AudioObjectID, ownership: OwnershipPolicy = .enclosingApp) throws -> Self {
         let pid = try HAL.scalar(object, kAudioProcessPropertyPID, pid_t(0))
+        let initial = ProcessInstance.read(pid)
         let bundleID = try HAL.string(object, kAudioProcessPropertyBundleID)
         let app = NSRunningApplication(processIdentifier: pid)
         var ownerURL = app?.bundleURL, identityNote: String?
@@ -149,10 +153,32 @@ struct AudioProcessInfo: Codable {
             candidate = url.deletingLastPathComponent()
         }
         if ownerURL?.pathExtension != "app" { ownerURL = nil }
-        return Self(object: object, pid: pid, bundleID: bundleID, ownerBundleID: ownerURL.flatMap { Bundle(url: $0)?.bundleIdentifier },
+        var ownerBundleID = ownerURL.flatMap { Bundle(url: $0)?.bundleIdentifier }
+        var ownershipSource = ownerBundleID == nil ? "unattributed" : "enclosing-app"
+        var responsibleInstance: ProcessInstance?
+        if initial.identity == nil {
+            ownerBundleID = nil; ownershipSource = "unattributed"
+            identityNote = "Process birth identity unavailable (errno \(initial.error)); owner remains unattributed"
+        } else if ownerBundleID == nil, ownership == .experimentalResponsibility,
+                  sharedWebKitBundleIDs.contains(bundleID), let helper = initial.identity {
+            let resolved = experimentalWebKitOwner(pid: pid, helper: helper)
+            ownerBundleID = resolved.bundleID; responsibleInstance = resolved.owner
+            identityNote = resolved.note
+            if ownerBundleID != nil { ownershipSource = "experimental-responsibility" }
+        }
+        if ownerBundleID == nil, identityNote == nil {
+            identityNote = "No verified enclosing application; helper remains unattributed"
+        }
+        let outputDevices = try HAL.ids(object, kAudioProcessPropertyDevices, scope: kAudioObjectPropertyScopeOutput)
+        let runningOutput = try HAL.scalar(object, kAudioProcessPropertyIsRunningOutput, UInt32(0)) != 0
+        guard try HAL.scalar(object, kAudioProcessPropertyPID, pid_t(0)) == pid,
+              initial.identity == ProcessInstance.read(pid).identity else {
+            throw ProbeFailure(message: "Process identity changed while reading Core Audio object \(object)")
+        }
+        return Self(object: object, pid: pid, bundleID: bundleID, ownerBundleID: ownerBundleID,
                     name: app?.localizedName ?? (bundleID.isEmpty ? "Unattributed process \(pid)" : bundleID),
-                    identityNote: identityNote, outputDevices: try HAL.ids(object, kAudioProcessPropertyDevices, scope: kAudioObjectPropertyScopeOutput),
-                    runningOutput: try HAL.scalar(object, kAudioProcessPropertyIsRunningOutput, UInt32(0)) != 0)
+                    identityNote: identityNote, outputDevices: outputDevices, runningOutput: runningOutput,
+                    instance: initial.identity, ownershipSource: ownershipSource, responsibleInstance: responsibleInstance)
     }
 }
 
@@ -166,10 +192,10 @@ struct ProcessCatalog {
     let issues: [InventoryIssue]
 }
 
-@MainActor func inventory() throws -> ProcessCatalog {
+@MainActor func inventory(ownership: OwnershipPolicy = .enclosingApp) throws -> ProcessCatalog {
     var processes: [AudioProcessInfo] = [], issues: [InventoryIssue] = []
     for object in try HAL.ids(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyProcessObjectList) {
-        do { processes.append(try AudioProcessInfo.read(object)) }
+        do { processes.append(try AudioProcessInfo.read(object, ownership: ownership)) }
         catch let failure as HALFailure where failure.status == kAudioHardwareBadObjectError && failure.object == object {
             // Process termination can invalidate a catalog entry between the
             // list read and its metadata read. Preserve that fact in the report;

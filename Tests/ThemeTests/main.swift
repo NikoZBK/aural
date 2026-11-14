@@ -47,6 +47,7 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         try checkThemes()
         try checkAudioRouteCleanup()
         try checkDisconnectedOutputRecovery()
+        try await checkAppMixer()
         try await checkAutoEQCatalog()
     }
 

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aural browser audio probe</title>
+<style>
+  body { font: 18px system-ui; max-width: 700px; margin: 3rem auto; padding: 1rem; background: #17212b; color: #eef5fa; }
+  button { font: inherit; padding: 14px 22px; margin: 8px; border-radius: 12px; }
+  output { display: block; margin-top: 22px; }
+  p { line-height: 1.5; }
+</style>
+<h1>Aural browser audio probe</h1>
+<p>This page plays a quiet local synthetic tone. It uses no microphone, recording, account, or external media.</p>
+<button id="start">Start quiet tone</button>
+<button id="stop">Stop tone</button>
+<output id="status" role="status">Stopped</output>
+<script>
+'use strict';
+const params = new URLSearchParams(location.search);
+const frequency = Number(params.get('tone') || 431);
+const label = (params.get('label') || 'Browser').slice(0, 80);
+const session = crypto.randomUUID();
+const status = document.querySelector('#status');
+document.title = `Aural ${label} audio probe`;
+if (![431, 1877].includes(frequency)) {
+  status.textContent = 'Unsupported tone: use 431 or 1877 Hz.';
+  document.querySelectorAll('button').forEach(button => { button.disabled = true; });
+} else {
+  const player = new Audio(`/tone-${frequency}.m4a`);
+  player.loop = true;
+  async function record(kind) {
+    try {
+      const response = await fetch('/event', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, label, session, frequency, time: new Date().toISOString() })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      status.textContent = `Local diagnostic log failed: ${error.message}`;
+    }
+  }
+  player.addEventListener('error', () => {
+    status.textContent = `Audio failed: media error ${player.error?.code ?? 'unknown'}`;
+    void record('error');
+  });
+  document.querySelector('#start').onclick = async () => {
+    try {
+      await player.play();
+      status.textContent = `Playing ${frequency} Hz synthetic AAC`;
+      await record('started');
+    } catch (error) {
+      status.textContent = `Audio failed: ${error.message}`;
+      await record('error');
+    }
+  };
+  document.querySelector('#stop').onclick = async () => {
+    player.pause(); player.currentTime = 0;
+    status.textContent = 'Stopped';
+    await record('stopped');
+  };
+  void record('loaded');
+}
+</script>
+</html>

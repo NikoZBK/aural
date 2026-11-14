@@ -8,12 +8,14 @@ import ServiceManagement
     @Published var devices: [OutputDevice] = []
     @Published var selectedUID = ""
     @Published var profile = Profile()
-    @Published var bypass = false
-    @Published var running = false { didSet { if !running { soloBand = nil; route.solo = nil } } }
+    @Published var bypass = false { didSet { appMixer.setBypassed(bypass) } }
+    @Published var running = false { didSet { if !running { soloBand = nil; route.solo = nil }; updateMixerSession() } }
+    @Published private(set) var starting = false { didSet { updateMixerSession() } }
+    let appMixer: AppMixerStore
     /// The band playing alone while EQ runs; see setSolo. Never saved or recorded in undo history.
     @Published private(set) var soloBand: Int?
     let meter = AudioMeter()
-    @Published var error: String?
+    @Published var error: String? { didSet { appMixer.setLifecycleError(error) } }
     @Published var presetName = ""
     @Published var customPresets: [String] = []
     @Published private(set) var selectedPresetName: String?
@@ -33,7 +35,7 @@ import ServiceManagement
     @Published private(set) var interfaceZoom: AuralInterfaceZoom = .actualSize
     @Published private(set) var filterPanelPosition: FilterPanelPosition = .below
     @Published private(set) var loginStatus: SMAppService.Status?
-    @Published private(set) var startupNotice: String?
+    @Published private(set) var startupNotice: String? { didSet { updateMixerSession() } }
     @Published private(set) var editRevision = 0
     @Published private(set) var calculatingHeadroom = false
     @Published private var workspace = ProfileWorkspace()
@@ -55,6 +57,7 @@ import ServiceManagement
     private var routeRecovery = RouteRecovery()
     let route: AudioRoute
     private var lastSystemOutputFailure: String?
+    private var outputDiscoveryRetrySince: Date?
     private var settings = Settings()
     private var timer: Timer?
     private var ticks = 0
@@ -80,6 +83,11 @@ import ServiceManagement
         self.readLoginStatus = readLoginStatus
         self.route = route ?? AudioRoute()
         file = settingsFile ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Aural/settings.json")
+        #if AURAL_TESTING
+        appMixer = AppMixerStore(file: file.deletingLastPathComponent().appendingPathComponent("app-mixer.json"), discoveryEnabled: false)
+        #else
+        appMixer = AppMixerStore(file: file.deletingLastPathComponent().appendingPathComponent("app-mixer.json"))
+        #endif
         do {
             if FileManager.default.fileExists(atPath: file.path) {
                 let loaded = try JSONDecoder().decode(Settings.self, from: Data(contentsOf: file))
@@ -118,6 +126,12 @@ import ServiceManagement
         }
         committedProfile = ProfileSnapshot(profile: profile, selectedPresetName: selectedPresetName)
         levelMatch = levelMatch(for: profile, in: workspace)
+        appMixer.onControls = { [weak route = self.route] preferences in route?.setAppControls(preferences) }
+        appMixer.onCatalog = { [weak route = self.route] catalog in route?.discoverAppAudio(catalog) }
+        appMixer.onDiscoveryFailure = { [weak self] error in self?.fail(error) }
+        self.route.onMixerState = { [weak store = appMixer] slots, peaks in store?.updateRouting(slots: slots, peaks: peaks) }
+        self.route.onMixerFailure = { [weak self] error in self?.mixerFailed(error) }
+        updateMixerSession()
         refreshLoudness()
         refreshLoginStatus()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -803,7 +817,7 @@ import ServiceManagement
         // Stopping releases the connection even when a numeric draft is invalid.
         // Only starting needs to accept pending edits before changing the sound.
         // Stop also ends a wait, so EQ never resumes after the person turned it off.
-        if running || waitingForOutput { stop() }
+        if running || waitingForOutput || starting { stop() }
         else if submitPendingInput() { start() }
     }
     /// A resumed start keeps Bypass and its waiting notice until audio is back.
@@ -811,25 +825,39 @@ import ServiceManagement
         pendingStartup = nil
         if plan == nil { startupNotice = nil }
         guard let selected else {
-            startupNotice = nil; error = "Connect and select a stereo audio output."
+            startupNotice = nil; error = releasingRoute("Connect and select a stereo audio output.")
             AuralLog.lifecycle.warning("Cannot start EQ: selected output is unavailable")
             return
         }
+        // Unreadable app levels never block EQ: the file is preserved, every app
+        // plays at 100%, and the mixer window reports why its controls are off.
+        if appMixer.loadFailed { AuralLog.lifecycle.warning("Starting with neutral app levels: saved app mixer settings are unreadable") }
         AuralLog.lifecycle.notice("Scheduling EQ start: device=\(selected.id, privacy: .public), resuming=\(plan != nil, privacy: .public)")
         startGeneration += 1
         let generation = startGeneration
+        starting = true
         let match = levelMatch(for: profile, in: workspace)
         // Leave SwiftUI's synchronous accessibility action before entering HAL.
         // Core Audio may synchronously consult the app while registering its IO callback.
-        DispatchQueue.main.async { [self] in
+        Task { @MainActor [self] in
             guard generation == startGeneration else { return }
             refreshLoudness()
             appliedLoudnessLevel = loudnessLevel
             route.loudness = loudnessFilters(appliedLoudnessLevel)
             do {
-                try route.start(selected, profile: profile, bypass: bypass, peakProtectionEnabled: peakProtectionEnabled, levelMatch: match)
-                running = true; levelMatch = match; error = nil; importNotice = nil; startupNotice = nil
+                try await route.start(selected, profile: profile, bypass: bypass, peakProtectionEnabled: peakProtectionEnabled, levelMatch: match,
+                                      appPreferences: appMixer.preferences)
+                guard generation == startGeneration else { return }
+                refreshLoudness()
+                appliedLoudnessLevel = loudnessLevel
+                route.loudness = loudnessFilters(appliedLoudnessLevel)
+                let latestMatch = levelMatch(for: profile, in: workspace)
+                try route.update(profile, bypass: bypass, levelMatch: latestMatch)
+                route.setPeakProtection(peakProtectionEnabled)
+                starting = false; running = true; levelMatch = latestMatch; error = nil; importNotice = nil; startupNotice = nil
             } catch {
+                guard generation == startGeneration else { return }
+                starting = false
                 running = false
                 // Permission failures need user action; transient reconnects may retry.
                 let retry = (error as? CoreAudioFailure)?.status == kAudioDevicePermissionsError ? nil : plan?.retry()
@@ -846,6 +874,7 @@ import ServiceManagement
     func stop() {
         if running || waitingForOutput { AuralLog.lifecycle.notice("Stop requested; cancelling automatic resume") }
         startGeneration += 1
+        starting = false
         pendingStartup = nil; startupNotice = nil
         running = false; meter.update(0)
         do { try route.stop() }
@@ -853,12 +882,46 @@ import ServiceManagement
             self.error = error.localizedDescription
             AuralLog.lifecycle.error("Stop failed: \(AuralLog.describe(error), privacy: .public)")
         }
+        updateMixerSession()
+    }
+    /// Ends a start or wait that will not resume. A wait keeps the selected
+    /// output muted for its return; once audio is stopped for good, that mute
+    /// must go too, or other apps stay silent when the output reconnects.
+    private func releasingRoute(_ reason: String?) -> String? {
+        do { try route.stop(); return reason }
+        catch {
+            AuralLog.lifecycle.error("Route release failed: \(AuralLog.describe(error), privacy: .public)")
+            return (reason.map { $0 + " " } ?? "") + "Cleanup: " + error.localizedDescription + " Quit Aural to release its route."
+        }
+    }
+    private func updateMixerSession() {
+        appMixer.setSession(active: running && route.appMixerAvailable, waiting: waitingForOutput,
+                            globalOnly: running && !route.appMixerAvailable, starting: starting, output: selected)
     }
     func refresh() {
-        do { devices = try AudioRoute.devices() } catch { fail(error) }
+        do { if let current = try readAvailableOutputs() { devices = current } } catch { fail(error) }
+    }
+    /// A hot-unplugged stream can lose its properties while HAL still lists
+    /// its old IDs. Nil means an explicitly incomplete snapshot, never an empty
+    /// device list. Keep route verification running during this bounded grace.
+    private func readAvailableOutputs(now: Date = Date(), read: @MainActor () throws -> [OutputDevice] = { try AudioRoute.devices() }) throws -> [OutputDevice]? {
+        do {
+            let current = try read()
+            if outputDiscoveryRetrySince != nil { AuralLog.lifecycle.notice("Output discovery recovered") }
+            outputDiscoveryRetrySince = nil
+            return current
+        } catch let failure as CoreAudioFailure where failure.status == kAudioHardwareUnknownPropertyError {
+            if outputDiscoveryRetrySince == nil {
+                outputDiscoveryRetrySince = now
+                AuralLog.lifecycle.notice("Output discovery snapshot is incomplete; checking the current route while HAL settles: \(failure.diagnosticDescription, privacy: .public)")
+            }
+            guard now.timeIntervalSince(outputDiscoveryRetrySince ?? now) < 2 else { throw failure }
+            return nil
+        }
     }
     private func fail(_ failure: Error) {
         startGeneration += 1
+        starting = false
         pendingStartup = nil; startupNotice = nil
         let reason = failure.localizedDescription
         AuralLog.lifecycle.error("Audio control failed: \(AuralLog.describe(failure), privacy: .public)")
@@ -883,14 +946,17 @@ import ServiceManagement
             return nil
         }
     }
-    private func poll() {
+    private func poll(readOutputs: @MainActor () throws -> [OutputDevice] = { try AudioRoute.devices() }) {
         meter.update(running ? route.readMeter() : AudioMeterReading())
         ticks += 1
         // Follow volume changes quickly while EQ plays, and keep the controls current otherwise.
         if loudness.enabled, running || ticks % 10 == 0 { refreshLoudness() }
         guard ticks % 10 == 0 else { return }
         do {
-            let current = try AudioRoute.devices()
+            guard let current = try readAvailableOutputs(read: readOutputs) else {
+                try checkRunningRoute()
+                return // Never start a pending route from an incomplete snapshot.
+            }
             if current != devices {
                 AuralLog.lifecycle.notice("Available outputs changed: deviceIDs=\(current.map(\.id).description, privacy: .public)")
                 devices = current
@@ -913,7 +979,8 @@ import ServiceManagement
                     }
                 case .unavailable, .missingOutput:
                     pendingStartup = nil; startupNotice = nil
-                    error = "Automatic EQ could not find the saved output within 60 seconds. Connect it, select it, and click Start EQ."
+                    error = releasingRoute("Automatic EQ could not find the saved output within 60 seconds. Connect it, select it, and click Start EQ.")
+                    updateMixerSession()
                     AuralLog.lifecycle.warning("Automatic EQ ended without its saved output")
                 }
             }
@@ -923,20 +990,35 @@ import ServiceManagement
         guard running else { return }
         if selected == nil { try waitForOutput(); return }
         do { try route.verify() }
-        catch {
-            AuralLog.lifecycle.notice("Route verification failed: \(AuralLog.describe(error), privacy: .public)")
-            if let failure = error as? CoreAudioFailure, failure.isUnavailableObject, failure.objectID == route.device?.id {
-                // The device list can lag behind unplugging. This is a
-                // disconnect, not a format restart that consumes the limit.
-                try waitForOutput()
-            } else {
-                guard routeRecovery.allowRestart() else { throw error }
-                try waitForOutput(restarting: true)
-            }
+        catch { try recoverRoute(after: error) }
+    }
+    private func mixerFailed(_ error: Error) {
+        guard running, let failure = error as? CoreAudioFailure,
+              failure.isUnavailableObject || failure.status == kAudioHardwareUnknownPropertyError else { fail(error); return }
+        do { try recoverRoute(after: error) } catch { fail(error) }
+    }
+    private func recoverRoute(after error: Error) throws {
+        AuralLog.lifecycle.notice("Route verification failed: \(AuralLog.describe(error), privacy: .public)")
+        let vanishedOutput = (error as? CoreAudioFailure).map {
+            $0.objectID == route.device?.id && ($0.isUnavailableObject ||
+                ($0.status == kAudioHardwareUnknownPropertyError && outputDiscoveryRetrySince != nil))
+        } == true
+        if selected == nil || vanishedOutput {
+            // The device list can lag behind unplugging. This is a
+            // disconnect, not a format restart that consumes the limit.
+            try waitForOutput()
+        } else {
+            guard routeRecovery.allowRestart() else { throw error }
+            try waitForOutput(restarting: true)
         }
     }
     #if AURAL_TESTING
-    func pollOutputForTesting() { ticks = 9; poll() }
+    func readAvailableOutputsForTesting(now: Date, read: @MainActor () throws -> [OutputDevice]) throws -> [OutputDevice]? {
+        try readAvailableOutputs(now: now, read: read)
+    }
+    func pollOutputForTesting(readOutputs: @MainActor () throws -> [OutputDevice] = { try AudioRoute.devices() }) {
+        ticks = 9; poll(readOutputs: readOutputs)
+    }
     func checkRunningRouteForTesting() {
         do { try checkRunningRoute() } catch { fail(error) }
     }
@@ -950,21 +1032,25 @@ import ServiceManagement
         AuralLog.lifecycle.notice("Pausing EQ: device=\(self.route.device?.id ?? 0, privacy: .public), restarting=\(restarting, privacy: .public)")
         startGeneration += 1
         running = false; meter.update(0)
-        try route.stop()
+        try route.stop(keepingMixerGuard: true)
         pendingStartup = plan
+        updateMixerSession()
         startupNotice = restarting ? "The audio route to \(name) changed. Restarting EQ…"
                                    : "\(name) disconnected. EQ resumes when it reconnects."
     }
-    /// Sleep releases the route. EQ that was running, or waiting for its output,
-    /// resumes on the same output after wake.
+    /// Sleep releases the route. EQ that was running, still starting, or waiting
+    /// for its output, resumes on the same output after wake.
     private func pauseForSleep() {
         AuralLog.lifecycle.info("Sleep notification received")
-        let target = running ? selectedUID : pendingStartup?.outputUID
+        let target = running || starting ? selectedUID : pendingStartup?.outputUID
         let name = selected?.name ?? pendingStartup?.outputName
-        stop()
-        guard let target, !target.isEmpty, !route.hasResources else { return }
+        startGeneration += 1; starting = false; pendingStartup = nil; running = false; meter.update(0)
+        do { try route.stop(keepingMixerGuard: true) }
+        catch { fail(error); return }
+        guard let target, !target.isEmpty else { return }
         // Wake sets the real resume time. The fallback covers a wake notice that never arrives.
         pendingStartup = .resume(outputUID: target, outputName: name, after: 30)
+        updateMixerSession()
         startupNotice = "EQ paused for sleep. It resumes on \(name ?? "the saved output") after wake."
     }
     private func resumeAfterWake() {

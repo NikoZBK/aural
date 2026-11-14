@@ -1,6 +1,6 @@
 # Per-app volume control — implementation proposal
 
-Updated October 25, 2026. Phase 1 is in progress in an isolated [macOS routing prototype](../prototypes/macos-app-mixer/README.md). Synthetic sources and Spotify through Bose Bluetooth have passed initial capture/volume tests. Automatic recovery has one confirmed attenuated headphone-jack reconnect, and the independent selected-output standby reader has passed three muted physical reconnects without the previous audible burst. Broader hardware recovery, active browser-helper churn, scaling, and production integration gates remain. See the [native results](PER-APP-VOLUME-PROTOTYPE.md) for measured passes and failures.
+Updated October 26, 2026. The routing prototype's selected-output reader and verified helper grouping are now integrated locally with the production EQ engine, independent preference store, route coordinator, and accessible Apps window. The user approved clearly labeled experimental Safari support; its undocumented attribution API remains an explicit compatibility limitation. The full regression suite passes. Native integration acceptance and release checks are tracked in [integration results](PER-APP-VOLUME-INTEGRATION.md); earlier Bose, FiiO reconnect, and browser-helper evidence remains separately recorded in [prototype results](PER-APP-VOLUME-PROTOTYPE.md).
 
 ## Goal and first-version scope
 
@@ -24,7 +24,7 @@ App B audio ── smoothed volume/mute ─┼─ sum ─ existing global EQ/ste
 Other audio ── unchanged gain ───────┘
 ```
 
-The preferred routing design is an app tap per independently controlled app plus a remaining-audio tap that excludes those same processes and Aural. Their process sets must be disjoint. Use one private aggregate and output clock, with one mixer callback feeding the existing EQ engine. Do not mix independently scheduled playback engines or estimate app audio by subtracting it from an already mixed stream.
+The integrated routing design uses eight fixed app taps and an explicit remaining-process tap with disjoint replay sets. An independently consumed selected-output protection tap suppresses direct playback while ownership is established; its samples are never replayed. One private playback aggregate and output clock feed a bounded C mixer into the existing EQ engine. A separate input-only guard reader survives playback teardown during reconnect. No app-wide control is applied to other outputs.
 
 Apple exposes process-specific and excluding-process tap descriptions, and supports taps as aggregate inputs. This establishes an API path, not proof that seamless live repartitioning works for every device. Phase 1 must validate it before committing the production architecture. See [Apple's tap sample](https://developer.apple.com/documentation/coreaudio/capturing-system-audio-with-core-audio-taps) and [CATapDescription](https://developer.apple.com/documentation/coreaudio/catapdescription).
 

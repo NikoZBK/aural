@@ -1,0 +1,1053 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		006B9C2C3604F6731AAC907B /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD282822138524183360AAB /* EqualizerView.swift */; };
+		03405BB797618CE985AF6BDE /* ResponseAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FDBB2713B1FC18BDC66AAF /* ResponseAnalysis.swift */; };
+		0D6AD1C4D0C8CED368BAEEC0 /* RouteDriver.m in Sources */ = {isa = PBXBuildFile; fileRef = 5B54A1438F2416E4EAEAF9ED /* RouteDriver.m */; };
+		16C63FFFB51D7E9296C2E8C5 /* Headroom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C0BE97086F176AA30F15B7 /* Headroom.swift */; };
+		1C9D8E493259215E0B9FC527 /* AuralModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F02AD090261CF9D066847BD /* AuralModel.swift */; };
+		1E21F706CE26DC0D7F6893E9 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 174224B6CCE7B6A3E0590E15 /* AudioToolbox.framework */; };
+		29E11C925FF05FAEE569C0C9 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD282822138524183360AAB /* EqualizerView.swift */; };
+		31DE3D068C1199D0D9F9EACB /* AutoEQCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180E3A2D907948E21B68A487 /* AutoEQCatalog.swift */; };
+		32C64CDFB51F8C0227B072A6 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C871EF41010606F5D62100 /* Profile.swift */; };
+		336C3D5EF44E0F8737BF4D08 /* PresetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909827B85AE8FEAD8164ADEB /* PresetsView.swift */; };
+		353C2F9C14E7CCC40E37E50A /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCD83BEDCFFE86D9637A4D9 /* CoreAudio.framework */; };
+		35DFEE1D4250C4632DAC7AD7 /* ProbeRenderer.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF1B35366B421BD01D153ED /* ProbeRenderer.c */; };
+		363CA0F80689FF7059FDDC61 /* AuralApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB0359BD4C730D30D332F331 /* AuralApp.swift */; };
+		37D87AF88A83CEE2E46256F7 /* FilterWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CFDD88BC829C8AF872723BD /* FilterWorkspace.swift */; };
+		3E77A742E1C8DBCD13F26BBF /* RouteCore.c in Sources */ = {isa = PBXBuildFile; fileRef = F739AAFA5B0D833BAF77B15B /* RouteCore.c */; };
+		4818C7762CE04F2ABD3600A3 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6420ED82B1B8DEF01A68FBD /* AVFoundation.framework */; };
+		484E10E14A6F17AE3080E38F /* AuralModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F02AD090261CF9D066847BD /* AuralModel.swift */; };
+		4ACEAAF2064629BAF294B77E /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D478BDE6DE390A166071760 /* Style.swift */; };
+		4BB35E6A89C5FF08DDD57EE3 /* Headroom.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C0BE97086F176AA30F15B7 /* Headroom.swift */; };
+		4EA94B83CBB52CA6A6344FB4 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCD83BEDCFFE86D9637A4D9 /* CoreAudio.framework */; };
+		538CA10B96F9325A75402B13 /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAFDBB35892A1BB9A60D8DC1 /* MediaPlayer.framework */; };
+		53E33D69346B326E689FB5A1 /* ProviderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6066D822CE6EEC3FA76E9C0 /* ProviderApp.swift */; };
+		54F9CCEEDB7DF6CF10DB6235 /* FilterWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CFDD88BC829C8AF872723BD /* FilterWorkspace.swift */; };
+		5BA2C47F87C65BF30223D432 /* Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D478BDE6DE390A166071760 /* Style.swift */; };
+		60DBB15F96AAFF4DB4ACDB6C /* FilterDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC0F2E735DCB76F7D0C0304 /* FilterDraft.swift */; };
+		66DB5EF7A616B93C8B3BBD7F /* PresetLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C142423751BB61110D0CEB6 /* PresetLibrary.swift */; };
+		6897312F5EF0B7A5D7C845B5 /* FilterDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC0F2E735DCB76F7D0C0304 /* FilterDraft.swift */; };
+		69491DE3DB24070B9C7EF052 /* LibraryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F23614B398B83499B9352D1 /* LibraryState.swift */; };
+		6C1F2EB80F60D407EEEAC582 /* ProfileDSP.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4795DDFA3A0E54B9C435C98 /* ProfileDSP.swift */; };
+		7675178F3D5C5EB223211F0B /* RouteExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F116E952F4404721155CE /* RouteExtension.swift */; };
+		7A60C01EEE45D8E673A3D0A8 /* InterfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B99FCE1551506C4920E2DE71 /* InterfaceTests.swift */; };
+		7C0D2ED2BEB217FBD2C0786A /* ConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CE939C3E1D3BE24DCA086C /* ConnectionView.swift */; };
+		8784DE41D94A9CBA346364CB /* AuralRouteExtension.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 7FE898BE193DB47DC378A113 /* AuralRouteExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		880A1768F14B4B55F9324836 /* GraphicEQ.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E51D4E960BFD46E45CFCD7F /* GraphicEQ.swift */; };
+		8A6A4EA6D66D476E2761C924 /* LocalTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = 34A2DCE717307908659C3838 /* LocalTransport.c */; };
+		8C706B4EF3ED8B973387DAEF /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7DD0020BCBA411A7E63FD354 /* Network.framework */; };
+		ACE608FE7D5F1F97AE910F52 /* GraphicEQ.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E51D4E960BFD46E45CFCD7F /* GraphicEQ.swift */; };
+		AF64C70C73723CF18F234C11 /* ProbeAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = A206058F422E7D5C6746A7A5 /* ProbeAudio.swift */; };
+		B69AE5655C52F7FA14607673 /* PreviewAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4637768E54917106C6ECCE3 /* PreviewAudio.swift */; };
+		B853B3086F3300DDFA48C9ED /* LocalTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = 34A2DCE717307908659C3838 /* LocalTransport.c */; };
+		BDB620D4D289CEDE02EC9AC3 /* MediaDevice.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 90F3C68E4153293F0789397B /* MediaDevice.framework */; };
+		C2A1FA8A005715548AFDFAA7 /* Profile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68C871EF41010606F5D62100 /* Profile.swift */; };
+		C520510B633FA6110BFE86B6 /* ExtensionFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 418FBC48D3F2CE2CCC336B59 /* ExtensionFoundation.framework */; };
+		C65053F07AE6B606B3707137 /* RouteCore.c in Sources */ = {isa = PBXBuildFile; fileRef = F739AAFA5B0D833BAF77B15B /* RouteCore.c */; };
+		C9E264BFE9D360F11A84F9EC /* DSP.c in Sources */ = {isa = PBXBuildFile; fileRef = CE2B75D884E5AC7209D467A7 /* DSP.c */; };
+		D24DEBBDF0DFC62096305587 /* ResponseAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5FDBB2713B1FC18BDC66AAF /* ResponseAnalysis.swift */; };
+		D5C545FF28F5B37F78413654 /* LibraryState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F23614B398B83499B9352D1 /* LibraryState.swift */; };
+		D64DA266BB0EC68C23C649E9 /* AutoEQCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180E3A2D907948E21B68A487 /* AutoEQCatalog.swift */; };
+		D6A806169778D2EBD73E5B42 /* PresetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909827B85AE8FEAD8164ADEB /* PresetsView.swift */; };
+		DC537F5311D6DC9B4072DB1F /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 174224B6CCE7B6A3E0590E15 /* AudioToolbox.framework */; };
+		DE4169FF9F98ADF49FCBAFE8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 888FC7BF05E22F176C16330D /* Assets.xcassets */; };
+		E47D914EFA95B6841D368DC0 /* ConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71CE939C3E1D3BE24DCA086C /* ConnectionView.swift */; };
+		E4A460407719FEE97CF56376 /* AutoEQ.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7122AA27C04661E4033BA606 /* AutoEQ.swift */; };
+		E4EEDE7CA250256531A885E5 /* LevelMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A674BF2E7CF68026D274D5 /* LevelMatch.swift */; };
+		E52261C6FAB47710C275897B /* AuralApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB0359BD4C730D30D332F331 /* AuralApp.swift */; };
+		E881474289F06734A587C2C2 /* PresetLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C142423751BB61110D0CEB6 /* PresetLibrary.swift */; };
+		EB225D3134D3C8A754E22D20 /* DSP.c in Sources */ = {isa = PBXBuildFile; fileRef = CE2B75D884E5AC7209D467A7 /* DSP.c */; };
+		EDCDF2C05047A6BAB6BE75D6 /* SourceNode.m in Sources */ = {isa = PBXBuildFile; fileRef = 6AFB177B639965CF066FB387 /* SourceNode.m */; };
+		EDDD2AF50060F01BDAFE4333 /* AutoEQ.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7122AA27C04661E4033BA606 /* AutoEQ.swift */; };
+		F5A35443E197AB873B6686A3 /* LevelMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A674BF2E7CF68026D274D5 /* LevelMatch.swift */; };
+		F7D9A25F8301565365F50198 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 888FC7BF05E22F176C16330D /* Assets.xcassets */; };
+		FBF0E85784E84C1FDE70FD33 /* ProfileDSP.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4795DDFA3A0E54B9C435C98 /* ProfileDSP.swift */; };
+		FD82AAC39B1EFBAFBF2A6EAF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 888FC7BF05E22F176C16330D /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		22514374CD69D50553A1AEBF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 032EEB75C169F25E392A1AA6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6E17B4DA2D6B5DDAEB3E637C;
+			remoteInfo = AuralRouteExtension;
+		};
+		F6D1303B1ABE09F90A2C9F41 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 032EEB75C169F25E392A1AA6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 96342B240B0D74952C56B005;
+			remoteInfo = AuralPreview;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		63B5323B46EC734927FCBC84 /* Embed ExtensionKit Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(EXTENSIONS_FOLDER_PATH)";
+			dstSubfolderSpec = 16;
+			files = (
+				8784DE41D94A9CBA346364CB /* AuralRouteExtension.appex in Embed ExtensionKit Extensions */,
+			);
+			name = "Embed ExtensionKit Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0C142423751BB61110D0CEB6 /* PresetLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetLibrary.swift; sourceTree = "<group>"; };
+		174224B6CCE7B6A3E0590E15 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		180E3A2D907948E21B68A487 /* AutoEQCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoEQCatalog.swift; sourceTree = "<group>"; };
+		34A2DCE717307908659C3838 /* LocalTransport.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = LocalTransport.c; sourceTree = "<group>"; };
+		406FE7871579EB19572983C5 /* AuralPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AuralPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		418FBC48D3F2CE2CCC336B59 /* ExtensionFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ExtensionFoundation.framework; path = System/Library/Frameworks/ExtensionFoundation.framework; sourceTree = SDKROOT; };
+		4222FA5244FDC16D1D04B881 /* AuralPreviewUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AuralPreviewUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		44C0BE97086F176AA30F15B7 /* Headroom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Headroom.swift; sourceTree = "<group>"; };
+		4CFDD88BC829C8AF872723BD /* FilterWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterWorkspace.swift; sourceTree = "<group>"; };
+		512DF6378CFC02873335FB14 /* RouteDriver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RouteDriver.h; sourceTree = "<group>"; };
+		551DF891F37BB6FFB78F15DA /* LocalTransport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LocalTransport.h; sourceTree = "<group>"; };
+		5B54A1438F2416E4EAEAF9ED /* RouteDriver.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RouteDriver.m; sourceTree = "<group>"; };
+		68C871EF41010606F5D62100 /* Profile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Profile.swift; sourceTree = "<group>"; };
+		6AFB177B639965CF066FB387 /* SourceNode.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SourceNode.m; sourceTree = "<group>"; };
+		6E51D4E960BFD46E45CFCD7F /* GraphicEQ.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphicEQ.swift; sourceTree = "<group>"; };
+		6F23614B398B83499B9352D1 /* LibraryState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryState.swift; sourceTree = "<group>"; };
+		7122AA27C04661E4033BA606 /* AutoEQ.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoEQ.swift; sourceTree = "<group>"; };
+		71CE939C3E1D3BE24DCA086C /* ConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionView.swift; sourceTree = "<group>"; };
+		7DD0020BCBA411A7E63FD354 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
+		7FE898BE193DB47DC378A113 /* AuralRouteExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.extensionkit-extension"; includeInIndex = 0; path = AuralRouteExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		86A674BF2E7CF68026D274D5 /* LevelMatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelMatch.swift; sourceTree = "<group>"; };
+		888FC7BF05E22F176C16330D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8D478BDE6DE390A166071760 /* Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Style.swift; sourceTree = "<group>"; };
+		8DD282822138524183360AAB /* EqualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerView.swift; sourceTree = "<group>"; };
+		909827B85AE8FEAD8164ADEB /* PresetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetsView.swift; sourceTree = "<group>"; };
+		90F3C68E4153293F0789397B /* MediaDevice.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaDevice.framework; path = System/Library/Frameworks/MediaDevice.framework; sourceTree = SDKROOT; };
+		9F02AD090261CF9D066847BD /* AuralModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuralModel.swift; sourceTree = "<group>"; };
+		A206058F422E7D5C6746A7A5 /* ProbeAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProbeAudio.swift; sourceTree = "<group>"; };
+		A91F116E952F4404721155CE /* RouteExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteExtension.swift; sourceTree = "<group>"; };
+		AAC0F2E735DCB76F7D0C0304 /* FilterDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterDraft.swift; sourceTree = "<group>"; };
+		B4795DDFA3A0E54B9C435C98 /* ProfileDSP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDSP.swift; sourceTree = "<group>"; };
+		B99FCE1551506C4920E2DE71 /* InterfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterfaceTests.swift; sourceTree = "<group>"; };
+		BF68D27FF85AAA2FC1BE185C /* Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Bridging-Header.h"; sourceTree = "<group>"; };
+		C4637768E54917106C6ECCE3 /* PreviewAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewAudio.swift; sourceTree = "<group>"; };
+		C5FDBB2713B1FC18BDC66AAF /* ResponseAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseAnalysis.swift; sourceTree = "<group>"; };
+		C6066D822CE6EEC3FA76E9C0 /* ProviderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderApp.swift; sourceTree = "<group>"; };
+		CAFDBB35892A1BB9A60D8DC1 /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
+		CE2B75D884E5AC7209D467A7 /* DSP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DSP.c; sourceTree = "<group>"; };
+		DD6BA0694D9D332B5475B448 /* RouteCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RouteCore.h; sourceTree = "<group>"; };
+		E275937707B0511C6C3B0DFE /* AuralRoute.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AuralRoute.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB0359BD4C730D30D332F331 /* AuralApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuralApp.swift; sourceTree = "<group>"; };
+		EB3E5B69910ADCF4451A6F27 /* RouteRegistration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RouteRegistration.h; sourceTree = "<group>"; };
+		EBCD83BEDCFFE86D9637A4D9 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		F6420ED82B1B8DEF01A68FBD /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		F739AAFA5B0D833BAF77B15B /* RouteCore.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = RouteCore.c; sourceTree = "<group>"; };
+		F83393D92EA3769F63EC9B5A /* Aural.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Aural.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDF1B35366B421BD01D153ED /* ProbeRenderer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ProbeRenderer.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		35FF996EFC041BEFB1326539 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BDB620D4D289CEDE02EC9AC3 /* MediaDevice.framework in Frameworks */,
+				4EA94B83CBB52CA6A6344FB4 /* CoreAudio.framework in Frameworks */,
+				1E21F706CE26DC0D7F6893E9 /* AudioToolbox.framework in Frameworks */,
+				8C706B4EF3ED8B973387DAEF /* Network.framework in Frameworks */,
+				C520510B633FA6110BFE86B6 /* ExtensionFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A534B258DAD9CC6A511B3A33 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4818C7762CE04F2ABD3600A3 /* AVFoundation.framework in Frameworks */,
+				538CA10B96F9325A75402B13 /* MediaPlayer.framework in Frameworks */,
+				DC537F5311D6DC9B4072DB1F /* AudioToolbox.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5871B1D4C4F8530A65A317A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				353C2F9C14E7CCC40E37E50A /* CoreAudio.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		09882E0AD7542CA9828ABC8F /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				B99FCE1551506C4920E2DE71 /* InterfaceTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		279B9814FC12B756DD1A190B = {
+			isa = PBXGroup;
+			children = (
+				888FC7BF05E22F176C16330D /* Assets.xcassets */,
+				3EC6435B731DD6715068C93A /* App */,
+				CF5233EED9255AC13496592D /* Aural MacOS EQ */,
+				D0A4A7A0190A3E310AE8B213 /* Core */,
+				D0DDA006C9C0640B9C7F1F0A /* Preview */,
+				2CBD54120DDCA27836936EDC /* Provider */,
+				09882E0AD7542CA9828ABC8F /* UITests */,
+				68EFFB76A0790DE4C1740B7D /* Frameworks */,
+				D528E99F83D19332D76CBB63 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2CBD54120DDCA27836936EDC /* Provider */ = {
+			isa = PBXGroup;
+			children = (
+				C6066D822CE6EEC3FA76E9C0 /* ProviderApp.swift */,
+			);
+			path = Provider;
+			sourceTree = "<group>";
+		};
+		3EC6435B731DD6715068C93A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				EB0359BD4C730D30D332F331 /* AuralApp.swift */,
+				9F02AD090261CF9D066847BD /* AuralModel.swift */,
+				71CE939C3E1D3BE24DCA086C /* ConnectionView.swift */,
+				8DD282822138524183360AAB /* EqualizerView.swift */,
+				4CFDD88BC829C8AF872723BD /* FilterWorkspace.swift */,
+				909827B85AE8FEAD8164ADEB /* PresetsView.swift */,
+				8D478BDE6DE390A166071760 /* Style.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		430C89B1AB8A04AD44746888 /* prototypes */ = {
+			isa = PBXGroup;
+			children = (
+				825B98932D5BB73DE3D9B4ED /* ios-route */,
+			);
+			path = prototypes;
+			sourceTree = "<group>";
+		};
+		45E8CEA8A8762A86EBBD27AA /* Receiver */ = {
+			isa = PBXGroup;
+			children = (
+				A206058F422E7D5C6746A7A5 /* ProbeAudio.swift */,
+				FDF1B35366B421BD01D153ED /* ProbeRenderer.c */,
+				6AFB177B639965CF066FB387 /* SourceNode.m */,
+			);
+			path = Receiver;
+			sourceTree = "<group>";
+		};
+		55A1A7F54E0846EF48EA32ED /* Extension */ = {
+			isa = PBXGroup;
+			children = (
+				BF68D27FF85AAA2FC1BE185C /* Bridging-Header.h */,
+				512DF6378CFC02873335FB14 /* RouteDriver.h */,
+				5B54A1438F2416E4EAEAF9ED /* RouteDriver.m */,
+				A91F116E952F4404721155CE /* RouteExtension.swift */,
+			);
+			path = Extension;
+			sourceTree = "<group>";
+		};
+		68EFFB76A0790DE4C1740B7D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				174224B6CCE7B6A3E0590E15 /* AudioToolbox.framework */,
+				F6420ED82B1B8DEF01A68FBD /* AVFoundation.framework */,
+				EBCD83BEDCFFE86D9637A4D9 /* CoreAudio.framework */,
+				418FBC48D3F2CE2CCC336B59 /* ExtensionFoundation.framework */,
+				90F3C68E4153293F0789397B /* MediaDevice.framework */,
+				CAFDBB35892A1BB9A60D8DC1 /* MediaPlayer.framework */,
+				7DD0020BCBA411A7E63FD354 /* Network.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		743AF01D60998E762FB7A2D0 /* Aural */ = {
+			isa = PBXGroup;
+			children = (
+				7122AA27C04661E4033BA606 /* AutoEQ.swift */,
+				180E3A2D907948E21B68A487 /* AutoEQCatalog.swift */,
+				AAC0F2E735DCB76F7D0C0304 /* FilterDraft.swift */,
+				6E51D4E960BFD46E45CFCD7F /* GraphicEQ.swift */,
+				44C0BE97086F176AA30F15B7 /* Headroom.swift */,
+				86A674BF2E7CF68026D274D5 /* LevelMatch.swift */,
+				0C142423751BB61110D0CEB6 /* PresetLibrary.swift */,
+				68C871EF41010606F5D62100 /* Profile.swift */,
+				B4795DDFA3A0E54B9C435C98 /* ProfileDSP.swift */,
+				C5FDBB2713B1FC18BDC66AAF /* ResponseAnalysis.swift */,
+			);
+			path = Aural;
+			sourceTree = "<group>";
+		};
+		825B98932D5BB73DE3D9B4ED /* ios-route */ = {
+			isa = PBXGroup;
+			children = (
+				55A1A7F54E0846EF48EA32ED /* Extension */,
+				45E8CEA8A8762A86EBBD27AA /* Receiver */,
+				FF570E7702C3F2F5ACE44A68 /* Shared */,
+			);
+			path = "ios-route";
+			sourceTree = "<group>";
+		};
+		9BFAF250FA591ED6B841E531 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				743AF01D60998E762FB7A2D0 /* Aural */,
+				CDCB8B9EF0C98D6C7F86BD1C /* DSP */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		CDCB8B9EF0C98D6C7F86BD1C /* DSP */ = {
+			isa = PBXGroup;
+			children = (
+				CE2B75D884E5AC7209D467A7 /* DSP.c */,
+			);
+			path = DSP;
+			sourceTree = "<group>";
+		};
+		CF5233EED9255AC13496592D /* Aural MacOS EQ */ = {
+			isa = PBXGroup;
+			children = (
+				430C89B1AB8A04AD44746888 /* prototypes */,
+				9BFAF250FA591ED6B841E531 /* Sources */,
+			);
+			name = "Aural MacOS EQ";
+			path = ..;
+			sourceTree = "<group>";
+		};
+		D0A4A7A0190A3E310AE8B213 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				6F23614B398B83499B9352D1 /* LibraryState.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		D0DDA006C9C0640B9C7F1F0A /* Preview */ = {
+			isa = PBXGroup;
+			children = (
+				C4637768E54917106C6ECCE3 /* PreviewAudio.swift */,
+			);
+			path = Preview;
+			sourceTree = "<group>";
+		};
+		D528E99F83D19332D76CBB63 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F83393D92EA3769F63EC9B5A /* Aural.app */,
+				406FE7871579EB19572983C5 /* AuralPreview.app */,
+				4222FA5244FDC16D1D04B881 /* AuralPreviewUITests.xctest */,
+				E275937707B0511C6C3B0DFE /* AuralRoute.app */,
+				7FE898BE193DB47DC378A113 /* AuralRouteExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FF570E7702C3F2F5ACE44A68 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				34A2DCE717307908659C3838 /* LocalTransport.c */,
+				551DF891F37BB6FFB78F15DA /* LocalTransport.h */,
+				F739AAFA5B0D833BAF77B15B /* RouteCore.c */,
+				DD6BA0694D9D332B5475B448 /* RouteCore.h */,
+				EB3E5B69910ADCF4451A6F27 /* RouteRegistration.h */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6E17B4DA2D6B5DDAEB3E637C /* AuralRouteExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B3B60A73D657DFB802C278EF /* Build configuration list for PBXNativeTarget "AuralRouteExtension" */;
+			buildPhases = (
+				C51E8BABB4AEF56055BE1B6C /* Sources */,
+				35FF996EFC041BEFB1326539 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuralRouteExtension;
+			packageProductDependencies = (
+			);
+			productName = AuralRouteExtension;
+			productReference = 7FE898BE193DB47DC378A113 /* AuralRouteExtension.appex */;
+			productType = "com.apple.product-type.extensionkit-extension";
+		};
+		73AF1569A0B51D6DAAB2434D /* AuralRoute */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EF451F7FC6447A4115215A50 /* Build configuration list for PBXNativeTarget "AuralRoute" */;
+			buildPhases = (
+				32DBD75A45E3249303691698 /* Sources */,
+				585E57F4CB1A666D09E69A04 /* Resources */,
+				63B5323B46EC734927FCBC84 /* Embed ExtensionKit Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1E29FA5B6D8E91AF4B080C24 /* PBXTargetDependency */,
+			);
+			name = AuralRoute;
+			packageProductDependencies = (
+			);
+			productName = AuralRoute;
+			productReference = E275937707B0511C6C3B0DFE /* AuralRoute.app */;
+			productType = "com.apple.product-type.application";
+		};
+		96342B240B0D74952C56B005 /* AuralPreview */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5C6BB2FABA10DBF41899023A /* Build configuration list for PBXNativeTarget "AuralPreview" */;
+			buildPhases = (
+				55F39566631DF349D492C9FA /* Sources */,
+				353C0B7F0F92177681C9DA72 /* Resources */,
+				D5871B1D4C4F8530A65A317A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AuralPreview;
+			packageProductDependencies = (
+			);
+			productName = AuralPreview;
+			productReference = 406FE7871579EB19572983C5 /* AuralPreview.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9CBF244B074ABABCF5319945 /* AuralPreviewUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 08A4C600BFE00D30C21DB917 /* Build configuration list for PBXNativeTarget "AuralPreviewUITests" */;
+			buildPhases = (
+				675C30B40FA1FB5E5BD74321 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				41114779DDE3D1665F4C8E6E /* PBXTargetDependency */,
+			);
+			name = AuralPreviewUITests;
+			packageProductDependencies = (
+			);
+			productName = AuralPreviewUITests;
+			productReference = 4222FA5244FDC16D1D04B881 /* AuralPreviewUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		FDD1B2FC8887BB72B4BE179C /* Aural */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A42D76D7B3680494AE78101F /* Build configuration list for PBXNativeTarget "Aural" */;
+			buildPhases = (
+				3EDEF9579E66A3B8BF34747A /* Sources */,
+				ECB84FC29975E339D0AE2D56 /* Resources */,
+				A534B258DAD9CC6A511B3A33 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Aural;
+			packageProductDependencies = (
+			);
+			productName = Aural;
+			productReference = F83393D92EA3769F63EC9B5A /* Aural.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		032EEB75C169F25E392A1AA6 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6E17B4DA2D6B5DDAEB3E637C = {
+						ProvisioningStyle = Automatic;
+					};
+					73AF1569A0B51D6DAAB2434D = {
+						ProvisioningStyle = Automatic;
+					};
+					96342B240B0D74952C56B005 = {
+						ProvisioningStyle = Automatic;
+					};
+					9CBF244B074ABABCF5319945 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 96342B240B0D74952C56B005;
+					};
+					FDD1B2FC8887BB72B4BE179C = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 54F907492E412FB5801C8713 /* Build configuration list for PBXProject "AuralIOS" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 279B9814FC12B756DD1A190B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D528E99F83D19332D76CBB63 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDD1B2FC8887BB72B4BE179C /* Aural */,
+				73AF1569A0B51D6DAAB2434D /* AuralRoute */,
+				6E17B4DA2D6B5DDAEB3E637C /* AuralRouteExtension */,
+				96342B240B0D74952C56B005 /* AuralPreview */,
+				9CBF244B074ABABCF5319945 /* AuralPreviewUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		353C0B7F0F92177681C9DA72 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD82AAC39B1EFBAFBF2A6EAF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		585E57F4CB1A666D09E69A04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DE4169FF9F98ADF49FCBAFE8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ECB84FC29975E339D0AE2D56 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F7D9A25F8301565365F50198 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		32DBD75A45E3249303691698 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				53E33D69346B326E689FB5A1 /* ProviderApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EDEF9579E66A3B8BF34747A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				363CA0F80689FF7059FDDC61 /* AuralApp.swift in Sources */,
+				484E10E14A6F17AE3080E38F /* AuralModel.swift in Sources */,
+				E4A460407719FEE97CF56376 /* AutoEQ.swift in Sources */,
+				31DE3D068C1199D0D9F9EACB /* AutoEQCatalog.swift in Sources */,
+				7C0D2ED2BEB217FBD2C0786A /* ConnectionView.swift in Sources */,
+				EB225D3134D3C8A754E22D20 /* DSP.c in Sources */,
+				29E11C925FF05FAEE569C0C9 /* EqualizerView.swift in Sources */,
+				60DBB15F96AAFF4DB4ACDB6C /* FilterDraft.swift in Sources */,
+				54F9CCEEDB7DF6CF10DB6235 /* FilterWorkspace.swift in Sources */,
+				ACE608FE7D5F1F97AE910F52 /* GraphicEQ.swift in Sources */,
+				16C63FFFB51D7E9296C2E8C5 /* Headroom.swift in Sources */,
+				E4EEDE7CA250256531A885E5 /* LevelMatch.swift in Sources */,
+				69491DE3DB24070B9C7EF052 /* LibraryState.swift in Sources */,
+				8A6A4EA6D66D476E2761C924 /* LocalTransport.c in Sources */,
+				E881474289F06734A587C2C2 /* PresetLibrary.swift in Sources */,
+				336C3D5EF44E0F8737BF4D08 /* PresetsView.swift in Sources */,
+				AF64C70C73723CF18F234C11 /* ProbeAudio.swift in Sources */,
+				35DFEE1D4250C4632DAC7AD7 /* ProbeRenderer.c in Sources */,
+				32C64CDFB51F8C0227B072A6 /* Profile.swift in Sources */,
+				6C1F2EB80F60D407EEEAC582 /* ProfileDSP.swift in Sources */,
+				03405BB797618CE985AF6BDE /* ResponseAnalysis.swift in Sources */,
+				3E77A742E1C8DBCD13F26BBF /* RouteCore.c in Sources */,
+				EDCDF2C05047A6BAB6BE75D6 /* SourceNode.m in Sources */,
+				5BA2C47F87C65BF30223D432 /* Style.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55F39566631DF349D492C9FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E52261C6FAB47710C275897B /* AuralApp.swift in Sources */,
+				1C9D8E493259215E0B9FC527 /* AuralModel.swift in Sources */,
+				EDDD2AF50060F01BDAFE4333 /* AutoEQ.swift in Sources */,
+				D64DA266BB0EC68C23C649E9 /* AutoEQCatalog.swift in Sources */,
+				E47D914EFA95B6841D368DC0 /* ConnectionView.swift in Sources */,
+				C9E264BFE9D360F11A84F9EC /* DSP.c in Sources */,
+				006B9C2C3604F6731AAC907B /* EqualizerView.swift in Sources */,
+				6897312F5EF0B7A5D7C845B5 /* FilterDraft.swift in Sources */,
+				37D87AF88A83CEE2E46256F7 /* FilterWorkspace.swift in Sources */,
+				880A1768F14B4B55F9324836 /* GraphicEQ.swift in Sources */,
+				4BB35E6A89C5FF08DDD57EE3 /* Headroom.swift in Sources */,
+				F5A35443E197AB873B6686A3 /* LevelMatch.swift in Sources */,
+				D5C545FF28F5B37F78413654 /* LibraryState.swift in Sources */,
+				66DB5EF7A616B93C8B3BBD7F /* PresetLibrary.swift in Sources */,
+				D6A806169778D2EBD73E5B42 /* PresetsView.swift in Sources */,
+				B69AE5655C52F7FA14607673 /* PreviewAudio.swift in Sources */,
+				C2A1FA8A005715548AFDFAA7 /* Profile.swift in Sources */,
+				FBF0E85784E84C1FDE70FD33 /* ProfileDSP.swift in Sources */,
+				D24DEBBDF0DFC62096305587 /* ResponseAnalysis.swift in Sources */,
+				4ACEAAF2064629BAF294B77E /* Style.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		675C30B40FA1FB5E5BD74321 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A60C01EEE45D8E673A3D0A8 /* InterfaceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C51E8BABB4AEF56055BE1B6C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B853B3086F3300DDFA48C9ED /* LocalTransport.c in Sources */,
+				C65053F07AE6B606B3707137 /* RouteCore.c in Sources */,
+				0D6AD1C4D0C8CED368BAEEC0 /* RouteDriver.m in Sources */,
+				7675178F3D5C5EB223211F0B /* RouteExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1E29FA5B6D8E91AF4B080C24 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6E17B4DA2D6B5DDAEB3E637C /* AuralRouteExtension */;
+			targetProxy = 22514374CD69D50553A1AEBF /* PBXContainerItemProxy */;
+		};
+		41114779DDE3D1665F4C8E6E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 96342B240B0D74952C56B005 /* AuralPreview */;
+			targetProxy = F6D1303B1ABE09F90A2C9F41 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1E33CEEF5EE5884E137FBE56 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.ui-preview.tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = AuralPreview;
+			};
+			name = Debug;
+		};
+		301CC72D5BB9D62B222FE074 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				AURAL_DIAGNOSTIC_RECEIVER_IPV4 = "";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 15;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../prototypes/ios-route/Shared",
+					"$(SRCROOT)/../Sources/DSP/include",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.2.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fblocks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_INCLUDE_PATHS = (
+					"$(SRCROOT)/../Sources/DSP/include",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		31AA0ECEFCFA0B5AAEE66655 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Receiver.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.receiver";
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "../prototypes/ios-route/Receiver/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		4CE7C9DB323D8A2938CABF60 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Extension.entitlements;
+				INFOPLIST_FILE = Configuration/Extension.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider.extension";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "../prototypes/ios-route/Extension/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		793CE24C47241A9CBE1086FF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Receiver.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.receiver";
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "../prototypes/ios-route/Receiver/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		7FE63597AA6C0C03B4D8A8DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Receiver.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.ui-preview";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+					"$(inherited)",
+					AURAL_UI_PREVIEW,
+				);
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8DE4D85A4875FD589723E5D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_ALLOWED = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.ui-preview.tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = AuralPreview;
+			};
+			name = Release;
+		};
+		B327D0126726636148C2FBFD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Provider.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Provider.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C40940424F73E255134BBEC8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Extension.entitlements;
+				INFOPLIST_FILE = Configuration/Extension.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider.extension";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "../prototypes/ios-route/Extension/Bridging-Header.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C5DA2C1A160A793FF0B48AC3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Receiver.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.ui-preview";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+					"$(inherited)",
+					AURAL_UI_PREVIEW,
+				);
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		E524A116B33F362A8B7BC3C2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				AURAL_DIAGNOSTIC_RECEIVER_IPV4 = "";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 15;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../prototypes/ios-route/Shared",
+					"$(SRCROOT)/../Sources/DSP/include",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 0.2.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fblocks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_INCLUDE_PATHS = (
+					"$(SRCROOT)/../Sources/DSP/include",
+				);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F805319D3896790E597311A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Configuration/Provider.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Configuration/Provider.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "local.aural.route-probe.provider";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		08A4C600BFE00D30C21DB917 /* Build configuration list for PBXNativeTarget "AuralPreviewUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E33CEEF5EE5884E137FBE56 /* Debug */,
+				8DE4D85A4875FD589723E5D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		54F907492E412FB5801C8713 /* Build configuration list for PBXProject "AuralIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E524A116B33F362A8B7BC3C2 /* Debug */,
+				301CC72D5BB9D62B222FE074 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5C6BB2FABA10DBF41899023A /* Build configuration list for PBXNativeTarget "AuralPreview" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7FE63597AA6C0C03B4D8A8DE /* Debug */,
+				C5DA2C1A160A793FF0B48AC3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A42D76D7B3680494AE78101F /* Build configuration list for PBXNativeTarget "Aural" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				793CE24C47241A9CBE1086FF /* Debug */,
+				31AA0ECEFCFA0B5AAEE66655 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B3B60A73D657DFB802C278EF /* Build configuration list for PBXNativeTarget "AuralRouteExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4CE7C9DB323D8A2938CABF60 /* Debug */,
+				C40940424F73E255134BBEC8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EF451F7FC6447A4115215A50 /* Build configuration list for PBXNativeTarget "AuralRoute" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F805319D3896790E597311A9 /* Debug */,
+				B327D0126726636148C2FBFD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 032EEB75C169F25E392A1AA6 /* Project object */;
+}

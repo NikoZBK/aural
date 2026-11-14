@@ -101,10 +101,39 @@ import Foundation
 }
 
 @MainActor func checkDisconnectedOutputRecovery() throws {
+    let vanishedProperty = CoreAudioFailure(status: kAudioHardwareUnknownPropertyError, action: "Read audio property", objectID: 94)
+    let removedOutput = try AudioRoute.outputSnapshotExpired(93, failure: vanishedProperty, readDevices: { [81] }, readStreams: { _ in [] })
+    require(removedOutput,
+            "An unknown property on a removed output must be treated as an expired discovery snapshot")
+    let removedStream = try AudioRoute.outputSnapshotExpired(93, failure: vanishedProperty, readDevices: { [93] }, readStreams: { _ in [95] })
+    require(removedStream,
+            "A stream can vanish before its device leaves the HAL list")
+    let stableStream = try AudioRoute.outputSnapshotExpired(93, failure: vanishedProperty, readDevices: { [93] }, readStreams: { _ in [94] })
+    require(!stableStream,
+            "A genuinely unsupported property on a current stream must remain an error")
+    do {
+        _ = try AudioRoute.outputSnapshotExpired(93, failure: vanishedProperty, readDevices: { throw CoreAudioFailure(status: kAudioDevicePermissionsError, action: "Read devices") })
+        fatalError("A permission failure during discovery revalidation must propagate")
+    } catch let error as CoreAudioFailure { require(error.status == kAudioDevicePermissionsError, "Keep the original revalidation error") }
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("aural-route-checks-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try! FileManager.default.removeItem(at: directory) }
     let model = Model(settingsFile: directory.appendingPathComponent("settings.json"), readLoginStatus: { .notRegistered })
+    let discoveryTime = Date()
+    let unsettled = try model.readAvailableOutputsForTesting(now: discoveryTime, read: { throw vanishedProperty })
+    require(unsettled == nil && model.error == nil, "A stale HAL list must get a bounded incomplete-snapshot interval")
+    let stillUnsettled = try model.readAvailableOutputsForTesting(now: discoveryTime.addingTimeInterval(1), read: { throw vanishedProperty })
+    require(stillUnsettled == nil, "The incomplete snapshot must never masquerade as no devices")
+    do {
+        _ = try model.readAvailableOutputsForTesting(now: discoveryTime.addingTimeInterval(2), read: { throw vanishedProperty })
+        fatalError("Persistent unsupported properties must not be hidden by retry")
+    } catch let error as CoreAudioFailure { require(error.status == kAudioHardwareUnknownPropertyError, "Preserve the persistent error") }
+    let recovered = try model.readAvailableOutputsForTesting(now: discoveryTime.addingTimeInterval(3), read: { [] })
+    require(recovered == [], "Only a complete successful snapshot may report no devices")
+    do {
+        _ = try model.readAvailableOutputsForTesting(now: discoveryTime, read: { throw CoreAudioFailure(status: kAudioDevicePermissionsError, action: "Discover outputs") })
+        fatalError("Permission failures must not receive metadata grace")
+    } catch let error as CoreAudioFailure { require(error.status == kAudioDevicePermissionsError, "Preserve permission advice") }
     model.select("missing")
     model.setPreamp(-6)
     model.setBypass(true)
@@ -139,6 +168,34 @@ import Foundation
                 "A stale enumeration must recover as a disconnect, even twice within the restart window")
         model.stop()
     }
+    adoptMissingOutput(model.route)
+    model.devices = []
+    model.running = true
+    model.route.onMixerFailure?(CoreAudioFailure(status: kAudioHardwareBadObjectError, action: "Check mixer tap", objectID: 123))
+    require(!model.running && model.waitingForOutput && model.appMixer.waiting && model.error == nil,
+            "Asynchronous mixer loss must use the same saved-output recovery instead of releasing all protection as a fatal error")
+    model.stop()
+    adoptMissingOutput(model.route)
+    model.devices = [model.route.device!]
+    model.running = true
+    model.pollOutputForTesting(readOutputs: { throw vanishedProperty })
+    require(!model.running && model.waitingForOutput && model.error == nil,
+            "Incomplete device discovery must still verify the running route and enter saved-output recovery")
+    model.stop()
+    for _ in 0..<3 {
+        adoptMissingOutput(model.route)
+        model.devices = [model.route.device!]
+        model.running = true
+        _ = try model.readAvailableOutputsForTesting(now: discoveryTime, read: { throw vanishedProperty })
+        model.route.onMixerFailure?(CoreAudioFailure(status: kAudioHardwareUnknownPropertyError, action: "Check output", objectID: model.route.device!.id))
+        require(model.waitingForOutput && model.startupNotice?.contains("disconnected") == true && model.error == nil,
+                "A vanished output during incomplete discovery must not consume the format-restart budget")
+        model.stop()
+    }
+    model.running = true
+    model.route.onMixerFailure?(AudioFailure(message: "App mixer capacity exceeded"))
+    require(!model.running && !model.waitingForOutput && model.error == "App mixer capacity exceeded",
+            "Capacity and ownership failures must remain explicit errors, not enter hardware reconnect retries")
 
     let failed = CleanupFixture()
     failed.statuses["Stop audio"] = kAudioHardwareUnspecifiedError

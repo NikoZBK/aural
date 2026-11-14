@@ -6,17 +6,20 @@ import ProbeCore
 struct Options {
     let command: String
     let values: [String: String]
+    let ownershipPolicy: OwnershipPolicy
     init() throws {
         let args = Array(CommandLine.arguments.dropFirst())
-        guard let first = args.first, ["inventory", "devices", "inspect", "self-test", "handoff-test", "relaunch-test", "app-test", "recover-test", "guard-test", "tone"].contains(first), args.count % 2 == 1 else {
-            throw ProbeFailure(message: "Usage: MixerProbe inventory|devices|inspect|self-test|handoff-test|relaunch-test|app-test|recover-test|guard-test|tone [--output UID] [--report PATH] [--pids PID,PID] [--playback monitor|owned|all] [--frequency HZ] [--duration SECONDS]")
+        guard let first = args.first, ["inventory", "devices", "inspect", "self-test", "handoff-test", "relaunch-test", "app-test", "browser-handoff-test", "quarantine-test", "recover-test", "guard-test", "tone"].contains(first), args.count % 2 == 1 else {
+            throw ProbeFailure(message: "Usage: MixerProbe inventory|devices|inspect|self-test|handoff-test|relaunch-test|app-test|browser-handoff-test|quarantine-test|recover-test|guard-test|tone [--output UID] [--report PATH] [--pids PID,PID] [--playback monitor|owned|all] [--frequency HZ] [--duration SECONDS]")
         }
         var values: [String: String] = [:]
         let commandOptions: [String: Set<String>] = [
-            "inventory": ["--output", "--report"], "devices": ["--report"],
+            "inventory": ["--output", "--report", "--ownership"], "devices": ["--report"],
+            "browser-handoff-test": ["--output", "--bundle", "--ownership", "--gain", "--muted", "--duration", "--control", "--status", "--report", "--min-restarts"],
+            "quarantine-test": ["--output", "--report"],
             "recover-test": ["--output", "--bundle", "--gain", "--muted", "--duration", "--control", "--status", "--report", "--min-reconnects"],
             "guard-test": ["--output", "--bundle", "--reader", "--duration", "--report"],
-            "app-test": ["--output", "--report", "--bundle", "--playback", "--phase-seconds"], "inspect": ["--output", "--report", "--pids", "--playback"],
+            "app-test": ["--output", "--report", "--bundle", "--playback", "--phase-seconds", "--ownership"], "inspect": ["--output", "--report", "--pids", "--playback"],
             "self-test": ["--output", "--report", "--playback"], "handoff-test": ["--output", "--report", "--playback"],
             "relaunch-test": ["--output", "--report", "--playback", "--restore"],
             "tone": ["--output", "--frequency", "--duration", "--parent-pid"]]
@@ -25,10 +28,13 @@ struct Options {
             guard allowed.contains(args[index]), values[args[index]] == nil else { throw ProbeFailure(message: "Unknown or repeated option: \(args[index])") }
             values[args[index]] = args[index + 1]
         }
-        if ["self-test", "handoff-test", "relaunch-test", "app-test", "recover-test", "guard-test", "tone"].contains(first), values["--output"] == nil {
+        if ["self-test", "handoff-test", "relaunch-test", "app-test", "browser-handoff-test", "quarantine-test", "recover-test", "guard-test", "tone"].contains(first), values["--output"] == nil {
             throw ProbeFailure(message: "Choose an explicit --output builtin, default, or device UID for audio tests")
         }
-        self.command = first; self.values = values
+        guard let ownership = OwnershipPolicy(rawValue: values["--ownership"] ?? OwnershipPolicy.enclosingApp.rawValue) else {
+            throw ProbeFailure(message: "--ownership must be enclosing-app or experimental-responsibility")
+        }
+        self.command = first; self.values = values; self.ownershipPolicy = ownership
     }
     func number(_ key: String, default fallback: Double, range: ClosedRange<Double>) throws -> Double {
         guard let text = values[key] else { return fallback }
@@ -302,11 +308,13 @@ func finite(_ value: Double) -> Double? { value.isFinite ? value : nil }
             let device = try DeviceInfo.selected(options.values["--output"], validateForCapture: !["inventory", "devices"].contains(options.command))
             switch options.command {
             case "inventory":
-                struct Inventory: Encodable { let output: DeviceInfo; let processes: [AudioProcessInfo]; let issues: [InventoryIssue] }
-                let catalog = try inventory()
-                try writeJSON(Inventory(output: device, processes: catalog.processes, issues: catalog.issues), to: options.values["--report"])
+                struct Inventory: Encodable { let output: DeviceInfo; let ownershipPolicy: OwnershipPolicy; let processes: [AudioProcessInfo]; let issues: [InventoryIssue] }
+                let catalog = try inventory(ownership: options.ownershipPolicy)
+                try writeJSON(Inventory(output: device, ownershipPolicy: options.ownershipPolicy, processes: catalog.processes, issues: catalog.issues), to: options.values["--report"])
             case "devices": try writeJSON(outputDevices(), to: options.values["--report"])
             case "app-test": try realAppSession(options, device: device)
+            case "browser-handoff-test": try browserHandoffSession(options, device: device)
+            case "quarantine-test": try quarantineSession(options, device: device)
             case "guard-test": try standaloneGuardSession(options, device: device)
             case "inspect", "self-test", "handoff-test", "relaunch-test": try session(options, device: device)
             case "tone":
@@ -335,28 +343,32 @@ func finite(_ value: Double) -> Double? { value.isFinite ? value : nil }
     }
 }
 
-@MainActor func playbackPreflight(device: DeviceInfo, playback: Playback) throws -> ProcessCatalog {
+@MainActor func playbackPreflight(device: DeviceInfo, playback: Playback, ownership: OwnershipPolicy = .enclosingApp) throws -> ProcessCatalog {
     if playback != .monitor {
         let transport = try HAL.scalar(device.id, kAudioDevicePropertyTransportType, UInt32(0))
         guard transport != kAudioDeviceTransportTypeVirtual && transport != kAudioDeviceTransportTypeAggregate else {
             throw ProbeFailure(message: "Playback diagnostics require a physical output; virtual and aggregate outputs are not validated")
         }
     }
-    let existing = try inventory()
+    let existing = try inventory(ownership: ownership)
     // Another private aggregate may hide its physical subdevice from this
     // process. Conservatively reject an active Aural/probe on any output rather
     // than risk capturing two mixers into one another.
     guard existing.issues.isEmpty || playback == .monitor else {
         throw ProbeFailure(message: "Process inventory changed during preflight; retry after audio apps settle so conflicting mixers can be checked")
     }
-    let conflicts = existing.processes.filter { process in
+    if playback != .monitor { try validatePlaybackConflicts(existing, device: device) }
+    return existing
+}
+
+func validatePlaybackConflicts(_ catalog: ProcessCatalog, device: DeviceInfo) throws {
+    let conflicts = catalog.processes.filter { process in
         let mixer = process.bundleID == "local.aural.equalizer" || process.bundleID == "local.aural.mixer-probe" ||
             process.bundleID.hasPrefix("local.aural.performance-preview")
         let eqMacOnOutput = process.bundleID == "com.bitgapp.eqmac" && process.outputDevices.contains(device.id)
         return process.pid != getpid() && process.runningOutput && (mixer || eqMacOnOutput)
     }
-    guard conflicts.isEmpty || playback == .monitor else {
+    guard conflicts.isEmpty else {
         throw ProbeFailure(message: "Another Aural/mixer is active, or eqMac is using this output. Use one diagnostic at a time after conflicting processing stops")
     }
-    return existing
 }

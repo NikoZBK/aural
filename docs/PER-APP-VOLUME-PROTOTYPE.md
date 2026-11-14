@@ -1,6 +1,6 @@
 # Per-app audio routing: initial prototype results
 
-Updated October 25, 2026. The isolated [prototype](../prototypes/macos-app-mixer/README.md) demonstrates the core multi-tap routing design on one physical output. The selected-output standby reader fixes the observed headphone-jack reconnect burst in three recorded physical reconnects with Spotify. Phase 1 remains open for the broader hardware, app-identity, scaling, and recovery gates below. Production integration has not started.
+Updated October 25, 2026. The isolated [prototype](../prototypes/macos-app-mixer/README.md) demonstrates the core multi-tap routing design. The selected-output standby reader fixes the observed headphone-jack reconnect burst in three recorded physical reconnects with Spotify. Chrome and experimental Safari helper tests now establish active capture and two live helper replacements each with volume/mute retained on the same route. Phase 1 remains open for the broader hardware, supported Safari attribution, app-identity, scaling, and recovery gates below. Production integration has not started.
 
 ## Tested setup
 
@@ -130,13 +130,63 @@ After the final reconnect, unmuting restored the retained 25% setting: measured 
 
 This closes the observed headphone-jack burst on the tested setup. Control remains tied to the selected output UID; no app-wide mute, fallback-output selection, or Spotify pause is part of recovery. Independent hardware loopback, other devices/OS versions, and production integration remain separate gates.
 
+## Safari and Chrome active-helper tests
+
+The October 25 follow-up used macOS 27.0.1, Safari **27.0.1**, and signed/notarized Google Chrome **156.0.8078.48**, with the FiiO connected to the Mac headphone jack at **48 kHz**. Chrome ran from a temporary official-vendor bundle in a Guest window; no default-browser setting, sign-in, or installed browser was replaced. Test tabs played local synthetic AAC at 431 Hz (Safari) and 1877 Hz (Chrome). The fixture uses no microphone, account, external media, or audio recording. Safari's existing Lockdown Mode remained enabled; it disabled the original Web Audio fixture, so testing used HTML media, AAC, and HTTP byte ranges instead.
+
+**Chrome:** the active Core Audio process was Chrome's AudioService helper, not its main process. Its actual enclosing application resolved to `com.google.Chrome`. Both runs below used the default enclosing-app ownership policy.
+
+**Safari:** the active audio process had bundle ID `com.apple.WebKit.GPU`. eqMac also had a distinct process with that same bundle ID. Default attribution correctly left these shared helpers unowned; a Safari `app-test` failed before opening a route. An explicitly enabled prototype experiment used the undocumented OS responsibility query, with PID/user/birth-time checks for both helper and responsible app. Read-only inventory attributed Safari's helper to Safari and eqMac's helper to eqMac independently. This is experimental evidence, **not a supported public API or a production Safari implementation**. The flag is restricted to inventory/app tests; it cannot enable shared-bundle native restoration in recovery tests.
+
+Every successful run applied 100%, 50%, 25%, mute, then 100%, with three seconds per phase and 32,768 retained frames per phase. All six gates passed: real-app samples, stable verified ownership, valid callback buffers, unity reconstruction, unchanged independent reference, and same-sample attenuation/mute.
+
+| Run | Rendered frames | Maximum callback | Result |
+| --- | --- | --- | --- |
+| Chrome active audio helper | 720,896 | 111.041 µs | All five levels match |
+| Chrome replacement helper, fresh session | 721,920 | 104.375 µs | All five levels match |
+| Safari experimental ownership, Chrome also playing | 720,896 | 278.875 µs | Safari levels match; Remaining samples retain unity contribution |
+| Safari replacement helper, fresh session, Chrome still playing | 720,896 | 166.875 µs | All five levels match |
+
+Across these runs, maximum absolute gain error was below `5.6e-10`, maximum normalized render error below `6.1e-8`, and maximum relative unity reconstruction error below `1.18e-7`. Invalid buffers and nonfinite rendered samples were zero. The largest callback observed was 0.279 ms against the 10.667 ms buffer period; this is not a worst-case scheduling guarantee. These are callback/sample measurements; no new headphone listening confirmation or independent hardware loopback was obtained.
+
+### Controlled helper exit and regrouping
+
+One active Chrome AudioService helper and one active Safari-owned WebKit GPU helper were terminated individually during their respective test runs, only after verifying the exact current test-owned process. Neither browser main process nor eqMac's shared WebKit helper was targeted. Each diagnostic detected the changed/empty verified process group during playback, returned a nonzero exit and explicit ownership-change report, and completed cleanup without a reported teardown failure. The schema-version-2 reports retain initial/latest groups even when no complete measurement is available. Identity checks run on the control thread at intervals up to 250 ms; they do not run in the C audio callback.
+
+Both browser main processes stayed alive. Chrome's interrupted test tab did not recover playback on reload; a fresh Guest tab created a replacement audio helper. Safari reloaded its test page and created a replacement GPU helper. Each replacement had a new PID and birth identity, and the fresh-session runs above passed. Safari's replacement reused a previously observed HAL object number, reinforcing why object number alone is not identity. This establishes safe diagnostic abort and successful fresh-session regrouping. It does **not** retain gain/mute continuously across helper replacement; after teardown normal direct playback is released.
+
+Offline ownership tests cover same-user/lifetime checks, helper and owner exits, PID-reuse fixtures, unknown attribution, duplicate HAL objects, and separating Safari from eqMac despite their shared helper bundle ID. Native PID reuse was not forced. The C sanitizer suite, Swift recovery tests, ownership tests, diagnostic build, and local bundle-signature checks passed. A reproducible loopback fixture is included in `scripts/browser-audio.py`; page, AAC generation, byte-range, HEAD, event, and invalid-path/range smoke checks passed.
+
+All browser tones and diagnostic source processes were stopped, owned test tabs/temporary browsers closed, and the local fixture server stopped. Spotify playback, eqMac's saved FiiO F1 preset/−6.5 dB preamp/47% level, Aural's stopped state, and its original saved output/settings were restored. Hardware headphone/speaker volume and mute values matched the pre-test readings. Raw identifiers/reports remain local; no production source or installed Aural binary was changed.
+
+### Live helper handoff with retained controls
+
+The follow-up keeps the same callback, C engine, and gain state alive across helper replacements. The earlier `app-test` still deliberately aborts on churn; the new `browser-handoff-test` exercises live reassignment. Both use the same verified birth/owner identities. On the same FiiO jack/macOS/browser setup above, two actual helper replacements per browser passed without another route Start or a fresh diagnostic session.
+
+**Prevent the discovery gap from reaching unity playback.** A catch-all Remaining lane would replay a new helper at full gain before attribution. The handoff route instead uses an explicit other-process list and actively reads its device-scoped global reference with `.mutedWhenTapped`. The reference blocks direct playback on the selected output and is never replayed. Unknown arrivals cannot enter the rendered mix until classified; positively attributed browser helpers join the app lane with its unchanged gain, and other sources enter the unity lane. Existing peers continue playing. All taps retain the same selected physical UID. There is no app-wide guard on speakers or other outputs.
+
+Native bundle restoration is disabled on this path. Apple's [restoration API](https://developer.apple.com/documentation/coreaudio/catapdescription/isprocessrestoreenabled) matches bundle IDs after exit, which is insufficient to separate the shared WebKit helper identities. The control thread instead clears the previous app binding and attaches each verified replacement. Unresolved possible browser helpers remain withheld; attribution timeout, output/format changes, competing processors, or stream-map uncertainty fail explicitly. This can introduce a short wait for a new source and does not promise seamless media-service recovery inside the browser.
+
+| Browser session | Helper replacements | Retained controls | Rendered frames | Maximum callback |
+| --- | --- | --- | --- | --- |
+| Chrome | 2 | 25% → mute → replacement remains muted → unmute returns to 25% → second replacement stays at 25% | 3,758,592 | 126.833 µs |
+| Safari, experimental attribution; Chrome remains a unity peer | 2 | 50% → mute → replacement remains muted → unmute returns to 50% → change to 25% during second restart → replacement begins at 25% | 6,353,408 | 328.041 µs |
+
+Both reports passed every live-handoff gate, with **zero invalid buffers and zero nonfinite samples**. Each original/replacement group had a complete 32,768-frame same-sample capture beginning at its first nonzero app-lane sample. Every completed control-edit window passed too. Across all ten completed windows, maximum absolute gain error was below `3.8e-10` and maximum normalized render error below `5.1e-8`; the independent 997 Hz peer remained present. A control-edit window superseded while Safari's helper was absent was not represented as a completed measurement. Safari resumed its fixture automatically after GPU helper exit. Chrome needed a new Guest fixture tab after AudioService exit; its browser and the diagnostic stayed running.
+
+**Deliberately delayed assignment:** a separate `quarantine-test` started a 2467 Hz synthetic process only after the route's explicit lists were established and held it unassigned for the capture window. Its reference amplitude was `0.00499608645`; its rendered contribution was `4.7818e-12`. After assignment to the existing app lane, observed gain was `0.2499999999587`, with normalized render error `1.97e-8`. All quarantine, assignment, buffer, and cleanup gates passed. This tests the undiscovered-source interval directly rather than treating fast attribution as protection.
+
+The C callback was unchanged; process discovery, explicit partition updates, and JSON controls remain outside it. Regression checks cover unknown shared helpers, unaffected peers, missing/replacement groups, object/PID reuse fixtures, and retained mute/volume. Sanitizers, recovery/ownership checks, final diagnostic build and local signatures passed. Stop/Finish released the guarded route and reference source. Both browsers/owned fixtures and the loopback server were closed. The original Aural settings matched as JSON, EQ was stopped, Spotify remained paused as at the start of this follow-up, and eqMac/FiiO levels and hardware mute flags were restored.
+
+These are native captured-input/render measurements. They do not independently verify physical loopback or absence of every audible transition artifact. No new headphone listening confirmation was obtained. Safari still requires the explicitly enabled undocumented responsibility query; broader races, OS versions, outputs, and production integration remain separate gates.
+
 ## Gates still required before product integration
 
 - Quantitative hardware loopback and broader direct-playback/duplication checks. Spotify/Bose listening and gain/mute checks above passed; the report's rendered samples are still not an independent hardware recording. End-to-end latency is unmeasured.
-- Browser playback with active helper audio, helper churn, real-app exit/restart races, and PID/object reuse. Spotify/Bose with a stable main/idle-helper group passed. Inventory resolves enclosing application paths where available and leaves ambiguous owners unattributed.
+- Broader live-helper races (rapid repeated churn, app exit/restart, competing sources), native PID/object reuse, physical-output transition measurements, and a supported Safari attribution strategy. The four live browser replacements and deliberately unassigned-source checks above passed; the Safari policy remains an opt-in private-API experiment. Unknown possible target helpers stay withheld until attributed.
 - Other Bluetooth rates/devices, USB outputs, native hardware input exclusion, format changes, sleep/wake, and permission failures. Bose at 44.1 kHz and its original clean-stop/fresh-session reconnect passed; automatic recovery has a headphone-jack hardware result above, with broader Bluetooth recovery still pending. Offline planar/stereo and input-exclusion tests do not replace broader hardware coverage.
 - Capacity/resource measurements across more active and idle apps. The C engine is bounded to eight lanes, but the native result covers four taps, including the comparison reference.
 - Fault-injected lifecycle teardown and stale completion tests before integrating with Aural's existing route coordinator. Preserve the uncommitted disconnect-recovery work as the explicit integration baseline.
 - Existing EQ/stereo/bypass/limiter equivalence, the app-volume preference store, accessible mixer UI, performance audit, full Aural suite, and universal release validation in their later planned phases.
 
-Next are broader recovery validation, active browser-helper churn coverage, capacity/resource measurements, additional outputs, and production recovery integration. The selected-output reader closes the observed FiiO reconnect leak above; the synthetic, Spotify/Bose, and FiiO results do not close the remaining gates.
+Next are the Safari ownership decision, broader helper/recovery races, capacity/resource measurements, additional outputs, and production recovery integration. The selected-output reader closes the observed FiiO reconnect leak above; the synthetic, Spotify/Bose, FiiO, and browser results do not close the remaining gates.

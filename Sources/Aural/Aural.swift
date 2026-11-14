@@ -26,6 +26,9 @@ struct AuralApp: App {
         Window("Preset library", id: "presets") { PresetLibraryView(model: model).auralZoom(model).background(WindowRegistration()) }
             .defaultSize(width: 800, height: 580)
             .windowResizability(.contentMinSize)
+        Window("App mixer", id: "apps") {
+            AppMixerWindow(model: model).background(WindowRegistration())
+        }.defaultSize(width: 720, height: 560).windowResizability(.contentMinSize)
         Window("AutoEQ profiles", id: "autoeq") { AutoEQBrowserView(model: model).auralZoom(model).background(WindowRegistration()) }
             .defaultSize(width: 880, height: 700)
             .windowResizability(.contentMinSize)
@@ -47,7 +50,13 @@ struct AuralApp: App {
     private var themeSubscription: AnyCancellable?
 
     override init() {
+        #if DEBUG
+        let previewSettings = Bundle.main.bundleIdentifier == "local.aural.integration-preview"
+            ? (Bundle.main.object(forInfoDictionaryKey: "AuralPreviewSettings") as? String).map { URL(fileURLWithPath: $0) } : nil
+        let model = Model(settingsFile: previewSettings)
+        #else
         let model = Model()
+        #endif
         self.model = model
         icon = AppIconController(running: model.$running.eraseToAnyPublisher(), bypass: model.$bypass.eraseToAnyPublisher()) { [weak model] message in
             model?.error = message
@@ -60,7 +69,7 @@ struct AuralApp: App {
         themeSubscription = model.$theme.sink { NSApp.appearance = $0.appearance }
         icon.startUpdatingApplicationIcon()
         #if !AURAL_TESTING
-        UpdateChecker.shared.start()
+        if Bundle.main.bundleIdentifier == "local.aural.equalizer" { UpdateChecker.shared.start() }
         #endif
     }
 
@@ -69,6 +78,16 @@ struct AuralApp: App {
     func applicationDidBecomeActive(_ notification: Notification) { model.refreshLoginStatus() }
 
     func applicationWillTerminate(_ notification: Notification) { model.stop() }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task { @MainActor [model] in
+            // Quit, logout and update relaunch must never be refused: an edit that
+            // could not be saved was already reported when it was made.
+            do { try await model.appMixer.flush() }
+            catch { AuralLog.lifecycle.error("App levels were not saved before quitting: \(AuralLog.describe(error), privacy: .public)") }
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
 }
 
 struct AuralCommands: Commands {
@@ -105,6 +124,8 @@ struct AuralCommands: Commands {
             Divider()
             Button("Preset library…") { openWindow.showAuralWindow("presets") }.help(AuralHelp.presetLibrary)
                 .keyboardShortcut("p", modifiers: [.command, .shift])
+            Button("App mixer…") { if submitPendingInput() { openWindow.showAuralWindow("apps") } }.help(AuralHelp.appMixer)
+                .keyboardShortcut("m", modifiers: [.command, .shift])
         }
         CommandGroup(replacing: .appInfo) {
             Button("About Aural") { openWindow.showAuralWindow("about") }.help(AuralHelp.about)
@@ -138,7 +159,8 @@ struct MenuBarControls: View {
     @ObservedObject var model: Model
     @Environment(\.openWindow) private var openWindow
     var body: some View {
-        Button(model.running || model.waitingForOutput ? "Stop equalization" : "Start equalization") { model.toggleProcessing() }.help(AuralHelp.processing(model.running || model.waitingForOutput))
+        Button(model.running || model.waitingForOutput || model.starting ? "Stop EQ" : "Start EQ") { model.toggleProcessing() }.help(AuralHelp.processing(model.running || model.waitingForOutput || model.starting))
+        Button("App mixer…") { openWindow.showAuralWindow("apps") }.help(AuralHelp.appMixer)
         Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput)).help(AuralHelp.followOutput)
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass)).help(AuralHelp.bypass)
         if let band = model.soloBand { Button("End solo of band \(band + 1)") { model.setSolo(nil) }.help("Play the whole EQ again.") }

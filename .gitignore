@@ -4,6 +4,7 @@ dist/
 *.dSYM/
 *.xcuserstate
 xcuserdata/
+.idea/
 # User data is never part of this project or a release.
 settings.json
 presets/

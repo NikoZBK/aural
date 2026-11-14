@@ -1,0 +1,151 @@
+name: AuralIOS
+options:
+  deploymentTarget:
+    iOS: "27.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CLANG_ENABLE_OBJC_ARC: YES
+    CLANG_ENABLE_MODULES: YES
+    CLANG_ENABLE_OBJC_WEAK: YES
+    GCC_C_LANGUAGE_STANDARD: c11
+    OTHER_CFLAGS: ["$(inherited)", "-fblocks"]
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.2.0"
+    CURRENT_PROJECT_VERSION: "15"
+    AURAL_DIAGNOSTIC_RECEIVER_IPV4: ""
+    HEADER_SEARCH_PATHS: ["$(inherited)", "$(SRCROOT)/../prototypes/ios-route/Shared", "$(SRCROOT)/../Sources/DSP/include"]
+    SWIFT_INCLUDE_PATHS: ["$(SRCROOT)/../Sources/DSP/include"]
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+  configs:
+    Debug:
+      GCC_PREPROCESSOR_DEFINITIONS: ["$(inherited)", "DEBUG=1"]
+targets:
+  Aural:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Core
+      - Assets.xcassets
+      - ../prototypes/ios-route/Shared
+      - path: ../prototypes/ios-route/Receiver/ProbeAudio.swift
+      - path: ../prototypes/ios-route/Receiver/ProbeRenderer.c
+      - path: ../prototypes/ios-route/Receiver/SourceNode.m
+      - path: ../Sources/DSP/DSP.c
+      - path: ../Sources/Aural/Profile.swift
+      - path: ../Sources/Aural/ProfileDSP.swift
+      - path: ../Sources/Aural/GraphicEQ.swift
+      - path: ../Sources/Aural/FilterDraft.swift
+      - path: ../Sources/Aural/PresetLibrary.swift
+      - path: ../Sources/Aural/AutoEQ.swift
+      - path: ../Sources/Aural/AutoEQCatalog.swift
+      - path: ../Sources/Aural/Headroom.swift
+      - path: ../Sources/Aural/LevelMatch.swift
+      - path: ../Sources/Aural/ResponseAnalysis.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.aural.route-probe.receiver
+        INFOPLIST_FILE: Configuration/Receiver.plist
+        SWIFT_OBJC_BRIDGING_HEADER: ../prototypes/ios-route/Receiver/Bridging-Header.h
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - sdk: AVFoundation.framework
+      - sdk: MediaPlayer.framework
+      - sdk: AudioToolbox.framework
+  AuralRoute:
+    type: application
+    platform: iOS
+    sources: [Provider, Assets.xcassets]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.aural.route-probe.provider
+        INFOPLIST_FILE: Configuration/Provider.plist
+        CODE_SIGN_ENTITLEMENTS: Configuration/Provider.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: AuralRouteExtension
+        embed: true
+        codeSign: true
+  AuralRouteExtension:
+    type: extensionkit-extension
+    platform: iOS
+    sources: [../prototypes/ios-route/Extension, ../prototypes/ios-route/Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.aural.route-probe.provider.extension
+        INFOPLIST_FILE: Configuration/Extension.plist
+        CODE_SIGN_ENTITLEMENTS: Configuration/Extension.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: ../prototypes/ios-route/Extension/Bridging-Header.h
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - sdk: MediaDevice.framework
+      - sdk: CoreAudio.framework
+      - sdk: AudioToolbox.framework
+      - sdk: Network.framework
+      - sdk: ExtensionFoundation.framework
+  AuralPreview:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - App
+      - Core
+      - Assets.xcassets
+      - Preview
+      - path: ../Sources/DSP/DSP.c
+      - path: ../Sources/Aural/Profile.swift
+      - path: ../Sources/Aural/ProfileDSP.swift
+      - path: ../Sources/Aural/GraphicEQ.swift
+      - path: ../Sources/Aural/FilterDraft.swift
+      - path: ../Sources/Aural/PresetLibrary.swift
+      - path: ../Sources/Aural/AutoEQ.swift
+      - path: ../Sources/Aural/AutoEQCatalog.swift
+      - path: ../Sources/Aural/Headroom.swift
+      - path: ../Sources/Aural/LevelMatch.swift
+      - path: ../Sources/Aural/ResponseAnalysis.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.aural.ui-preview
+        INFOPLIST_FILE: Configuration/Receiver.plist
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: ["$(inherited)", "AURAL_UI_PREVIEW"]
+        CODE_SIGNING_ALLOWED: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - sdk: CoreAudio.framework
+  AuralPreviewUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources: [UITests]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.aural.ui-preview.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: NO
+        TEST_TARGET_NAME: AuralPreview
+    dependencies:
+      - target: AuralPreview
+schemes:
+  Aural:
+    build:
+      targets:
+        Aural: all
+        AuralRoute: all
+    run:
+      executable: Aural
+      config: Debug
+  AuralPreview:
+    build:
+      targets:
+        AuralPreview: all
+    run:
+      executable: AuralPreview
+      config: Debug
+    test:
+      targets: [AuralPreviewUITests]

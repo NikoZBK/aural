@@ -16,7 +16,7 @@ enum AuralHelp {
     static let exportEQ = "Save the current EQ as an Equalizer APO text file."
     static let presetLibrary = "Search, organize, and back up presets (⇧⌘P)."
     static let autoEQ = "Search online headphone correction profiles and preview them before importing."
-    static let appMixer = "Open per-app volume and mute (⌥⌘M)."
+    static let appMixer = "Open per-app volume and mute (⇧⌘M)."
     static let about = "Show Aural's version, credits, and project links."
     static let updates = "Open software updates and check for a newer version of Aural."
     static let shortcuts = "Show keyboard shortcuts for editing, playback controls, zoom, and windows."

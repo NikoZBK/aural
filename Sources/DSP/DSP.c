@@ -617,10 +617,12 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
     hold_maximum(&eq->meterPeak,peak);
     hold_maximum(&eq->meterReduction,minimumGain<1 ? (float)(-20*log10(minimumGain)) : 0);
 }
+#if TARGET_OS_OSX
 OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp *now, const AudioBufferList *input,
     const AudioTimeStamp *inputTime, AudioBufferList *output, const AudioTimeStamp *outputTime, void *context) {
     eq_process(context,input,output); return noErr;
 }
+#endif
 float eq_peak(EQ *eq) { return atomic_load_explicit(&eq->peak,memory_order_relaxed); }
 unsigned eq_latency(const EQ *eq) { return eq->limiter.latency; }
 EQMeter eq_read_meter(EQ *eq) {
@@ -630,6 +632,7 @@ EQMeter eq_read_meter(EQ *eq) {
 }
 unsigned eq_faults(EQ *eq) { return atomic_load_explicit(&eq->faults,memory_order_relaxed); }
 unsigned eq_signal_faults(EQ *eq) { return atomic_load_explicit(&eq->signalFaults,memory_order_relaxed); }
+#if TARGET_OS_OSX
 OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID proc, unsigned count) {
     if (!count) return kAudioHardwareIllegalOperationError;
     size_t size=offsetof(AudioHardwareIOProcStreamUsage,mStreamIsOn)+count*sizeof(UInt32);
@@ -641,6 +644,7 @@ OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID proc, uns
     OSStatus result=AudioObjectSetPropertyData(device,&address,0,NULL,(UInt32)size,usage);
     free(usage); return result;
 }
+#endif
 static double response_gain(Coeff a, double c1, double s1, double c2, double s2) {
     double nr=a.b0+a.b1*c1+a.b2*c2, ni=-a.b1*s1-a.b2*s2;
     double dr=1+a.a1*c1+a.a2*c2, di=-a.a1*s1-a.a2*s2;

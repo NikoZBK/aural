@@ -18,6 +18,8 @@ struct MainView: View {
     @State private var inspectorFaded = false
     @State private var controlsFaded = false
     @State private var placementTask: Task<Void, Never>?
+    // Beside the rail, a side inspector needs room for itself and a readable curve.
+    @State private var sideFits = true
     @StateObject private var submissions = PrecisionSubmissionCoordinator()
 
     // Keep the existing persisted preference: it now controls the inspector,
@@ -25,14 +27,14 @@ struct MainView: View {
     private var detailsVisible: Bool { model.interfaceMode == .professional }
     private var status: String {
         if let band = model.soloBand { return "Solo · band \(band + 1)" }
-        return model.running ? (model.bypass ? "Bypassed" : "EQ active") : (model.waitingForOutput ? "Waiting" : "EQ stopped")
+        return model.running ? (model.bypass ? "Bypassed" : "EQ active") : (model.starting ? "Starting" : (model.waitingForOutput ? "Waiting" : "EQ stopped"))
     }
     private var statusSymbol: String {
         if model.soloBand != nil { return "headphones" }
-        return model.running ? (model.bypass ? "arrow.turn.up.right" : "checkmark.circle.fill") : (model.waitingForOutput ? "hourglass" : "stop.circle")
+        return model.running ? (model.bypass ? "arrow.turn.up.right" : "checkmark.circle.fill") : (model.starting ? "ellipsis.circle" : (model.waitingForOutput ? "hourglass" : "stop.circle"))
     }
     /// A wait keeps EQ on: Stop cancels it, as it would stop running audio.
-    private var processingOn: Bool { model.running || model.waitingForOutput }
+    private var processingOn: Bool { model.running || model.waitingForOutput || model.starting }
     /// Layout changes that move whole surfaces share one animation at the workspace
     /// level, so the curve, controls, and inspector stay in step with each other.
     private var workspaceMotion: WorkspaceMotion {
@@ -40,7 +42,7 @@ struct MainView: View {
                         notices: [model.startupNotice, model.error, model.importNotice])
     }
     private var targetPlacement: InspectorPlacement {
-        InspectorPlacement(visible: detailsVisible, side: detailsVisible && model.filterPanelPosition == .right)
+        InspectorPlacement(visible: detailsVisible, side: detailsVisible && sideFits && model.filterPanelPosition == .right)
     }
     private var placement: InspectorPlacement { shownPlacement ?? targetPlacement }
     // This view applies zoom to its own body, so the environment above it still reads 1.
@@ -56,14 +58,12 @@ struct MainView: View {
     var body: some View {
         GeometryReader { geometry in
             let logicalWidth = geometry.size.width / model.interfaceZoom.scale
-            VStack(spacing: 0) {
-                header(compact: logicalWidth < 820)
+            HStack(spacing: 0) {
+                rail
+                    .auralFrame(width: logicalWidth < 780 ? 232 : 248)
                     .background { AuralChromeBackground() }
-                    .auralPadding(.horizontal, 12).auralPadding(.top, 8)
-                workspace(compact: logicalWidth < 720).auralFrame(maxWidth: .infinity, maxHeight: .infinity)
-                footer(compact: logicalWidth < 960)
-                    .background { AuralChromeBackground() }
-                    .auralPadding(.horizontal, 12).auralPadding(.bottom, 8)
+                    .auralPadding([.leading, .vertical], 12)
+                workspace.auralFrame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .auralZoom(model)
@@ -80,55 +80,73 @@ struct MainView: View {
         }
     }
 
-    private func header(compact: Bool) -> some View {
-        let layout = compact ? AnyLayout(VStackLayout(spacing: 10 * interfaceScale)) : AnyLayout(HStackLayout(spacing: 24 * interfaceScale))
-        return layout {
-            HStack(spacing: 18 * interfaceScale) {
+    /// Everything about listening lives in one rail, top to bottom in signal order:
+    /// power, where the audio goes, the sound that shapes it, how to audition it, and
+    /// the level leaving Aural. Each group keeps its own actions, so nothing has to be
+    /// looked for in a different bar. The rail scrolls when zoom leaves it short.
+    private var rail: some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 8 * interfaceScale) {
                 HStack(spacing: 8 * interfaceScale) {
-                    if let image = icon.image { Image(nsImage: image).resizable().auralFrame(width: 28, height: 28).accessibilityHidden(true) }
-                    Text("Aural").auralFont(size: 18, weight: .bold, design: .rounded)
-                }.fixedSize()
-                Divider().auralFrame(height: 28)
-                OutputSelection(model: model, submissions: submissions, compact: true)
-                    .auralFrame(minWidth: 190, maxWidth: 310)
-                Spacer(minLength: 0)
-            }
-            // A hairline marks the transport section, as on a console's channel strip.
-            if !compact { Divider().auralFrame(height: 28) }
-            listeningControls
-                .fixedSize(horizontal: !compact, vertical: true)
-        }.auralPadding(.horizontal, 20).auralPadding(.vertical, 12)
+                    if let image = icon.image { Image(nsImage: image).resizable().auralFrame(width: 24, height: 24).accessibilityHidden(true) }
+                    statusLabel
+                    Spacer(minLength: 0)
+                    Button { showStartup.toggle() } label: { Image(systemName: "gearshape") }
+                        .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, output, startup, About, and updates")
+                        .popover(isPresented: $showStartup) { StartupSettings(model: model).auralZoom(model) }
+                }
+                transport
+                Divider()
+                VStack(alignment: .leading, spacing: 8 * interfaceScale) {
+                    OutputSelection(model: model, submissions: submissions, captioned: false)
+                    // App levels belong to the output they play on.
+                    Button { if submitPendingInput() { openWindow.showAuralWindow("apps") } } label: {
+                        Label("App volumes", systemImage: "slider.horizontal.3").auralFrame(maxWidth: .infinity)
+                    }.buttonStyle(AuralButtonStyle()).accessibilityLabel("Open app mixer")
+                        .help("Open per-app volume and mute for this output (⇧⌘M)")
+                }
+                Divider()
+                soundSection
+                Divider()
+                compareSection
+                Divider()
+                VStack(alignment: .leading, spacing: 7 * interfaceScale) {
+                    AuralSectionLabel(title: "Tone & level", systemImage: "dial.medium")
+                    PreampControls(model: model, submissions: submissions, compact: true)
+                    TiltControls(model: model, submissions: submissions)
+                    LoudnessControls(model: model)
+                    StudioMeter(meter: model.meter, running: model.running,
+                                protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
+                                compact: true)
+                }
+            }.auralPadding(.horizontal, 14).auralPadding(.vertical, 10)
+        }
     }
 
-    private var listeningControls: some View {
-        AuralEquatableContent(key: ListeningControlsKey(status: status, matching: model.matchLevels, bypass: model.bypass,
-                                                        processing: processingOn, selected: model.selected != nil,
-                                                        settings: showStartup, scale: interfaceScale)) {
-        HStack(spacing: 12 * interfaceScale) {
+    private var transportKey: TransportKey {
+        TransportKey(status: status, symbol: statusSymbol, warning: model.running && (model.bypass || model.soloBand != nil),
+                     processing: processingOn, selected: model.selected != nil, solo: model.soloBand != nil, scale: interfaceScale)
+    }
+
+    private var statusLabel: some View {
+        AuralEquatableContent(key: transportKey) {
             Label {
                 Text(status).contentTransition(.interpolate)
             } icon: {
                 Image(systemName: statusSymbol).auralSymbolTransition()
             }
-                .auralFont(size: 11, weight: .medium)
+                .auralFont(size: 12, weight: .semibold)
                 .foregroundStyle(model.running && (model.bypass || model.soloBand != nil) ? AuralStyle.warning : Color.primary)
-                .fixedSize()
+                .lineLimit(1)
                 .accessibilityIdentifier("processing-status")
                 .help(AuralHelp.signalPath + " Waiting means audio resumes on the saved output. Solo plays only one band's part of the spectrum.")
-            Spacer(minLength: 12 * interfaceScale)
-            if model.soloBand != nil {
-                Button("End solo") { if submitPendingInput() { withAuralAnimation { model.setSolo(nil) } } }
-                    .buttonStyle(AuralButtonStyle()).help("Play the whole EQ again")
-            }
-            // Beside Bypass, which it affects with A/B.
-            Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
-                .toggleStyle(.checkbox).auralControlSize(.small).auralFont(size: 11).fixedSize()
-                .help("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
-            Toggle("Bypass", isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } }))
-                .toggleStyle(.button).auralControlSize(.small)
-                .help(model.matchLevels
-                      ? "Bypass EQ, preamp, and stereo effects at the EQ's estimated loudness. Routing stays active; peak protection follows its On/Off switch."
-                      : "Bypass EQ, preamp, and stereo effects. Routing stays active; peak protection follows its On/Off switch.")
+                .auralAnimation(AuralMotion.quick, value: [model.running, model.bypass, model.waitingForOutput, model.soloBand != nil])
+        }.equatable()
+    }
+
+    private var transport: some View {
+        AuralEquatableContent(key: transportKey) {
+        VStack(alignment: .leading, spacing: 8 * interfaceScale) {
             Button {
                 model.toggleProcessing(submitPendingInput: submitPendingInput)
             } label: {
@@ -137,19 +155,99 @@ struct MainView: View {
                 } icon: {
                     Image(systemName: processingOn ? "stop.fill" : "play.fill").auralSymbolTransition()
                 }
-                    .auralFrame(minWidth: 78)
+                    .auralFrame(maxWidth: .infinity)
             }.buttonStyle(AuralButtonStyle(prominent: !processingOn)).disabled(model.selected == nil && !processingOn)
                 .help(AuralHelp.processing(processingOn))
-            Button { showStartup.toggle() } label: { Image(systemName: "gearshape") }
-                .buttonStyle(AuralButtonStyle()).accessibilityLabel("Settings").help("Appearance, output, startup, About, and updates")
-                .popover(isPresented: $showStartup) { StartupSettings(model: model).auralZoom(model) }
-        }.fixedSize(horizontal: false, vertical: true)
-            .auralAnimation(AuralMotion.quick, value: [model.running, model.bypass, model.waitingForOutput, model.soloBand != nil])
+            if model.soloBand != nil {
+                Button { if submitPendingInput() { withAuralAnimation { model.setSolo(nil) } } } label: {
+                    Text("End solo").auralFrame(maxWidth: .infinity)
+                }.buttonStyle(AuralButtonStyle()).help("Play the whole EQ again")
+            }
+        }.auralAnimation(AuralMotion.quick, value: [model.running, model.soloBand != nil])
         }.equatable()
     }
 
-    private func workspace(compact: Bool) -> some View {
+    private var soundSection: some View {
+        VStack(alignment: .leading, spacing: 7 * interfaceScale) {
+            HStack(spacing: 8 * interfaceScale) {
+                AuralSectionLabel(title: "Sound", systemImage: "waveform")
+                Spacer(minLength: 0)
+                if model.isPresetModified {
+                    Label("Edited", systemImage: "pencil").auralFont(size: 10)
+                        .foregroundStyle(AuralStyle.secondary)
+                        .help("The current EQ differs from the saved preset. Save to keep a named copy.")
+                        .transition(.auralPop(reduceMotion: reduceMotion))
+                }
+            }
+            PresetSelection(model: model, submissions: submissions)
+            AuralEquatableContent(key: interfaceScale) {
+                VStack(alignment: .leading, spacing: 8 * interfaceScale) {
+                    HStack(spacing: 8 * interfaceScale) {
+                        SavePresetButton(model: model, submissions: submissions)
+                        Button { if submitPendingInput() { openWindow.showAuralWindow("presets") } } label: {
+                            Label("Presets", systemImage: "square.stack").auralFrame(maxWidth: .infinity)
+                        }.buttonStyle(AuralButtonStyle())
+                            .accessibilityLabel("Open preset library")
+                            .help("Search, organize, and back up presets (⇧⌘P)")
+                    }
+                    HStack(spacing: 12 * interfaceScale) {
+                        Button { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } } label: {
+                            Label("AutoEQ", systemImage: "headphones").foregroundStyle(AuralStyle.violet)
+                        }.buttonStyle(AuralButtonStyle())
+                            .help("Search online headphone correction profiles")
+                        EQFileMenu(model: model, submissions: submissions)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }.equatable()
+        }.auralAnimation(AuralMotion.quick, value: model.isPresetModified)
+    }
+
+    /// Auditioning: the two EQ versions, the unprocessed sound, and the loudness
+    /// matching that keeps the comparison fair.
+    private var compareSection: some View {
+        AuralEquatableContent(key: CompareKey(comparison: model.comparisonSlot, matching: model.matchLevels, bypass: model.bypass,
+                                              scale: interfaceScale, revision: selectionRevision)) {
+        VStack(alignment: .leading, spacing: 7 * interfaceScale) {
+            HStack(spacing: 8 * interfaceScale) {
+                AuralSectionLabel(title: "Compare", systemImage: "arrow.left.arrow.right")
+                Spacer(minLength: 0)
+                Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
+                    .toggleStyle(.checkbox).auralControlSize(.small).auralFont(size: 11).fixedSize()
+                    .help("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
+            }
+            HStack(spacing: 8 * interfaceScale) {
+                Picker("A/B comparison", selection: Binding(get: { model.comparisonSlot }, set: { slot in
+                    if submitPendingInput() { withAuralAnimation { model.selectComparison(slot) } }
+                    selectionRevision += 1
+                })) {
+                    Text("A").tag(ComparisonSlot.a)
+                    Text("B").tag(ComparisonSlot.b)
+                }.pickerStyle(.segmented).labelsHidden().auralFrame(width: 76).transition(.identity).id(selectionRevision)
+                    .help(model.matchLevels
+                          ? "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback. The louder version plays lower so both match."
+                          : "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback.")
+                Toggle("Bypass", isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } }))
+                    .toggleStyle(.button).auralControlSize(.small)
+                    .help(model.matchLevels
+                          ? "Bypass EQ, preamp, and stereo effects at the EQ's estimated loudness. Routing stays active; peak protection follows its On/Off switch."
+                          : "Bypass EQ, preamp, and stereo effects. Routing stays active; peak protection follows its On/Off switch.")
+                Spacer(minLength: 0)
+                Menu {
+                    Button("Copy current to other comparison slot") { if submitPendingInput() { withAuralAnimation { model.copyComparisonToOther() } } }.help("Replace the other A/B slot with the current EQ.")
+                    Button("Reset both comparisons to current EQ") { if submitPendingInput() { withAuralAnimation { model.captureComparison() } } }.help("Replace both A/B comparison slots with the current EQ.")
+                } label: { Image(systemName: "ellipsis") }
+                    .auralMenuButton().fixedSize()
+                    .accessibilityLabel("Comparison options").help("Copy or reset the A/B comparison slots")
+            }
+        }
+        }.equatable()
+    }
+
+    private var workspace: some View {
         GeometryReader { geometry in
+            let logicalWidth = geometry.size.width / interfaceScale - 24
+            let fits = logicalWidth >= 620
             let sidePanel = placement.side
             let detailsShown = placement.visible
             let panelWidth = AuralWorkspaceLayout.sidePanelWidth(in: geometry.size.width - 24 * interfaceScale, scale: interfaceScale)
@@ -161,32 +259,7 @@ struct MainView: View {
                 AuralWorkspaceLayout(availableHeight: max(0, geometry.size.height - 24 * interfaceScale),
                                      minimumInspectorHeight: minimumInspectorHeight,
                                      sidePanelWidth: sidePanel ? panelWidth : nil, scale: interfaceScale) {
-                    let toolbarLayout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12 * interfaceScale)) : AnyLayout(HStackLayout(alignment: .top, spacing: 20 * interfaceScale))
-                    toolbarLayout {
-                        let presetLayout = compact ? AnyLayout(HStackLayout(spacing: 12 * interfaceScale)) : AnyLayout(VStackLayout(alignment: .leading, spacing: 8 * interfaceScale))
-                        presetLayout {
-                            HStack(spacing: 8 * interfaceScale) {
-                                AuralSectionLabel(title: "YOUR SOUND")
-                                if !compact {
-                                    Text("· \(model.profile.filters?.count ?? model.profile.gains.count) filters · \(model.profile.stereoSettings == StereoSettings() ? "Stereo neutral" : "Stereo adjusted")")
-                                        .auralFont(size: 11).foregroundStyle(AuralStyle.secondary).lineLimit(1)
-                                }
-                                if model.isPresetModified {
-                                    Label("Edited", systemImage: "pencil").auralFont(size: 10)
-                                        .foregroundStyle(AuralStyle.secondary)
-                                        .help("The current EQ differs from the saved preset. Save to keep a named copy.")
-                                        .transition(.auralPop(reduceMotion: reduceMotion))
-                                }
-                            }
-                            HStack(spacing: 8 * interfaceScale) {
-                                PresetSelection(model: model, submissions: submissions)
-                                SavePresetButton(model: model, submissions: submissions)
-                            }
-                        }
-                        workspaceActions(compact: compact)
-                            .auralFrame(maxWidth: .infinity, alignment: .trailing)
-                    }.auralAnimation(AuralMotion.quick, value: model.isPresetModified)
-                        .auralWorkspaceSurface(padding: 14)
+                    editBar(compact: logicalWidth < 430)
                     VStack { SessionNotices(model: model) }
                     ResponseCurve(profile: model.profile, rate: model.responseRate, bypass: model.bypass, running: model.running,
                                   levelMatch: model.levelMatch, comparisonProfile: model.otherComparisonProfile, selectedBand: detailsVisible ? selectedBand : nil,
@@ -203,7 +276,7 @@ struct MainView: View {
                     Color.clear.auralWorkspaceSurface(padding: 0)
                         .allowsHitTesting(false).accessibilityHidden(true)
                         .auralRelocation(sidePanel, hidden: controlsFaded)
-                    let inspectorToolbar = sidePanel && panelWidth / interfaceScale < 480
+                    let inspectorToolbar = (sidePanel ? panelWidth / interfaceScale : logicalWidth) < 480
                         ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10 * interfaceScale))
                         : AnyLayout(HStackLayout(spacing: 12 * interfaceScale))
                     inspectorToolbar {
@@ -272,34 +345,27 @@ struct MainView: View {
             }.clipped()
                 .auralAnimation(value: workspaceMotion)
                 .onAppear {
-                    shownPlacement = targetPlacement
-                    inspectorFaded = !targetPlacement.visible
+                    sideFits = fits
+                    let target = InspectorPlacement(visible: detailsVisible, side: detailsVisible && fits && model.filterPanelPosition == .right)
+                    shownPlacement = target
+                    inspectorFaded = !target.visible
                 }
+                .onChange(of: fits) { _, value in sideFits = value }
                 .onChange(of: targetPlacement) { _, target in movePlacement(to: target) }
         }
     }
 
-    private func workspaceActions(compact: Bool) -> some View {
-        let layout = AnyLayout(VStackLayout(alignment: compact ? .leading : .trailing, spacing: 8 * interfaceScale))
-        return AuralEquatableContent(key: WorkspaceActionsKey(compact: compact, undo: model.undoLabel, redo: model.redoLabel,
-                                                              canUndo: model.canUndo, canRedo: model.canRedo,
-                                                              comparison: model.comparisonSlot, matching: model.matchLevels,
-                                                              scale: interfaceScale, revision: selectionRevision)) {
-          layout {
-            HStack(spacing: 12 * interfaceScale) {
-                Button { if submitPendingInput() { openWindow.showAuralWindow("presets") } } label: {
-                    Label("Presets", systemImage: "square.stack")
-                }.buttonStyle(AuralButtonStyle())
-                    .accessibilityLabel("Open preset library")
-                    .help("Search, organize, and back up presets (⇧⌘P)")
-                Button { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } } label: {
-                    Label("AutoEQ", systemImage: "headphones").foregroundStyle(AuralStyle.violet)
-                }.buttonStyle(AuralButtonStyle())
-                    .help("Search online headphone correction profiles")
-                EQFileMenu(model: model, submissions: submissions)
-                eqOptions
-            }
-            HStack(spacing: 12 * interfaceScale) {
+    /// Editing history and whole-EQ editing actions sit on the curve they change.
+    private func editBar(compact: Bool) -> some View {
+        let summary = "\(model.profile.filters?.count ?? model.profile.gains.count) filters · \(model.profile.stereoSettings == StereoSettings() ? "Stereo neutral" : "Stereo adjusted")"
+        return AuralEquatableContent(key: EditBarKey(compact: compact, summary: summary, undo: model.undoLabel, redo: model.redoLabel,
+                                                     canUndo: model.canUndo, canRedo: model.canRedo, scale: interfaceScale)) {
+            HStack(spacing: 10 * interfaceScale) {
+                AuralSectionLabel(title: "Equalizer", systemImage: "slider.vertical.3")
+                if !compact {
+                    Text(summary).auralFont(size: 11).foregroundStyle(AuralStyle.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 0)
                 HStack(spacing: 4 * interfaceScale) {
                     Button { if submitPendingInput() { withAuralAnimation { model.undoProfile() } } } label: { Image(systemName: "arrow.uturn.backward") }
                         .buttonStyle(AuralButtonStyle()).disabled(!model.canUndo)
@@ -308,68 +374,17 @@ struct MainView: View {
                         .buttonStyle(AuralButtonStyle()).disabled(!model.canRedo)
                         .accessibilityLabel(model.redoLabel).help("\(model.redoLabel) (⇧⌘Z)")
                 }
-                Divider().auralFrame(height: 20)
-                comparisonControls
-            }.fixedSize()
-          }
+                Menu {
+                    Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }.help("Open a draft of the current EQ. Review changes before applying them.")
+                    Divider()
+                    Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.help(AuralHelp.copyEQ)
+                    Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.help(AuralHelp.pasteEQ)
+                    Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }.help(AuralHelp.exportEQ)
+                } label: { Label("Edit", systemImage: "ellipsis") }
+                    .auralMenuButton().fixedSize()
+                    .accessibilityLabel("EQ options").help("Draft editing and clipboard")
+            }.auralPadding(.horizontal, 4)
         }.equatable()
-    }
-
-    private var comparisonControls: some View {
-        HStack(spacing: 7 * interfaceScale) {
-            Text("Compare").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
-            Picker("A/B comparison", selection: Binding(get: { model.comparisonSlot }, set: { slot in
-                if submitPendingInput() { withAuralAnimation { model.selectComparison(slot) } }
-                selectionRevision += 1
-            })) {
-                Text("A").tag(ComparisonSlot.a)
-                Text("B").tag(ComparisonSlot.b)
-            }.pickerStyle(.segmented).labelsHidden().auralFrame(width: 76).transition(.identity).id(selectionRevision)
-                .help(model.matchLevels
-                      ? "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback. The louder version plays lower so both match."
-                      : "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback.")
-        }
-    }
-
-    private var eqOptions: some View {
-        Menu {
-            Button(model.undoLabel) { if submitPendingInput() { withAuralAnimation { model.undoProfile() } } }.disabled(!model.canUndo).help("\(model.undoLabel) (⌘Z)")
-            Button(model.redoLabel) { if submitPendingInput() { withAuralAnimation { model.redoProfile() } } }.disabled(!model.canRedo).help("\(model.redoLabel) (⇧⌘Z)")
-            Divider()
-            Button("Copy current to other comparison slot") { if submitPendingInput() { withAuralAnimation { model.copyComparisonToOther() } } }.help("Replace the other A/B slot with the current EQ.")
-            Button("Reset both comparisons to current EQ") { if submitPendingInput() { withAuralAnimation { model.captureComparison() } } }.help("Replace both A/B comparison slots with the current EQ.")
-            Divider()
-            Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }.help("Open a draft of the current EQ. Review changes before applying them.")
-            Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.help(AuralHelp.copyEQ)
-            Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.help(AuralHelp.pasteEQ)
-            Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }.help(AuralHelp.exportEQ)
-        } label: { Label("More", systemImage: "ellipsis") }
-            .auralMenuButton().fixedSize()
-            .accessibilityLabel("EQ options").help("Comparison actions, draft editing, and clipboard")
-    }
-
-    /// One bar for the end of the signal path, in processing order: the preamp that
-    /// sets headroom, the tilt after the filters, loudness compensation, then the level
-    /// leaving the EQ and the protection limiting it. The sample rate already shows under the graph.
-    /// When one row doesn't fit, loudness goes under tilt and protection under the level.
-    private func footer(compact: Bool) -> some View {
-        let tone = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 5 * interfaceScale))
-                           : AnyLayout(HStackLayout(spacing: 14 * interfaceScale))
-        return HStack(spacing: 14 * interfaceScale) {
-            PreampControls(model: model, submissions: submissions, compact: true)
-            Divider().auralFrame(height: compact ? 36 : 18)
-            tone {
-                TiltControls(model: model, submissions: submissions)
-                if !compact { Divider().auralFrame(height: 18) }
-                LoudnessControls(model: model)
-            }
-            Divider().auralFrame(height: compact ? 36 : 18)
-            StudioMeter(meter: model.meter, running: model.running,
-                        protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
-                        compact: true, inline: !compact)
-        }
-        .auralFrame(maxWidth: .infinity, alignment: .leading)
-        .auralPadding(.horizontal, 20).auralPadding(.vertical, 8)
     }
 
     private func submitPendingInput() -> Bool {
@@ -491,26 +506,32 @@ struct MainView: View {
 
 private enum StudioPage { case equalizer, stereo }
 
-private struct ListeningControlsKey: Equatable {
+private struct TransportKey: Equatable {
     let status: String
-    let matching: Bool
-    let bypass: Bool
+    let symbol: String
+    let warning: Bool
     let processing: Bool
     let selected: Bool
-    let settings: Bool
+    let solo: Bool
     let scale: CGFloat
 }
 
-private struct WorkspaceActionsKey: Equatable {
+private struct CompareKey: Equatable {
+    let comparison: ComparisonSlot
+    let matching: Bool
+    let bypass: Bool
+    let scale: CGFloat
+    let revision: Int
+}
+
+private struct EditBarKey: Equatable {
     let compact: Bool
+    let summary: String
     let undo: String
     let redo: String
     let canUndo: Bool
     let canRedo: Bool
-    let comparison: ComparisonSlot
-    let matching: Bool
     let scale: CGFloat
-    let revision: Int
 }
 
 /// Where the inspector sits. Hidden details have no side placement, so moving the

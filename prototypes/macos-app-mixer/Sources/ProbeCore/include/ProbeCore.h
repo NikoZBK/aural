@@ -43,6 +43,11 @@ ProbeBufferInfo probe_buffer_info(const ProbeEngine *engine, bool input, unsigne
 OSStatus probe_enable_inputs(AudioObjectID device, AudioDeviceIOProcID callback, const uint32_t *enabled, unsigned count);
 OSStatus probe_device_for_uid(CFStringRef uid, AudioObjectID *device);
 int probe_process_path(pid_t pid, char *path, unsigned capacity);
+typedef struct { int32_t pid; uint32_t uid; uint64_t startSeconds, startMicroseconds; } ProbeProcessIdentity;
+// Control-thread process metadata. Return errno values; never called by IO.
+int probe_process_identity(pid_t pid, ProbeProcessIdentity *identity);
+// Undocumented OS query for explicitly opted-in prototype experiments only.
+int probe_experimental_responsible_pid(pid_t pid, pid_t *responsible);
 OSStatus probe_stream_channels(AudioObjectID device, bool input, uint32_t *channels, unsigned capacity, unsigned *count);
 OSStatus probe_update_tap(AudioObjectID tap, const void *description);
 OSStatus probe_set_taps(AudioObjectID aggregate, CFArrayRef tapUIDs);

@@ -80,7 +80,7 @@ private struct ShortcutReference: Identifiable {
             Self(title: "Select all text", keys: "⌘A", spokenKeys: "Command A"),
             Self(title: "Apply a numeric value", keys: "Return", spokenKeys: "Return"),
             Self(title: "Cancel a numeric edit", keys: "Esc", spokenKeys: "Escape")
-        ], note: "Return and Escape apply to exact-value fields in the main workspace. Draft changes stay in the editor until Apply EQ; Escape cancels the draft."),
+        ], note: "Return and Escape apply to exact-value fields in the workspace and app mixer. Draft changes stay in the editor until Apply EQ; Escape cancels the draft."),
         Section(title: "Focused graph and faders", shortcuts: [
             Self(title: "Inspect graph frequencies", keys: "← / →", spokenKeys: "Left or Right Arrow"),
             Self(title: "Clear graph inspection", keys: "Esc", spokenKeys: "Escape"),
@@ -88,6 +88,7 @@ private struct ShortcutReference: Identifiable {
             Self(title: "Reset fader to 0 dB", keys: "0", spokenKeys: "0")
         ], note: "Focus the graph or a fader first. Graph inspection leaves your EQ unchanged."),
         Section(title: "Windows", shortcuts: [
+            Self(title: "App mixer", keys: "⇧⌘M", spokenKeys: "Shift Command M"),
             Self(title: "Close current window", keys: "⌘W", spokenKeys: "Command W"),
             Self(title: "Quit Aural", keys: "⌘Q", spokenKeys: "Command Q")
         ])

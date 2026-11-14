@@ -1,6 +1,7 @@
 import CoreAudio
 import Foundation
 import DSP
+import Mixer
 
 struct CoreAudioFailure: LocalizedError {
     let status: OSStatus
@@ -53,7 +54,7 @@ func audioString(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) t
     guard let value else { throw AudioFailure(message: "Core Audio returned an empty device name.") }
     return value.takeRetainedValue() as String
 }
-struct OutputDevice: Identifiable, Equatable {
+struct OutputDevice: Identifiable, Equatable, Sendable {
     let id: AudioObjectID
     let uid: String
     let name: String
@@ -84,6 +85,15 @@ struct AudioRouteCleanup {
     private var aggregate: AudioObjectID = 0
     private var proc: AudioDeviceIOProcID?
     private var dsp: OpaquePointer?
+    private var mixer: OpaquePointer?
+    private let mixerTopology = AppMixerTopology()
+    private var mixerToken: UInt64?
+    private var startSerial: UInt64 = 0
+    private var mixerTapStreams: [AudioObjectID] = []
+    private var mixerChannels: [UInt32] = []
+    private(set) var appMixerAvailable = false
+    var onMixerState: (([String?], [Float]) -> Void)?
+    var onMixerFailure: ((Error) -> Void)?
     private var inputStreams: [AudioObjectID] = []
     private var outputStreams: [AudioObjectID] = []
     private var inputOffset: UInt32 = 0
@@ -93,8 +103,20 @@ struct AudioRouteCleanup {
     var loudness: [EQFilter] = []
     /// The band playing alone, after everything else. The next update or start applies it; Stop ends it.
     var solo: Int?
-    var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil || dsp != nil }
-    init(cleanup: AudioRouteCleanup = .live) { self.cleanup = cleanup }
+    var hasResources: Bool { tap != 0 || aggregate != 0 || proc != nil || dsp != nil || mixer != nil || mixerTopology.hasResources }
+    init(cleanup: AudioRouteCleanup = .live) {
+        self.cleanup = cleanup
+        mixerTopology.onState = { [weak self] token, slots, peaks in
+            guard let self, self.mixerToken == token else { return }
+            self.onMixerState?(slots, peaks)
+        }
+        mixerTopology.onFailure = { [weak self] token, error in
+            guard let self, self.mixerToken == token else { return }
+            self.onMixerFailure?(error)
+        }
+    }
+    func setAppControls(_ preferences: AppMixerPreferences) { mixerTopology.controls(preferences) }
+    func discoverAppAudio(_ catalog: AppAudioCatalog) { mixerTopology.discover(catalog) }
     /// What the engine runs for a profile: its filters and tilt, loudness compensation, then any solo.
     func engineFilters(for profile: Profile) -> [EQFilter] {
         var filters = profile.dspFilters(rate: sampleRate) + loudness
@@ -106,7 +128,7 @@ struct AudioRouteCleanup {
         let reading = eq_read_meter(dsp)
         return AudioMeterReading(peak: reading.peak, reductionDB: reading.reductionDB)
     }
-    var faults: UInt32 { dsp.map(eq_faults) ?? 0 }
+    var faults: UInt32 { (dsp.map(eq_faults) ?? 0) &+ (mixer.map { am_counters($0).faults } ?? 0) }
     private var loggedSignalFaults: UInt32 = 0
 
     static func devices() throws -> [OutputDevice] {
@@ -126,8 +148,28 @@ struct AudioRouteCleanup {
                 // reads. A disconnected device must not hide the healthy outputs.
                 logger.notice("Skipped unavailable audio device \(id, privacy: .public): \(failure.diagnosticDescription, privacy: .public)")
                 return nil
+            } catch let failure as CoreAudioFailure where failure.status == kAudioHardwareUnknownPropertyError {
+                // Hot unplug can remove a stream property before HAL reports
+                // !obj/!dev. Do not reinterpret every unsupported property as a
+                // disconnect: prove that this device or stream has vanished.
+                if try outputSnapshotExpired(id, failure: failure) {
+                    logger.notice("Skipped changed output snapshot \(id, privacy: .public): \(failure.diagnosticDescription, privacy: .public)")
+                    return nil
+                }
+                throw failure
             }
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+    static func outputSnapshotExpired(_ output: AudioObjectID, failure: CoreAudioFailure,
+                                      readDevices: () throws -> [AudioObjectID] = { try ids(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices) },
+                                      readStreams: (AudioObjectID) throws -> [AudioObjectID] = { try ids($0, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput) }) throws -> Bool {
+        guard failure.status == kAudioHardwareUnknownPropertyError else { return false }
+        do {
+            let current = try readDevices()
+            if !current.contains(output) { return true }
+            guard let object = failure.objectID, object != output else { return false }
+            return try !readStreams(output).contains(object)
+        } catch let changed as CoreAudioFailure where changed.isUnavailableObject { return true }
     }
     static func defaultOutput() throws -> AudioObjectID {
         try scalar(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, AudioObjectID(0))
@@ -164,7 +206,75 @@ struct AudioRouteCleanup {
             throw AudioFailure(message: "The audio route requires native 32-bit float stereo at 32–192 kHz. The output format changed or is unsupported; select an output and start again.")
         }
     }
-    func start(_ output: OutputDevice, profile: Profile, bypass: Bool, peakProtectionEnabled: Bool, levelMatch: LevelMatch = .none) throws {
+    func start(_ output: OutputDevice, profile: Profile, bypass: Bool, peakProtectionEnabled: Bool, levelMatch: LevelMatch = .none,
+               appPreferences: AppMixerPreferences = AppMixerPreferences()) async throws {
+        let transport: UInt32
+        do { transport = try scalar(output.id, kAudioDevicePropertyTransportType, UInt32(0)) }
+        catch {
+            // The caller reports audio as stopped, so nothing may survive this
+            // failure: not the previous route, and not a kept protection mute.
+            let original = error.localizedDescription
+            do { try stop() } catch { throw AudioFailure(message: original + " Cleanup: " + error.localizedDescription) }
+            throw error
+        }
+        if transport == kAudioDeviceTransportTypeVirtual || transport == kAudioDeviceTransportTypeAggregate {
+            // Explicit capability path: retain existing global EQ on virtual
+            // outputs, with app controls visibly inactive for this output.
+            try startLegacy(output, profile: profile, bypass: bypass, peakProtectionEnabled: peakProtectionEnabled, levelMatch: levelMatch)
+            return
+        }
+        guard #available(macOS 14.2, *) else { try stop(); throw AudioFailure(message: "Aural requires macOS 14.2 or newer.") }
+        do { try stop(keepingMixerGuard: true) }
+        catch {
+            // A partial cleanup must not leave the protection mute armed.
+            let original = error.localizedDescription
+            do { try stop() } catch { throw AudioFailure(message: original + " Cleanup: " + error.localizedDescription) }
+            throw error
+        }
+        startSerial &+= 1; let token = startSerial
+        do {
+            let formatStreams = try ids(output.id, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
+            guard formatStreams.count == 1 else { throw AudioFailure(message: "App mixing requires one stereo output stream.") }
+            let format = try scalar(formatStreams[0], kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription())
+            try Self.validateStereoFormat(format); sampleRate = format.mSampleRate
+            let config: [String: Any] = [kAudioAggregateDeviceNameKey: "Aural Private Audio",
+                kAudioAggregateDeviceUIDKey: "local.aural.\(UUID().uuidString)", kAudioAggregateDeviceIsPrivateKey: true,
+                kAudioAggregateDeviceMainSubDeviceKey: output.uid,
+                kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: output.uid]]]
+            try check(AudioHardwareCreateAggregateDevice(config as CFDictionary, &aggregate), "Create private mixer route")
+            let layout = try await mixerTopology.prepare(aggregate: aggregate, output: output, preferences: appPreferences)
+            guard startSerial == token else { throw CancellationError() }
+            inputStreams = layout.inputStreams; mixerTapStreams = layout.tapStreams
+            outputStreams = try ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
+            for stream in layout.tapStreams + outputStreams {
+                try Self.validateStereoFormat(try scalar(stream, kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription()), rate: sampleRate)
+            }
+            var channels = [UInt32](repeating: 0, count: 32), count: UInt32 = 0
+            try check(am_stream_channels(aggregate, &channels, UInt32(channels.count), &count), "Validate mixer callback inputs")
+            mixerChannels = Array(channels.prefix(Int(count)))
+            guard let engine = eq_create(sampleRate, 0) else { throw AudioFailure(message: "Cannot allocate the equalizer.") }
+            dsp = engine; loggedSignalFaults = 0
+            setPeakProtection(peakProtectionEnabled); try update(profile, bypass: bypass, levelMatch: levelMatch)
+            guard let context = am_create(sampleRate, engine, layout.offsets, UInt32(layout.offsets.count), layout.gains) else {
+                throw AudioFailure(message: "Cannot allocate the bounded app mixer.")
+            }
+            mixer = context; mixerToken = try mixerTopology.install(context)
+            try check(AudioDeviceCreateIOProcID(aggregate, am_callback, UnsafeMutableRawPointer(context), &proc), "Create app mixer callback")
+            guard let proc else { throw AudioFailure(message: "Core Audio returned no mixer callback.") }
+            if inputStreams.count > layout.tapStreams.count {
+                let enabled: [UInt32] = inputStreams.map { layout.tapStreams.contains($0) ? 1 : 0 }
+                try check(am_enable_inputs(aggregate, proc, enabled, UInt32(enabled.count)), "Exclude hardware inputs from app mixing")
+            }
+            try check(AudioDeviceStart(aggregate, proc), "Start app mixing and EQ")
+            device = output; appMixerAvailable = true
+        } catch {
+            guard startSerial == token else { throw CancellationError() }
+            let original = error.localizedDescription
+            do { try stop() } catch { throw AudioFailure(message: original + " Cleanup: " + error.localizedDescription) }
+            throw error
+        }
+    }
+    private func startLegacy(_ output: OutputDevice, profile: Profile, bypass: Bool, peakProtectionEnabled: Bool, levelMatch: LevelMatch = .none) throws {
         try stop()
         guard #available(macOS 14.2, *) else { throw AudioFailure(message: "Aural requires macOS 14.2 or newer.") }
         Self.logger.notice("Starting EQ: output=\(output.name, privacy: .private), device=\(output.id, privacy: .public), bypass=\(bypass, privacy: .public)")
@@ -249,7 +359,8 @@ struct AudioRouteCleanup {
     /// Missing HAL objects are already released after a disconnect. Other errors
     /// are reported after all cleanup steps, with surviving handles and their
     /// callback engine kept for a safe retry on the next stop or start.
-    func stop() throws {
+    func stop(keepingMixerGuard: Bool = false) throws {
+        startSerial &+= 1; mixerToken = nil; mixerTopology.invalidate(); appMixerAvailable = false
         solo = nil
         let hadResources = hasResources
         if hadResources {
@@ -276,19 +387,37 @@ struct AudioRouteCleanup {
         }
         // Free only after the callback is removed or its owning device is gone.
         // An uncertain callback keeps its context alive until cleanup can retry.
-        if proc == nil, let dsp { eq_destroy(dsp); self.dsp = nil }
+        if proc == nil {
+            if let mixer { am_destroy(mixer); self.mixer = nil }
+            if let dsp { eq_destroy(dsp); self.dsp = nil }
+        }
         if tap != 0 {
             if #available(macOS 14.2, *) {
                 if attempt(cleanup.destroyTap(tap), "Release audio tap", objectID: tap) { tap = 0 }
             } else { tap = 0 }
         }
+        var mixerFailure: Error?
+        do { try mixerTopology.release(keepingGuard: keepingMixerGuard, cleanup: cleanup) }
+        catch {
+            Self.logger.error("App mixer cleanup failed: \(AuralLog.describe(error), privacy: .public)")
+            mixerFailure = error
+        }
         inputStreams = []; outputStreams = []; inputOffset = 0
+        mixerTapStreams = []; mixerChannels = []
         device = nil
+        if keepingMixerGuard { mixerToken = mixerTopology.beginWaiting() }
         if hadResources { Self.logger.notice("EQ cleanup finished: resourcesRemaining=\(self.hasResources, privacy: .public)") }
-        if let failure { throw failure }
+        if let failure {
+            if let mixerFailure { throw AudioFailure(message: failure.localizedDescription + " " + mixerFailure.localizedDescription) }
+            throw failure
+        }
+        if let mixerFailure { throw mixerFailure }
     }
     #if AURAL_TESTING
     var hasEngineForTesting: Bool { dsp != nil }
+    func adoptMixerTokenForTesting(_ token: UInt64) { mixerToken = token }
+    func adoptMixerGuardForTesting(_ protection: AppMixerGuard) { mixerTopology.adoptForTesting(taps: [], protection: protection) }
+    func deliverMixerStateForTesting(_ token: UInt64) { mixerTopology.onState?(token, [], []) }
     /// A running route whose device has gone, so stopping its callback fails.
     func adoptForTesting(tap: AudioObjectID, aggregate: AudioObjectID, device: OutputDevice) {
         self.tap = tap; self.aggregate = aggregate; self.device = device
@@ -300,7 +429,7 @@ struct AudioRouteCleanup {
         // The callback replaces bad samples from a playing app without stopping
         // EQ, so they are only logged. Malformed buffers mean a broken route.
         if let dsp {
-            let signalFaults = eq_signal_faults(dsp)
+            let signalFaults = eq_signal_faults(dsp) &+ (mixer.map { am_counters($0).signalFaults } ?? 0)
             if signalFaults != loggedSignalFaults {
                 let replaced = signalFaults &- loggedSignalFaults
                 Self.logger.warning("Replaced \(replaced, privacy: .public) non-finite or overflowing audio samples")
@@ -317,6 +446,15 @@ struct AudioRouteCleanup {
         let outputs = try ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeOutput)
         guard inputs == inputStreams, outputs == outputStreams, let tapStream = inputs.last else {
             throw AudioFailure(message: "The audio route's streams changed. Processing stopped; select an output and start again.")
+        }
+        if mixer != nil {
+            var channels = [UInt32](repeating: 0, count: 32), count: UInt32 = 0
+            try check(am_stream_channels(aggregate, &channels, UInt32(channels.count), &count), "Check mixer callback layout")
+            guard Array(channels.prefix(Int(count))) == mixerChannels else { throw AudioFailure(message: "The app mixer channel layout changed.") }
+            for stream in mixerTapStreams + outputs {
+                try Self.validateStereoFormat(try scalar(stream, kAudioStreamPropertyVirtualFormat, AudioStreamBasicDescription()), rate: sampleRate)
+            }
+            return
         }
         var offset: UInt32 = 0
         for stream in inputs.dropLast() {

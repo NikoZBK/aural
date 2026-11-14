@@ -3,6 +3,7 @@
 //
 //   swift scripts/draw-icon.swift [output directory]   # default: Resources
 //   bash scripts/make-icon.sh                          # then package the ICNS files
+//   swift scripts/draw-icon.swift OUTPUT --ios         # opaque, full-bleed iOS tile
 //
 // The response is flat at 0 dB with one tall boost whose sides are the legs of an A without
 // a crossbar, so the letter is the response alone. AppIcon is the idle icon and the Finder icon;
@@ -13,10 +14,11 @@ import Foundation
 import ImageIO
 
 let canvas: CGFloat = 1024
-let tile = CGRect(x: 100, y: 100, width: 824, height: 824)
-let tileRadius: CGFloat = 185
+let ios = CommandLine.arguments.contains("--ios")
+let tile = ios ? CGRect(x: 0, y: 0, width: 1024, height: 1024) : CGRect(x: 100, y: 100, width: 824, height: 824)
+let tileRadius: CGFloat = ios ? 0 : 185
 // The response spans 20 Hz–20 kHz across the plot, with 0 dB low in the tile.
-let plot = tile.insetBy(dx: 74, dy: 0)
+let plot = tile.insetBy(dx: ios ? 174 : 74, dy: 0)
 let zeroDecibels: CGFloat = 290
 let pixelsPerDecibel: CGFloat = 170 / 6
 func level(_ decibels: CGFloat) -> CGFloat { zeroDecibels + decibels * pixelsPerDecibel }
@@ -55,12 +57,12 @@ func response() -> CGPath {
 
 func draw(active: Bool) -> CGImage {
     let context = CGContext(data: nil, width: Int(canvas), height: Int(canvas), bitsPerComponent: 8, bytesPerRow: 0,
-                            space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                            space: space, bitmapInfo: (ios ? CGImageAlphaInfo.noneSkipLast : .premultipliedLast).rawValue)!
     let tilePath = CGPath(roundedRect: tile, cornerWidth: tileRadius, cornerHeight: tileRadius, transform: nil)
 
     // A soft drop shadow under a flat tile.
     context.saveGState()
-    context.setShadow(offset: CGSize(width: 0, height: -10), blur: 22, color: color(0, 0, 0, 0.32))
+    if !ios { context.setShadow(offset: CGSize(width: 0, height: -10), blur: 22, color: color(0, 0, 0, 0.32)) }
     context.addPath(tilePath)
     context.setFillColor(graphite)
     context.fillPath()
@@ -108,14 +110,16 @@ func draw(active: Bool) -> CGImage {
     context.restoreGState()
 
     // A hairline edge keeps the tile's outline on dark Dock backgrounds.
-    context.addPath(CGPath(roundedRect: tile.insetBy(dx: 1.5, dy: 1.5), cornerWidth: tileRadius - 1.5, cornerHeight: tileRadius - 1.5, transform: nil))
-    context.setStrokeColor(color(1, 1, 1, 0.09))
-    context.setLineWidth(3)
-    context.strokePath()
+    if !ios {
+        context.addPath(CGPath(roundedRect: tile.insetBy(dx: 1.5, dy: 1.5), cornerWidth: tileRadius - 1.5, cornerHeight: tileRadius - 1.5, transform: nil))
+        context.setStrokeColor(color(1, 1, 1, 0.09))
+        context.setLineWidth(3)
+        context.strokePath()
+    }
     return context.makeImage()!
 }
 
-let directory = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "Resources", isDirectory: true)
+let directory = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first(where: { $0 != "--ios" }) ?? "Resources", isDirectory: true)
 for (name, active) in [("AppIcon", false), ("AppIconActive", true)] {
     let url = directory.appendingPathComponent("\(name).png")
     guard let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else {

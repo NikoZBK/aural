@@ -30,12 +30,19 @@ final class ProbeRoute {
 
     init(device: DeviceInfo) { self.device = device }
 
-    func prepare(apps: [[AudioObjectID]], playback: Playback, restore: Bool = false) throws {
+    func prepare(apps: [[AudioObjectID]], playback: Playback, restore: Bool = false,
+                 passthrough: [AudioObjectID]? = nil) throws {
         guard apps.count == 2, apps.allSatisfy({ !$0.isEmpty }), Set(apps.flatMap { $0 }).count == apps.flatMap({ $0 }).count else {
             throw ProbeFailure(message: "Two nonempty, disjoint process groups are required")
         }
         own = try HAL.process(getpid()); appGroups = apps
         guard !apps.flatMap({ $0 }).contains(own) else { throw ProbeFailure(message: "The probe cannot tap itself") }
+        if let passthrough {
+            guard playback == .all, !restore, Set(passthrough).count == passthrough.count,
+                  !passthrough.contains(where: { $0 == own || apps.flatMap({ $0 }).contains($0) }) else {
+                throw ProbeFailure(message: "Quarantined playback requires disjoint explicit processes and no bundle restoration")
+            }
+        }
         let composition: [String: Any] = [kAudioAggregateDeviceNameKey: "Aural Mixer Diagnostic",
             kAudioAggregateDeviceUIDKey: "local.aural.mixer-probe.\(UUID().uuidString)", kAudioAggregateDeviceIsPrivateKey: true,
             kAudioAggregateDeviceMainSubDeviceKey: device.uid,
@@ -44,8 +51,8 @@ final class ProbeRoute {
         inputStreams = try HAL.ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeInput)
         let specs: [(String, [AudioObjectID], Bool, Bool)] = [
             ("App A", apps[0], false, playback != .monitor), ("App B", apps[1], false, playback != .monitor),
-            ("Remaining audio", apps.flatMap { $0 } + [own], true, playback == .all),
-            ("Unity reference", [own], true, false)]
+            ("Remaining audio", passthrough ?? (apps.flatMap { $0 } + [own]), passthrough == nil, playback == .all),
+            ("Unity reference", [own], true, passthrough != nil)]
         for (name, processes, excluding, mute) in specs {
             let description = excluding ? CATapDescription(excludingProcesses: processes, deviceUID: device.uid, stream: 0)
                 : CATapDescription(processes: processes, deviceUID: device.uid, stream: 0)
@@ -144,6 +151,33 @@ final class ProbeRoute {
         guard inputStreams == (try HAL.ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeInput)) else {
             throw ProbeFailure(message: "Process replacement changed stream topology")
         }
+    }
+
+    // The always-read, device-scoped reference tap suppresses every direct path.
+    // Only positively partitioned processes enter replay. Unknown newcomers stay
+    // on the reference input (which is never replayed) until attribution finishes.
+    // Clear the old app binding before adding a new one; the C gain never resets.
+    func rebindBrowser(first: [AudioObjectID], passthrough: [AudioObjectID], replaceFirst: Bool,
+                       beforeBinding: () throws -> Void) throws {
+        guard descriptions.count == 4, !descriptions[2].isExclusive,
+              descriptions[3].muteBehavior == .mutedWhenTapped,
+              Set(first + passthrough).count == first.count + passthrough.count,
+              !(first + passthrough).contains(where: { $0 == own || appGroups[1].contains($0) }) else {
+            throw ProbeFailure(message: "Invalid quarantined browser partition")
+        }
+        func update(_ index: Int, _ processes: [AudioObjectID]) throws {
+            descriptions[index].processes = processes
+            try HAL.check(probe_update_tap(taps[index], UnsafeRawPointer(Unmanaged.passUnretained(descriptions[index]).toOpaque())),
+                          "Update browser partition \(index)", taps[index])
+        }
+        if replaceFirst { try update(0, []) }
+        try update(2, passthrough)
+        if replaceFirst {
+            try beforeBinding()
+            try update(0, first)
+            appGroups[0] = first
+        }
+        try validateStreamMap()
     }
 
     func start() throws {

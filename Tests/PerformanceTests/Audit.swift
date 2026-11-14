@@ -225,6 +225,35 @@ private struct AuditMeasurement: Codable {
     try await secondary("draft-editor.64", content: FilterEditor(model: libraryModel), size: NSSize(width: 960, height: 760), editing: libraryModel)
     try await secondary("stereo", content: StereoPanel(model: libraryModel, submissions: PrecisionSubmissionCoordinator()), size: NSSize(width: 900, height: 360))
     try await secondary("settings", content: StartupSettings(model: libraryModel), size: NSSize(width: 500, height: 650))
+    let mixerStore = libraryModel.appMixer
+    mixerStore.adoptCatalogForTesting(AppAudioCatalog(processes: (0..<8).map { mixerProcess($0) }, incomplete: false),
+                                     output: OutputDevice(id: 77, uid: "audit-output", name: "Audit output"))
+    let appWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 560), styleMask: [.titled], backing: .buffered, defer: false)
+    appWindow.isReleasedWhenClosed = false
+    let appHost = NSHostingView(rootView: AppMixerWindow(model: libraryModel))
+    appWindow.contentView = appHost
+    appHost.layoutSubtreeIfNeeded()
+    try await Task.sleep(for: .milliseconds(400))
+    var eqPublications = 0
+    let observer = libraryModel.objectWillChange.sink { eqPublications += 1 }
+    for width in [720.0, 480.0] {
+        appWindow.setContentSize(NSSize(width: width, height: 560))
+        var samples: [Double] = []
+        for index in 0..<80 {
+            let start = CACurrentMediaTime()
+            mixerStore.setVolume("com.example.Player0", percent: Double(index % 101))
+            mixerStore.updateRouting(slots: (0..<8).map { "com.example.Player\($0)" },
+                                     peaks: (0..<8).map { Float(index % 10 + $0) / 20 })
+            appHost.layoutSubtreeIfNeeded(); appWindow.displayIfNeeded(); CATransaction.flush()
+            samples.append((CACurrentMediaTime() - start) * 1000)
+            try await Task.sleep(for: .milliseconds(16))
+        }
+        report("app-mixer.8-apps.\(Int(width))px", samples)
+    }
+    observer.cancel()
+    require(eqPublications == 0, "Mixer gestures and eight activity meters must not publish the EQ document")
+    try await mixerStore.flush()
+    appWindow.close()
     require(!libraryModel.running && !libraryModel.route.hasResources, "Secondary-window audits must never start audio")
     if let path = ProcessInfo.processInfo.environment["AURAL_AUDIT_JSON"] {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

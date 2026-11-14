@@ -17,11 +17,16 @@ xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,unde
 xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g -I Sources/DSP/include Tests/DSPTests/state.c -framework CoreAudio -o .build/dsp-state-tests
 .build/dsp-state-tests
 
+xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,undefined -g \
+    -I Sources/DSP/include -I Sources/Mixer/include Sources/DSP/DSP.c Sources/Mixer/Mixer.c Tests/MixerTests/main.c -framework CoreAudio -o .build/mixer-tests
+.build/mixer-tests
+
 xcrun swiftc Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/PresetLibrary.swift Sources/Aural/ReleaseInfo.swift Sources/Aural/FilterDraft.swift Sources/Aural/AutoEQ.swift Sources/Aural/Startup.swift Tests/ImportTests/main.swift -o .build/import-tests
 .build/import-tests
 
 # Exercise the app's actual Swift-to-C bridge, not a test-only reimplementation.
 xcrun clang -std=c11 -I Sources/DSP/include -c Sources/DSP/DSP.c -o .build/dsp-bridge.o
+xcrun clang -std=c11 -I Sources/DSP/include -I Sources/Mixer/include -c Sources/Mixer/Mixer.c -o .build/mixer-bridge.o
 xcrun swiftc -I Sources/DSP/include Sources/Aural/Profile.swift Sources/Aural/GraphicEQ.swift Sources/Aural/ProfileDSP.swift Sources/Aural/Loudness.swift Tests/BridgeTests/main.swift .build/dsp-bridge.o -framework CoreAudio -o .build/bridge-tests
 .build/bridge-tests
 
@@ -47,5 +52,5 @@ xcrun swiftc -parse-as-library Sources/Aural/AppIcon.swift Tests/IconTests/main.
 .build/icon-tests
 
 # Check theme persistence, contrast, and native appearance without using personal settings or audio.
-xcrun swiftc -whole-module-optimization -parse-as-library -D AURAL_TESTING "${SPARKLE_FLAGS[@]}" -I Sources/DSP/include Sources/Aural/*.swift Tests/ThemeTests/main.swift Tests/PerformanceTests/*.swift .build/dsp-bridge.o -framework CoreAudio -framework AppKit -o .build/theme-tests
+xcrun swiftc -whole-module-optimization -parse-as-library -D AURAL_TESTING "${SPARKLE_FLAGS[@]}" -I Sources/DSP/include -I Sources/Mixer/include Sources/Aural/*.swift Tests/ThemeTests/main.swift Tests/PerformanceTests/*.swift .build/dsp-bridge.o .build/mixer-bridge.o -framework CoreAudio -framework AppKit -o .build/theme-tests
 .build/theme-tests

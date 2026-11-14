@@ -12,3 +12,9 @@ xcrun clang -std=c11 -Wall -Wextra -Wno-unused-parameter -fsanitize=address,unde
 source_root="${AURAL_SOURCE_ROOT:-../..}"
 xcrun swiftc -module-cache-path "$stage/swift-cache" "$source_root/Sources/Aural/Startup.swift" Sources/MixerProbe/RecoveryState.swift Sources/MixerProbe/OutputAvailability.swift Tests/recovery.swift -o "$stage/recovery-tests"
 "$stage/recovery-tests"
+
+# Exercise process ownership without opening an audio route or private OS query.
+xcrun clang -std=c11 -I Sources/ProbeCore/include -c Sources/ProbeCore/ProbeCore.c -o "$stage/probe-core.o"
+printf 'module ProbeCore { header "%s/Sources/ProbeCore/include/ProbeCore.h" export * }\n' "$PWD" > "$stage/module.modulemap"
+xcrun swiftc -module-cache-path "$stage/swift-cache" -I "$stage" -parse-as-library "$source_root/Sources/Aural/Startup.swift" Sources/MixerProbe/RecoveryState.swift Sources/MixerProbe/HAL.swift Sources/MixerProbe/OutputAvailability.swift Sources/MixerProbe/ProcessOwnership.swift Sources/MixerProbe/BrowserPartition.swift Tests/ownership.swift "$stage/probe-core.o" -framework CoreAudio -framework AppKit -o "$stage/ownership-tests"
+"$stage/ownership-tests"

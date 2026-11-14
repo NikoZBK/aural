@@ -1,5 +1,9 @@
 #pragma once
+#include <TargetConditionals.h>
+#include <CoreAudioTypes/CoreAudioTypes.h>
+#if TARGET_OS_OSX
 #include <CoreAudio/CoreAudio.h>
+#endif
 #include <stdbool.h>
 #pragma clang assume_nonnull begin
 typedef struct EQ EQ;
@@ -64,10 +68,12 @@ unsigned eq_latency(const EQ *eq);
 // sliders set the level at each band frequency instead (GraphicEQ.swift).
 bool eq_update(EQ *eq, const double *gains, double preamp, bool bypass);
 void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output);
+#if TARGET_OS_OSX
 OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp * _Nonnull now,
     const AudioBufferList * _Nonnull input, const AudioTimeStamp * _Nonnull inputTime,
     AudioBufferList * _Nonnull output, const AudioTimeStamp * _Nonnull outputTime, void * _Nullable context);
 OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID _Nonnull proc, unsigned streamCount);
+#endif
 float eq_peak(EQ *eq);
 typedef struct { float peak, reductionDB; } EQMeter;
 // Single control-thread reader: maxima since the previous read, then reset.

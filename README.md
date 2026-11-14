@@ -44,9 +44,12 @@ Audio is processed in memory on your Mac. Aural collects no telemetry and upload
 
 - [User guide](docs/USER-GUIDE.md): every control, file format, limitation, and build step
 - [Per-app volume prototype](docs/PER-APP-VOLUME-PROTOTYPE.md): verified routing experiments; product integration remains in development
+- [App mixer integration](docs/PER-APP-VOLUME-INTEGRATION.md): local preview, measured performance, and hardware acceptance
 - [Feature comparison](docs/PEACE-FEATURE-ROADMAP.md) with Peace and Equalizer APO
 - [Install, update, and removal](docs/INSTALL.txt)
 - [Release notes for 1.7.1](docs/RELEASE-1.7.1.md) and [earlier versions](docs/USER-GUIDE.md#release-notes)
+- [Aural for iOS](iOS/README.md): native iPhone-first development app, adaptive iPad layout, and shared EQ/preset formats
+- [iOS audio-route validation](prototypes/ios-route/VALIDATION.md): the prototype's Spotify/EQ and uninterrupted reconnect evidence; broader hardware scenarios remain separate checks
 
 To build from source, run `bash scripts/test.sh && bash scripts/build.sh` with Command Line Tools or Xcode and the macOS 26 SDK or later.
 

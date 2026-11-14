@@ -63,13 +63,58 @@ Stop competing audio processors first, select the desired physical output for th
   --playback owned --phase-seconds 8 --report reports/spotify.json
 ```
 
-This includes the requested bundle and helpers whose actual enclosing app bundle matches it. It requires an active app stream on that exact physical output, an issue-free preflight catalog, and no conflicting Aural/probe/eqMac route. It never starts, stops, or relaunches the real app itself. A separate quiet diagnostic source provides an independent 997 Hz reference. In `owned` mode, other audio stays on its direct path; `all` additionally intercepts/replays Remaining audio. `monitor` only observes and does not apply the announced gain changes.
+This includes the requested bundle and helpers whose actual enclosing app bundle matches it. Process identities include PID, user ID, and process birth time; PID equality alone is insufficient. It requires an active app stream on that exact physical output, an issue-free preflight catalog, and no conflicting Aural/probe/eqMac route. It never starts, stops, or relaunches the real app itself. A separate quiet diagnostic source provides an independent 997 Hz reference. In `owned` mode, other audio stays on its direct path; `all` additionally intercepts/replays Remaining audio. `monitor` only observes and does not apply the announced gain changes.
 
-Five phases use 100%, 50%, 25%, mute, then 100%. `--phase-seconds` accepts 2–20 seconds (default 8). Output identity/rate, stream-map identity, and callback faults are checked throughout. A change aborts the test and attempts full teardown. The captured windows start after a 250 ms settling period and retain up to 32,768 frames each; they do not cover every instant of a longer phase.
+Five phases use 100%, 50%, 25%, mute, then 100%. `--phase-seconds` accepts 2–20 seconds (default 8). Output identity/rate, stream-map identity, app/helper birth identities, and callback faults are checked throughout. The control loop polls at intervals up to 250 ms; this is not an instantaneous process-exit guarantee. A change aborts the test and attempts full teardown. The captured windows start after a 250 ms settling period and retain up to 32,768 frames each; they do not cover every instant of a longer phase.
 
 For each retained stereo input sample, analysis reconstructs the expected weighted mix and compares it with the rendered sample. The estimated app gain removes the unchanged peer contributions before projection onto the app signal. This avoids comparing different passages of changing music. App/helper identities must remain stable across the run; churn is reported as a failed gate rather than silently claiming complete app coverage.
 
-The report has an explicit `outcome`, `error` when present, and optional `measurements` containing identities, per-phase gain/error metrics, faults, timings, and gates. It is written after teardown, including on setup/runtime failure. Listening confirmation is recorded separately: a correct callback render does not independently prove the headphones received it or that another direct path was absent. Restore any audio processors paused for the test afterward.
+The schema-version-2 report has an explicit `outcome`, `error` when present, ownership policy, initial/latest process groups even on failure, and optional `measurements` containing per-phase gain/error metrics, faults, timings, and gates. It is written after teardown, including on setup/runtime failure. Listening confirmation is recorded separately: a correct callback render does not independently prove the headphones received it or that another direct path was absent. Restore any audio processors paused for the test afterward.
+
+### Safari and Chrome helper checks
+
+Run the local fixture server in a separate terminal, then open its printed URLs in the two browsers. It generates quiet 48 kHz AAC tones at amplitude 0.005 using macOS `afconvert`; generated media lives in a temporary directory and is deleted on server exit. Only loopback is served. Optional event logs contain page lifecycle metadata, never captured audio. AAC with byte-range serving works in the tested Safari Lockdown Mode; Web Audio was unavailable there. Leave Lockdown Mode enabled.
+
+```sh
+python3 scripts/browser-audio.py --events reports/browser-events.jsonl
+```
+
+Use a dedicated test tab/profile. Click Start quiet tone, confirm its actual active Core Audio helper in inventory, and run one probe at a time:
+
+```sh
+"$probe" app-test --bundle com.google.Chrome --output EXACT_PHYSICAL_UID \
+  --playback all --phase-seconds 3 --report reports/chrome.json
+"$probe" inventory --ownership experimental-responsibility --report reports/browser-owners.json
+"$probe" app-test --bundle com.apple.Safari --ownership experimental-responsibility \
+  --output EXACT_PHYSICAL_UID --playback all --phase-seconds 3 --report reports/safari.json
+```
+
+The default `--ownership enclosing-app` resolves Chrome's nested audio helper. Shared system WebKit helpers cannot be safely assigned from `com.apple.WebKit.GPU`, a display name, or a parent PID: Safari and eqMac use the same helper bundle ID. The explicit **prototype-only** `experimental-responsibility` policy dynamically looks up the undocumented `responsibility_get_pid_responsible_for_pid` symbol for known shared WebKit helpers. It validates the same user's responsible `.app` metadata and both process birth identities before/after attribution; unavailable or changed identities remain unattributed. This policy is off by default and accepted only by `inventory`, `app-test`, and `browser-handoff-test`. It is not a supported public API or a decision to ship Safari attribution. Recovery/native process-restoration tests deliberately cannot opt in, because restoring by a shared WebKit bundle ID could capture another application's helper.
+
+For a controlled helper-exit test, use only your own fixture browser session. Verify the current helper's enclosing app (Chrome AudioService) or responsible Safari app and process birth identity immediately before terminating that exact helper. Never terminate every WebKit/Chrome helper by bundle ID or name. An active `app-test` must return a failed ownership-change report and release its route. Reload/restart the fixture if the browser does not resume its media service, then run a fresh `app-test` and verify a new helper birth identity. This tests safe abort and fresh-session regrouping; it does **not** test continuous gain/mute handoff. Stop the tones, close only owned test tabs, and restore processors/playback afterward. See the [dated browser results](../../docs/PER-APP-VOLUME-PROTOTYPE.md#safari-and-chrome-active-helper-tests).
+
+### Live browser helper handoff
+
+`browser-handoff-test` keeps the same callback, engine, and controls across helper loss/replacement. Use fresh control/status/report paths for each session. The browser must initially play directly through the exact physical output, with competing processors stopped as above.
+
+```sh
+"$probe" browser-handoff-test --bundle com.google.Chrome --output EXACT_PHYSICAL_UID \
+  --gain 0.25 --muted off --duration 180 --min-restarts 2 \
+  --control reports/chrome-control.json --status reports/chrome-status.json \
+  --report reports/chrome-handoff.json
+```
+
+For Safari use `--bundle com.apple.Safari --ownership experimental-responsibility`. The other arguments and limitations are identical. The command never terminates the browser/helper or restarts its media for you. Controlled tests must verify the exact test-owned process before terminating it. Safari resumed the fixture automatically on this OS; Chrome required a new fixture tab after its AudioService exited. Neither case required another Start command or a new diagnostic route.
+
+This route uses four device-scoped taps: the selected browser, the diagnostic peer, an **explicit list** of other processes, and a reference excluding only the probe. The reference is actively read with `.mutedWhenTapped` and never replayed. It suppresses direct playback on this output, including new processes before discovery. A newcomer can enter replay only after partitioning: verified browser helpers go to the app lane with its existing gain; other sources enter the unity lane. Unresolved possible browser helpers stay withheld. Existing peers continue through their existing lane. Every tap remains scoped to the selected physical UID; this is not an app-wide mute across outputs.
+
+Binding updates happen on the control thread. When the app group changes, its old binding is cleared, the explicit other-process list updated, and the verified replacement attached. The C gain and mute state never reset. No native bundle-ID restoration is enabled on this path, so shared WebKit helpers are not grouped by a shared bundle ID. Sources may briefly wait during attribution/binding; this does not promise uninterrupted media when the browser itself restarts its service.
+
+Controls use the same complete JSON object/revision format as output recovery below. Increasing revisions can change volume/mute while a helper is absent. Mute retains its separate volume. `enabled:false` or `finish:true` ends this bounded test and releases its route; unlike `recover-test`, it does not wait for another enable command. Duration is 5–600 seconds, restart requirement 1–8, and capture capacity twelve phases. An active unresolved newcomer times out after five seconds; an incomplete process catalog after two seconds, output loss/format changes, conflicting processors, and stream-map uncertainty all fail explicitly and trigger cleanup. Normal direct playback is released when the diagnostic stops.
+
+Reports retain process birth identities, controls for each replacement, and completed immutable same-sample windows starting at the first nonzero app-lane sample. Control-edit windows retain the existing settling interval for their 20 ms gain ramp. A window superseded before completion is not reported as passed. The independent peer must remain present, and every bound group must have a completed passing first-sample capture. These measurements do not independently establish physical-output mute continuity.
+
+`quarantine-test --output EXACT_PHYSICAL_UID --report reports/quarantine.json` deliberately starts an independent synthetic source **after** building the explicit replay lists. The global reference must receive its 2467 Hz signal while the rendered mix excludes it. Assigning it to the app lane must then apply the existing 25% gain. This exercises the undiscovered-source interval directly, rather than relying on fast browser discovery. See [live handoff results](../../docs/PER-APP-VOLUME-PROTOTYPE.md#live-helper-handoff-with-retained-controls).
 
 ## Automatic output recovery
 
@@ -114,6 +159,6 @@ A process can exit between catalog and metadata reads. Only that object's `!obj`
 
 Reports contain identities, stream maps, callback layouts, tone amplitudes, unity-error metrics, and timing. No audio files are saved or uploaded; short sample captures exist only in RAM. Reports can include local app identities, PIDs, device names and UIDs, so `reports/` is ignored by Git. Keep raw reports local; share the sanitized results document instead.
 
-Offline tests cover bounds, stereo interleaved/planar layouts, summing, six sample rates, smoothing/mute, silent inputs, nonfinite samples, malformed/oversized buffers, immediate capture, and transition-error detection under AddressSanitizer and UndefinedBehaviorSanitizer.
+Offline tests cover bounds, stereo interleaved/planar layouts, summing, six sample rates, smoothing/mute, silent inputs, nonfinite samples, malformed/oversized buffers, immediate capture, and transition-error detection under AddressSanitizer and UndefinedBehaviorSanitizer. Ownership checks cover helper/owner lifetime changes, same-user attribution, shared WebKit separation, unknown owners, duplicate objects, and reused PID/birth-time fixtures; they do not force native PID reuse.
 
-These checks do **not** establish physical loopback equivalence, no direct-path duplication, end-to-end latency, protected audio compatibility, browser-helper churn, PID reuse, sleep/wake, output hotplug, eight-app resource scaling, or older-OS runtime compatibility. Successful sequential tap updates on one output do not establish an atomic HAL transaction. Automatic recovery remains a prototype feature until the production mixer is integrated. Complete the remaining Phase 1 gates before product integration.
+These checks do **not** establish physical loopback equivalence, no direct-path duplication, end-to-end latency, protected audio compatibility, native PID reuse, sleep/wake, eight-app resource scaling, or older-OS runtime compatibility. Browser helper handoff and selected-output hotplug have only the dated setup-specific results linked above; Safari attribution remains experimental. Successful sequential tap updates on one output do not establish an atomic HAL transaction. Automatic recovery remains a prototype feature until the production mixer is integrated. Complete the remaining Phase 1 gates before product integration.

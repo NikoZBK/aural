@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <libproc.h>
 #include <errno.h>
+#include <dlfcn.h>
 
 enum { ProbeLayoutCapacity = 32 };
 struct ProbeEngine {
@@ -24,6 +25,26 @@ struct ProbeEngine {
     atomic_uint_fast64_t callbacks, frames, invalidBuffers, nonfiniteSamples, silentSourceFrames, maxTicks;
 };
 struct ProbeTone { double phase, increment, amplitude; };
+int probe_process_identity(pid_t pid, ProbeProcessIdentity *identity) {
+    if (pid <= 0) return EINVAL;
+    struct proc_bsdinfo info = {0};
+    errno = 0;
+    int size = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info));
+    if (size != sizeof(info)) return errno ? errno : EIO;
+    if (info.pbi_pid != (uint32_t)pid) return ESRCH;
+    *identity = (ProbeProcessIdentity){pid, info.pbi_uid, info.pbi_start_tvsec, info.pbi_start_tvusec};
+    return 0;
+}
+int probe_experimental_responsible_pid(pid_t pid, pid_t *responsible) {
+    if (pid <= 0) return EINVAL;
+    typedef pid_t (*Lookup)(pid_t);
+    Lookup lookup = (Lookup)dlsym(RTLD_DEFAULT, "responsibility_get_pid_responsible_for_pid");
+    if (!lookup) return ENOSYS;
+    pid_t result = lookup(pid);
+    if (result <= 0) return ESRCH;
+    *responsible = result;
+    return 0;
+}
 struct ProbeDrain {
     double nanosecondsPerTick;
     atomic_uint_fast64_t callbacks, frames, invalidBuffers, maxTicks;

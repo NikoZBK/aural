@@ -8,9 +8,10 @@ let package = Package(
     dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")],
     targets: [
         .target(name: "DSP", publicHeadersPath: "include", linkerSettings: [.linkedFramework("CoreAudio")]),
+        .target(name: "Mixer", dependencies: ["DSP"], publicHeadersPath: "include", linkerSettings: [.linkedFramework("CoreAudio")]),
         .executableTarget(
             name: "Aural",
-            dependencies: ["DSP", .product(name: "Sparkle", package: "Sparkle")],
+            dependencies: ["DSP", "Mixer", .product(name: "Sparkle", package: "Sparkle")],
             resources: [.copy("Resources/Targets")],
             linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
         )

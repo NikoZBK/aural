@@ -375,6 +375,8 @@ struct OutputSelection: View {
     @State private var selectionRevision = 0
     var comfortable = false
     var compact = false
+    /// The rail omits the hint: Start EQ is directly above the picker.
+    var captioned = true
     @ViewBuilder var body: some View {
         AuralEquatableContent(key: OutputSelectionKey(devices: model.devices, selected: model.selectedUID, running: model.running,
                                                       rate: model.responseRate, comfortable: comfortable, compact: compact,
@@ -398,7 +400,7 @@ struct OutputSelection: View {
             .help("Select the output used by your apps. Changing output stops EQ; it does not change the macOS default. Follow macOS output in Settings switches automatically.")
     }
     private var expanded: some View {
-        VStack(alignment: .leading, spacing: 12 * interfaceScale) {
+        VStack(alignment: .leading, spacing: (captioned ? 12 : 7) * interfaceScale) {
             HStack {
                 AuralSectionLabel(title: "Output", systemImage: "hifispeaker")
                 Spacer()
@@ -406,8 +408,8 @@ struct OutputSelection: View {
                     .buttonStyle(.plain).foregroundStyle(AuralStyle.secondary).accessibilityLabel("Refresh outputs").help("Refresh audio devices")
             }
             devicePicker
-            Text(comfortable ? "Choose the output your apps are using. Changing output stops EQ; press Start EQ when you are ready." : (model.running ? String(format: "Stereo · %g kHz", model.responseRate / 1000) : "Select output, then Start EQ"))
-                .auralFont(size: comfortable ? 13 : 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
+            if captioned { Text(comfortable ? "Choose the output your apps are using. Changing output stops EQ; press Start EQ when you are ready." : (model.running ? String(format: "Stereo · %g kHz", model.responseRate / 1000) : "Select output, then Start EQ"))
+                .auralFont(size: comfortable ? 13 : 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true) }
         }
     }
     private func selectOutput(_ uid: String) {
