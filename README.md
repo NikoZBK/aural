@@ -7,13 +7,13 @@
   <a href="https://github.com/NikoZBK/aural/releases/latest"><b>Download</b></a> · macOS 14.2 or later · Apple silicon and Intel
 </p>
 
-![Aural in Dark theme with Liquid Glass controls, a teal EQ curve, and all filter rows in a side panel](docs/design/desktop/dark-side-panel.png)
+![Aural in Dark theme: a control rail on the left, the EQ curve with numbered points, and ten glossy faders with level lines](docs/screenshots/2.0-dark.png)
 
-**Light theme.** The same workspace with pale glass, a teal response curve, and exact filter controls.
+**Light theme.** The same workspace on a pale pinstripe background.
 
-![Aural in Light theme with the selected filter inspector beside the EQ curve](docs/design/desktop/light-side-panel.png)
+![Aural in Light theme with the same rail, EQ curve, and faders](docs/screenshots/2.0-light.png)
 
-<sub>Native desktop previews of the 1.6 design on macOS 27, with processing stopped. Dashed purple shows the Harman reference; the solid curve shows EQ gain.</sub>
+<sub>Aural 2.0 with processing stopped. The dashed purple line shows the Harman reference; the solid curve shows EQ gain.</sub>
 
 ## Install
 
