@@ -207,7 +207,7 @@ Filter shapes follow the analog prototypes of the [W3C Audio EQ Cookbook](https:
 
 ## Release notes
 
-- [4.1](RELEASE-4.1.0.md): per-app volume and mute, a control rail beside the equalizer, a mid-2000s look, and level lines on faders.
+- [2.0](RELEASE-2.0.0.md): per-app volume and mute, a control rail beside the equalizer, a mid-2000s look, and level lines on faders.
 - [1.7.1](RELEASE-1.7.1.md): more reliable recovery when an audio output disconnects.
 - [1.7](RELEASE-1.7.0.md): glass cards, horizontal filters with exact values beneath each fader, responsive layouts, and smoother editing.
 
