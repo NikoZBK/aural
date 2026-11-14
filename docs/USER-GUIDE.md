@@ -2,23 +2,25 @@
 
 Aural adjusts the sound playing through your chosen stereo output. Use the main window to fine-tune your EQ, or control it from the menu bar. No extra audio driver is required.
 
-- [The workspace](#the-workspace)
-- [Output, bypass, and the menu bar](#output-bypass-and-the-menu-bar)
-- [App mixer](#app-mixer)
-- [Presets](#presets)
-- [Themes](#themes)
-- [A/B comparison, undo, zoom, and shortcuts](#ab-comparison-undo-zoom-and-shortcuts)
-- [Stereo and delay](#stereo-and-delay)
-- [Peak protection](#peak-protection)
-- [Loudness compensation](#loudness-compensation)
-- [AutoEQ search and import](#autoeq-search-and-import)
-- [Editing filters and drafts](#editing-filters-and-drafts)
-- [Copy, paste, and supported text](#copy-paste-and-supported-text)
-- [Startup and updates](#startup-and-updates)
-- [Privacy](#privacy)
-- [Current scope and troubleshooting](#current-scope-and-troubleshooting)
-- [Build, implementation, and tests](#build-implementation-and-tests)
-- [Release notes](#release-notes)
+## Contents
+
+1. [The workspace](#the-workspace)
+2. [Output, bypass, and the menu bar](#output-bypass-and-the-menu-bar)
+3. [Presets](#presets)
+4. [Themes](#themes)
+5. [A/B comparison, undo, zoom, and shortcuts](#ab-comparison-undo-zoom-and-shortcuts)
+6. [Stereo and delay](#stereo-and-delay)
+7. [Peak protection](#peak-protection)
+8. [Loudness compensation](#loudness-compensation)
+9. [AutoEQ search and import](#autoeq-search-and-import)
+10. [Editing filters and drafts](#editing-filters-and-drafts)
+11. [Copy, paste, and supported text](#copy-paste-and-supported-text)
+12. [Startup and updates](#startup-and-updates)
+13. [App mixer](#app-mixer)
+14. [Privacy](#privacy)
+15. [Current scope and troubleshooting](#current-scope-and-troubleshooting)
+16. [Build, implementation, and tests](#build-implementation-and-tests)
+17. [Release notes](#release-notes)
 
 ## The workspace
 
