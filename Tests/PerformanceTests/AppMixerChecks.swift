@@ -29,10 +29,20 @@ func mixerProcess(_ id: Int, owner: String? = nil, bundle: String? = nil, playin
     require(Set(neutral.groups.flatMap { $0 }.map(\.object) + neutral.others.map(\.object)).count == 12, "Each process has exactly one replay lane")
     var preferences = AppMixerPreferences()
     for source in sources.prefix(9) { preferences.apps[source.ownerID!] = AppVolumeSetting(volume: 0.25, muted: true, name: source.name) }
-    do {
-        _ = try AppMixerPlan(catalog: catalog, previous: neutral.slots, preferences: preferences, ownPID: -1, outputObject: 77)
-        fatalError("Nine active nonneutral apps must fail explicitly, never leak a saved mute into unity playback")
-    } catch let error as AudioFailure { require(error.message.contains("eight"), "Capacity error must explain the limit") }
+    let crowded = try AppMixerPlan(catalog: catalog, previous: neutral.slots, preferences: preferences, ownPID: -1, outputObject: 77)
+    require(crowded.waiting.count == 1 && crowded.slots.compactMap { $0 }.count == 8 && !crowded.slots.contains(crowded.waiting[0]),
+            "A ninth active nonneutral app must wait without stopping the other eight")
+    require(crowded.pending.map(\.ownerID) == [crowded.waiting[0]] && crowded.others.count == 3,
+            "The waiting app must stay silent, never leak a saved mute into unity playback")
+    let steady = try AppMixerPlan(catalog: catalog, previous: crowded.slots, preferences: preferences, ownPID: -1, outputObject: 77)
+    require(steady == crowded, "A full mixer must not shuffle lanes between reads")
+    var freed = preferences
+    freed.apps[crowded.slots[0]!] = nil
+    let relieved = try AppMixerPlan(catalog: catalog, previous: crowded.slots, preferences: freed, ownPID: -1, outputObject: 77)
+    require(relieved.waiting.isEmpty && relieved.slots.contains(crowded.waiting[0]) && relieved.pending.isEmpty,
+            "Resetting a controlled app must give its lane to the waiting app")
+    require(AppMixerStore.noticeFloor(idleNotices: 0, active: true) == 50 && AppMixerStore.noticeFloor(idleNotices: 9, active: true) == 500 &&
+            AppMixerStore.noticeFloor(idleNotices: 9, active: false) == 2000, "Notices that change nothing must back discovery off")
     let quiet = AppAudioCatalog(processes: (0..<9).map { mixerProcess($0, playing: false) }, incomplete: false)
     let quietPlan = try AppMixerPlan(catalog: quiet, previous: [], preferences: preferences, ownPID: -1, outputObject: 77)
     require(quietPlan.pending.count == 1 && quietPlan.others.isEmpty, "An unbound remembered mute must wait outside replay until capacity is available")
@@ -68,6 +78,28 @@ func mixerProcess(_ id: Int, owner: String? = nil, bundle: String? = nil, playin
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try! FileManager.default.removeItem(at: directory) }
     let file = directory.appendingPathComponent("settings.json")
+    // The eight-lane limit refuses a ninth live edit and names an app it has to hold silent.
+    let crowd = AppMixerStore(file: directory.appendingPathComponent("crowd.json"), discoveryEnabled: false)
+    let crowdOutput = OutputDevice(id: 77, uid: "test-output", name: "Test output")
+    crowd.adoptCatalogForTesting(catalog, output: crowdOutput)
+    crowd.setSession(active: true, output: crowdOutput)
+    for index in 0..<8 { crowd.setMuted("com.example.Player\(index)", true) }
+    require(crowd.error == nil && crowd.preferences.apps.count == 8, "Eight playing apps can be controlled")
+    crowd.setMuted("com.example.Player8", true)
+    require(crowd.preferences.apps["com.example.Player8"] == nil && crowd.error?.contains("eight") == true,
+            "A ninth live edit must be refused with the reason, not silence the app or stop EQ")
+    crowd.setVolume("com.example.Player0", percent: 30, final: true)
+    require(crowd.error == nil && crowd.preferences.apps["com.example.Player0"]?.volume == 0.3, "An already controlled app stays editable at the limit")
+    crowd.setSession(active: false, output: crowdOutput)
+    crowd.setMuted("com.example.Player8", true)
+    crowd.setSession(active: true, output: crowdOutput)
+    crowd.updateRouting(slots: (0..<8).map { "com.example.Player\($0)" }, peaks: [])
+    require(crowd.capacityNotice?.contains("Player 8") == true && crowd.rows.first { $0.id == "com.example.Player8" }?.state.held == true,
+            "An app held silent by the limit must be named")
+    crowd.reset("com.example.Player0")
+    crowd.updateRouting(slots: (1..<9).map { "com.example.Player\($0)" }, peaks: [])
+    require(crowd.capacityNotice == nil, "The notice clears once the held app has a lane")
+    try await crowd.flush()
     let model = Model(settingsFile: file, readLoginStatus: { .notRegistered })
     let store = model.appMixer, output = OutputDevice(id: 77, uid: "test-output", name: "Test output")
     store.adoptCatalogForTesting(catalog, output: output)

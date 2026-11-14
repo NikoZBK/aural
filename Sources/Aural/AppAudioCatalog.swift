@@ -190,6 +190,10 @@ struct AppMixerPlan: Equatable, Sendable {
     let groups: [[AppAudioProcess]]
     let others: [AppAudioProcess]
     let pending: [AppAudioProcess]
+    /// Apps with a saved level or mute that are playing but found every lane
+    /// taken by another such app. They stay silent, never at 100%, until a
+    /// lane frees up.
+    let waiting: [String]
 
     /// Nothing ties such a source to any app: no owning bundle and no bundle ID.
     static func unidentified(_ process: AppAudioProcess) -> Bool { process.ownerID == nil && process.bundleID.isEmpty }
@@ -207,9 +211,6 @@ struct AppMixerPlan: Equatable, Sendable {
         }
         func playingHere(_ id: String) -> Bool { verified[id]?.contains { $0.playing && $0.outputs.contains(outputObject) } == true }
         let required = verified.keys.filter { preferences.apps[$0]?.neutral == false && playingHere($0) }.sorted()
-        guard required.count <= Self.capacity else {
-            throw AudioFailure(message: "Aural can independently control eight apps at once. Reset an app to 100% and unmute it before starting another controlled app.")
-        }
         var slots = previous.count == Self.capacity ? previous : Array(repeating: nil, count: Self.capacity)
         for index in slots.indices where slots[index].map({ verified[$0] == nil }) == true { slots[index] = nil }
         // Saved attenuation/mute must never silently fall into the unity lane.
@@ -237,6 +238,7 @@ struct AppMixerPlan: Equatable, Sendable {
         }
         let pendingObjects = Set(pending.map(\.object))
         self.slots = slots; self.groups = groups; self.pending = pending
+        waiting = required.filter { !controlled.contains($0) }
         others = processes.filter { !controlled.contains($0.ownerID ?? "") && !pendingObjects.contains($0.object) }
     }
 }

@@ -1069,7 +1069,7 @@ import ServiceManagement
             importNotice = "macOS switched to \(output.name), which Aural cannot equalize. Aural supports outputs with one stereo stream, so it stays on \(selected?.name ?? "the selected output")."
             return
         }
-        let resume = running || waitingForOutput
+        let resume = running || waitingForOutput || starting
         select(output.uid)
         guard selectedUID == output.uid else { return }
         if resume { start() }

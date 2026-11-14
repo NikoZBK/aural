@@ -37,6 +37,7 @@ struct AppMixerView: View {
                     .accessibilityIdentifier("app-mixer-status")
                 if let error = store.lifecycleError { AuralNotice(message: error, isError: true) }
                 if let error = store.error, error != store.lifecycleError { AuralNotice(message: error, isError: true) }
+                if let notice = store.capacityNotice { AuralNotice(message: notice, isError: true) }
                 if let processor = store.competingProcessor {
                     AuralNotice(message: "\(processor) is processing this output. Quit it before starting Aural.", isError: false)
                 }
@@ -71,7 +72,7 @@ struct AppMixerView: View {
         // SwiftUI can keep a closed window's views alive without ever sending
         // onDisappear, so discovery follows the window itself.
         .background(WindowVisibility { store.setVisible($0) }).onDisappear { store.setVisible(false) }
-        .auralAnnouncement(store.lifecycleError ?? store.error)
+        .auralAnnouncement(store.lifecycleError ?? store.error ?? store.capacityNotice)
     }
     private var status: String {
         if store.active { return store.bypassed ? "App levels active · EQ bypassed" : "App levels and EQ active" }
@@ -133,6 +134,7 @@ private struct AppMixerStrip: View {
     private var activity: String {
         if AppAudioCatalog.competingProcessors.contains(row.id) { return "Other audio processor" }
         if !active { return "Saved · inactive" }
+        if row.state.held { return "Silent · eight-app limit" }
         if row.state.playing { return row.state.applied ? (row.setting.muted ? "Muted" : "Playing") : (row.setting.neutral ? "Playing at 100%" : "Applying…") }
         return row.state.available ? "Quiet" : "Remembered"
     }

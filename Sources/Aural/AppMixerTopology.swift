@@ -287,7 +287,10 @@ final class AppMixerTopology: @unchecked Sendable {
         guard try ids(aggregate, kAudioDevicePropertyStreams, scope: kAudioObjectPropertyScopeInput) == inputStreams else {
             throw AudioFailure(message: "The app mixer stream map changed. Processing stopped before using stale inputs.")
         }
-        let unresolved = next.pending.contains { $0.playing && $0.outputs.contains(output.id) }
+        // An app held back by the eight-lane limit is identified; it is not an ownership question.
+        let unresolved = next.pending.contains { process in
+            process.playing && process.outputs.contains(output.id) && process.ownerID.map(next.waiting.contains) != true
+        }
         if unresolved {
             if pendingSince == nil { pendingSince = Date() }
             guard Date().timeIntervalSince(pendingSince ?? .distantPast) < 5 else { throw AudioFailure(message: "Aural could not verify a playing app's ownership. Saved app mute/volume cannot be applied safely.") }

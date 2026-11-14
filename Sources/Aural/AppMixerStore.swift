@@ -11,6 +11,8 @@ struct AppMixerRowState: Equatable {
     let available: Bool
     let controllable: Bool
     let applied: Bool
+    /// Playing with a saved level or mute, but silenced because all eight lanes are taken.
+    var held = false
 }
 
 @MainActor final class AppMixerRow: ObservableObject, Identifiable {
@@ -58,6 +60,7 @@ private actor AppMixerWriter {
     @Published private(set) var bypassed = false
     @Published private(set) var lifecycleError: String?
     @Published private(set) var competingProcessor: String?
+    @Published private(set) var capacityNotice: String?
     private(set) var preferences = AppMixerPreferences()
     private(set) var loadFailed = false
     var onControls: ((AppMixerPreferences) -> Void)?
@@ -76,6 +79,8 @@ private actor AppMixerWriter {
     private var sleeper: Task<Void, Never>?
     private var changePending = false
     private var fastUntil = ContinuousClock.now
+    private var lastDelivery = ContinuousClock.now
+    private var idleNotices = 0
     private lazy var watcher = AppAudioWatcher { [weak self] in Task { @MainActor in self?.audioChanged() } }
     private var saveTask: Task<Void, Never>?
     private let writer: AppMixerWriter
@@ -107,7 +112,8 @@ private actor AppMixerWriter {
         if let output, outputName != output.name { outputName = output.name }
         if !active { slots = []; for row in rows { row.updatePeak(0) } }
         rebuildRows(); refreshScheduling()
-        if flipped { audioChanged() } // The first catalog of a session must not wait out a sleep.
+        // The first catalog of a session must not wait out a sleep, and the mixer settles on quick reads.
+        if flipped { idleNotices = 0; fastUntil = .now + .seconds(6); audioChanged() }
     }
     func setBypassed(_ value: Bool) { if bypassed != value { bypassed = value } }
     func setLifecycleError(_ value: String?) { if lifecycleError != value { lifecycleError = value } }
@@ -119,47 +125,66 @@ private actor AppMixerWriter {
         try await writer.save(preferences, revision: token)
         if revision == token { unsaved = false }
     }
-    /// Something about app audio changed, or may have: read now, and keep
-    /// reading quickly while ownership and playback settle. The mixer's
-    /// grace periods (up to five seconds) are counted on these reads.
+    /// Something about app audio may have changed: read soon. Core Audio also
+    /// sends these notices when nothing the mixer uses changed, so a notice
+    /// alone does not start quick reading; a read that finds a change does.
     private func audioChanged() {
-        changePending = true; fastUntil = .now + .seconds(6); sleeper?.cancel()
+        changePending = true; sleeper?.cancel()
+    }
+    /// The shortest wait before the next read. Notices that keep turning out
+    /// to change nothing back off, so a chattering process cannot keep
+    /// discovery busy; a real change restores the prompt re-read.
+    static func noticeFloor(idleNotices: Int, active: Bool) -> Int {
+        switch idleNotices { case 0: 50; case 1: 250; case 2: 500; default: active ? 500 : 2000 }
     }
     private func refreshScheduling() {
         let wanted = discoveryEnabled && (active || visible)
         guard wanted != (refreshTask != nil) else { return }
         generation &+= 1; refreshTask?.cancel(); refreshTask = nil; sleeper?.cancel(); sleeper = nil
         guard wanted else { watcher.stop(); return }
-        watcher.start(); changePending = false; fastUntil = .now + .seconds(6)
+        watcher.start(); changePending = false; idleNotices = 0; fastUntil = .now + .seconds(6)
         let token = generation
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {
                 let result = await Task.detached(priority: .utility) { Result { try AppAudioCatalog.read() } }.value
                 guard let self, !Task.isCancelled, self.generation == token else { return }
+                var changed = false
                 switch result {
                 case .success(let catalog):
                     self.watcher.watch(catalog.processes.map(\.object))
-                    if catalog.incomplete { self.fastUntil = .now + .seconds(6) }
-                    else if self.catalog != catalog {
-                        self.catalog = catalog; self.rebuildRows(); self.fastUntil = .now + .seconds(6)
-                    }
+                    if catalog.incomplete { changed = true }
+                    else if self.catalog != catalog { self.catalog = catalog; self.rebuildRows(); changed = true }
+                    // The mixer counts its grace periods (up to five seconds)
+                    // on these reads, so they stay quick while a change settles.
+                    if changed { self.fastUntil = .now + .seconds(6) }
                     if self.discoveryFailed { self.discoveryFailed = false; self.error = nil }
-                    if self.active { self.onCatalog?(catalog) }
+                    // An unchanged catalog still reaches the mixer while it
+                    // settles, and once a second after that as its health check.
+                    let now = ContinuousClock.now
+                    if self.active, changed || now < self.fastUntil || now - self.lastDelivery >= .seconds(1) {
+                        self.lastDelivery = now; self.onCatalog?(catalog)
+                    }
                 case .failure(let error):
                     self.discoveryFailed = true
                     self.error = "Could not discover app audio: " + error.localizedDescription
                     AuralLog.audio.error("App discovery failed: \(AuralLog.describe(error), privacy: .public)")
                     if self.active { self.onDiscoveryFailure?(error) }
                 }
-                // A notice that arrived during the read gets a prompt re-read,
-                // spaced so a chattering process cannot spin discovery.
-                let settle = self.changePending
+                // Wait out the floor first; a notice cannot shorten it. Then
+                // sleep until the next poll unless a notice asks for a read.
+                let noticed = self.changePending
                 self.changePending = false
-                let delay = settle ? 50 : ContinuousClock.now < self.fastUntil ? 250 : self.active ? 1000 : 2000
-                let pause = Task { do { try await Task.sleep(for: .milliseconds(delay)) } catch {} }
-                if !settle { self.sleeper = pause }
-                await withTaskCancellationHandler { await pause.value } onCancel: { pause.cancel() }
-                if self.generation == token { self.sleeper = nil }
+                if changed { self.idleNotices = 0 } else if noticed { self.idleNotices += 1 }
+                let floor = Self.noticeFloor(idleNotices: self.idleNotices, active: self.active)
+                let poll = ContinuousClock.now < self.fastUntil ? 250 : self.active ? 1000 : 2000
+                do { try await Task.sleep(for: .milliseconds(min(floor, poll))) } catch { return }
+                guard self.generation == token else { return }
+                if !self.changePending, poll > floor {
+                    let pause = Task { do { try await Task.sleep(for: .milliseconds(poll - floor)) } catch {} }
+                    self.sleeper = pause
+                    await withTaskCancellationHandler { await pause.value } onCancel: { pause.cancel() }
+                    if self.generation == token { self.sleeper = nil }
+                }
             }
         }
     }
@@ -194,6 +219,11 @@ private actor AppMixerWriter {
         do { _ = try setting.validated() }
         catch { self.error = error.localizedDescription; return }
         guard preferences.apps.count < 256 || preferences.apps[id] != nil else { error = "The remembered app limit has been reached."; return }
+        // A ninth controlled app would have no lane and fall silent, so the edit is refused instead.
+        if active, !forget, !setting.neutral, preferences.apps[id]?.neutral != false, row.state.playing,
+           controlledPlaying(except: id) >= AppMixerPlan.capacity {
+            error = "Aural can control eight apps at once. Reset another playing app to 100% first."; return
+        }
         if forget {
             guard preferences.apps[id] != nil else { return }
             preferences.apps[id] = nil
@@ -215,6 +245,14 @@ private actor AppMixerWriter {
             catch { self?.error = "App levels changed, but could not be saved: " + error.localizedDescription }
         }
     }
+    /// How many other apps with a saved level or mute are playing on this output.
+    private func controlledPlaying(except id: String) -> Int {
+        Set(catalog.processes.compactMap { process -> String? in
+            guard let owner = process.ownerID, owner != id, process.pid != getpid(), process.playing, process.outputs.contains(outputObject),
+                  preferences.apps[owner]?.neutral == false else { return nil }
+            return owner
+        }).count
+    }
     private func rebuildRows() {
         let groups = catalog.processes.reduce(into: [String: [AppAudioProcess]]()) { result, process in
             if let id = process.ownerID, process.pid != getpid() { result[id, default: []].append(process) }
@@ -223,18 +261,27 @@ private actor AppMixerWriter {
             groups[id]?.contains { $0.playing && $0.outputs.contains(outputObject) } == true || preferences.apps[id] != nil || slots.contains(id)
         }).union(preferences.apps.keys)
         let ordered = names.sorted { ($0.localizedStandardCompare($1)) == .orderedAscending }
+        // Every lane is held by an app that needs it: any further such app waits in silence.
+        let full = active && slots.count == AppMixerPlan.capacity && slots.allSatisfy { id in
+            preferences.apps[id]?.neutral == false && groups[id]?.contains { $0.playing && $0.outputs.contains(outputObject) } == true
+        }
+        var heldNames: [String] = []
         for id in ordered {
             let group = groups[id] ?? [], info = group.first
             let name = info?.name ?? preferences.apps[id]?.name ?? id
-            let state = AppMixerRowState(id: id, name: name, path: info?.appPath,
+            var state = AppMixerRowState(id: id, name: name, path: info?.appPath,
                 experimental: id == "com.apple.Safari",
                 playing: group.contains { $0.playing && $0.outputs.contains(outputObject) }, available: !group.isEmpty,
                 controllable: !loadFailed && !AppAudioCatalog.competingProcessors.contains(id) && (info == nil || group.allSatisfy { $0.birth != nil && $0.issue == nil }), applied: active && slots.contains(id))
             let setting = preferences.apps[id] ?? AppVolumeSetting(name: name)
+            state.held = full && state.playing && !setting.neutral && !slots.contains(id)
+            if state.held { heldNames.append(name) }
             if let row = cached[id] { row.update(state: state, setting: setting) }
             else { cached[id] = AppMixerRow(state: state, setting: setting) }
         }
         if rows.map(\.id) != ordered { rows = ordered.compactMap { cached[$0] } }
+        let notice = heldNames.isEmpty ? nil : "Aural can control eight apps at once. \(heldNames.formatted(.list(type: .and))) will stay silent until another playing app is reset to 100% or stops."
+        if capacityNotice != notice { capacityNotice = notice }
         let unknown = catalog.processes.filter { $0.ownerID == nil && $0.playing && $0.outputs.contains(outputObject) }
         if unavailableCount != unknown.count { unavailableCount = unknown.count }
         let competing = catalog.processes.first { $0.ownerID.map(AppAudioCatalog.competingProcessors.contains) == true && $0.playing && $0.outputs.contains(outputObject) }?.name
