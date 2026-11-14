@@ -195,7 +195,7 @@ struct FilterEditor: View {
                 .auralFrame(width: 24)
                 .accessibilityHidden(true)
             Toggle("Filter \(number) enabled", isOn: filter.enabled)
-                .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 28)
+                .labelsHidden().toggleStyle(AuralCheckboxStyle()).auralFrame(width: 28)
                 .help("Enable or bypass filter \(number)")
             let shape = filter.wrappedValue.shape
             FilterTypeMenu(title: "Filter \(number) type", shape: shape, buttonTitle: shape.slope == nil ? shape.label : shape.name) {

@@ -50,7 +50,7 @@ struct PresetBrowser: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
                 TextField("Find a preset", text: $search).textFieldStyle(.plain).accessibilityLabel("Find a preset")
                     .help("Filter presets by name.")
-            }.auralFont(size: comfortable ? 14 : 11).auralPadding(comfortable ? 11 : 8).background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 5))
+            }.auralFont(size: comfortable ? 14 : 11).auralPadding(comfortable ? 11 : 8).background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 5))
             ScrollView {
                 VStack(alignment: .leading, spacing: 4 * interfaceScale) {
                     group("Favorites", names: model.favoritePresets.sorted())
@@ -116,10 +116,9 @@ struct PresetSelection: View {
             Button("Manage presets…") { openWindow.showAuralWindow("presets") }.help(AuralHelp.presetLibrary)
             PresetDeletionMenuItems(model: model, submissions: submissions)
         } label: {
-            Text(model.selectedPresetName ?? "Custom EQ")
-                .auralFont(size: 23, weight: .bold, design: .rounded).lineLimit(1)
+            Text(model.selectedPresetName ?? "Custom EQ").lineLimit(1)
         }
-        .auralMenuButton(.large)
+        .auralMenuButton()
         .auralFrame(minWidth: 200, idealWidth: 300, maxWidth: 360)
         .accessibilityLabel("Preset")
         .accessibilityValue(model.currentPresetTitle)
@@ -171,8 +170,8 @@ struct EQFileMenu: View {
             Divider()
             Button("Back up presets…") { model.backupPresets() }.help("Export custom presets and favorites to a backup file.")
             Button("Restore presets…") { if submitPendingInput() { model.restorePresets() } }.help("Import presets and favorites from a backup file.")
-        } label: { Label("Files", systemImage: "folder") }.auralFont(size: 11)
-            .menuStyle(.borderlessButton)
+        } label: { Label("Files", systemImage: "folder") }
+            .auralMenuButton(.small)
             .tint(.primary)
             .fixedSize(horizontal: true, vertical: false)
             .help("Import, export, and back up your EQ and presets")
@@ -346,7 +345,7 @@ struct LoudnessControls: View {
                     Text("Loudness")
                     Text(model.loudness.enabled ? "On" : "Off").monospacedDigit()
                 }
-            }.toggleStyle(.checkbox).auralControlSize(.small)
+            }.toggleStyle(AuralCheckboxStyle()).auralControlSize(.small)
                 .accessibilityLabel("Loudness compensation")
                 .help("Restores bass and treble as you turn the volume down, following the ISO 226 equal-loudness contours. At the reference volume, EQ plays as set.")
             Button { showReference.toggle() } label: { Image(systemName: "slider.horizontal.3") }
@@ -512,7 +511,7 @@ struct StudioMeter: View {
                     Text("Peak protection")
                     Text(protectionEnabled ? "On" : "Off").monospacedDigit()
                 }
-            }.toggleStyle(.checkbox).auralControlSize(.small)
+            }.toggleStyle(AuralCheckboxStyle()).auralControlSize(.small)
                 .accessibilityLabel("Peak protection")
                 .help("Limits true peaks, including those between samples, in both channels together, including Bypass. It eases the level down over 1 ms before each peak. Off allows peaks above full scale.")
             if reducing {

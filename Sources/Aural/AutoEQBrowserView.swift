@@ -167,7 +167,7 @@ struct AutoEQBrowserView: View {
                         .transition(.auralPop(reduceMotion: reduceMotion))
                 }
             }.auralAnimation(AuralMotion.quick, value: search.isEmpty)
-                .auralPadding(10).background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 6))
+                .auralPadding(10).background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
             HStack(spacing: 8 * interfaceScale) {
                 Text("Measurement source").auralFont(size: 12).accessibilityHidden(true)

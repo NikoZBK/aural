@@ -121,8 +121,8 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
                 require(contrast(trace, AuralStyle.surface, scheme: scheme) >= 3, "Each filter/channel trace must remain visible")
             }
         }
-        require(luminance(resolved(AuralStyle.background, scheme: .light)) > 0.8, "Light theme must actually resolve to a light surface")
-        require(luminance(resolved(AuralStyle.background, scheme: .dark)) < 0.02, "Dark theme must retain its dark surface")
+        require(luminance(resolved(AuralStyle.background, scheme: .light)) > 0.4, "Light theme must actually resolve to a light surface")
+        require(luminance(resolved(AuralStyle.background, scheme: .dark)) < 0.05, "Dark theme must retain its dark surface")
         require(abs(resolved(AuralStyle.grid, scheme: .light).red) < 0.001 && abs(resolved(AuralStyle.grid, scheme: .dark).red - 1) < 0.001,
                 "Graph grids must change ink with the appearance")
         require(AuralTheme.system.colorScheme == nil && AuralTheme.system.appearance == nil, "System must release both SwiftUI and AppKit overrides")

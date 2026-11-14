@@ -110,11 +110,11 @@ struct PresetLibraryView: View {
             }
             .auralAnimation(AuralMotion.quick, value: search.isEmpty)
             .auralPadding(10)
-            .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 6))
+            .background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
             Toggle(isOn: $favoritesOnly) {
                 Label("Favorites only", systemImage: "star.fill")
-            }.toggleStyle(.checkbox).auralFont(size: 12)
+            }.toggleStyle(AuralCheckboxStyle()).auralFont(size: 12)
                 .help("Show only presets marked as favorites.")
 
             // Overlapping the empty state and the list lets them crossfade in place.

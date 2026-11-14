@@ -117,7 +117,7 @@ private struct EQBandContent: View, Equatable {
                 if let filter {
                     Toggle("Filter \(index + 1) enabled", isOn: Binding(get: { filter.enabled }, set: { enabled in
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
-                    })).labelsHidden().toggleStyle(.checkbox)
+                    })).labelsHidden().toggleStyle(AuralCheckboxStyle())
                         .help("Enable or bypass filter \(index + 1) without removing its settings.")
                     if filter.effectiveChannel != .stereo {
                         Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
@@ -229,7 +229,7 @@ private struct EQBandContent: View, Equatable {
                         return current[index].enabled
                     }, set: { enabled in
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
-                    })).labelsHidden().toggleStyle(.checkbox)
+                    })).labelsHidden().toggleStyle(AuralCheckboxStyle())
                         .help("Enable or bypass band \(index + 1) without removing its settings.")
                     if filter.effectiveChannel != .stereo {
                         Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
@@ -281,6 +281,19 @@ private struct EQGainBar: View {
                 let zero = (1 - EQBarScale.fraction(0, in: range)) * height + 4
                 context.fill(Path(roundedRect: CGRect(x: (size.width - 18) / 2, y: 0, width: 18, height: size.height), cornerRadius: 4),
                              with: .color(AuralStyle.elevated))
+                context.stroke(Path(roundedRect: CGRect(x: (size.width - 18) / 2 + 0.5, y: 0.5, width: 17, height: size.height - 1), cornerRadius: 4),
+                               with: .color(AuralStyle.controlBorder), lineWidth: 1)
+                // Level lines on both sides of the track: long at each major step, short halfway between.
+                let major = range.upperBound > 12 ? 10.0 : 6.0
+                var ticks = Path()
+                for step in stride(from: range.lowerBound, through: range.upperBound, by: major / 2) where step != 0 {
+                    let y = ((1 - EQBarScale.fraction(step, in: range)) * height + 4).rounded() + 0.5
+                    let length: CGFloat = step.truncatingRemainder(dividingBy: major) == 0 ? 6 : 3
+                    for x in [(size.width - 18) / 2 - 3 - length, (size.width + 18) / 2 + 3] {
+                        ticks.move(to: CGPoint(x: x, y: y)); ticks.addLine(to: CGPoint(x: x + length, y: y))
+                    }
+                }
+                context.stroke(ticks, with: .color(AuralStyle.secondary.opacity(0.7)), lineWidth: 1)
                 context.fill(Path(roundedRect: CGRect(x: (size.width - 18) / 2, y: min(zero, position), width: 18, height: max(2, abs(zero - position))), cornerRadius: 3),
                              with: .color(accent.opacity(adjustable ? 0.8 : 0.2)))
                 context.fill(Path(CGRect(x: (size.width - 30) / 2, y: zero, width: 30, height: 1)), with: .color(AuralStyle.secondary))

@@ -162,11 +162,8 @@ private struct InteractiveResponseCurve: View {
             HStack(spacing: 8 * interfaceScale) {
                 AuralSectionLabel(title: "EQ curve", systemImage: "waveform.path").fixedSize()
                 if hasChannelFilters {
-                    Picker("Response channel", selection: $channel) {
-                        ForEach(ResponseChannel.allCases, id: \.self) { channel in
-                            Text(channel.label(midSide: hasMidSide)).tag(channel)
-                        }
-                    }.pickerStyle(.segmented).labelsHidden().auralControlSize(.small)
+                    AuralSegmented(title: "Response channel", selection: $channel,
+                                   options: ResponseChannel.allCases.map { ($0, $0.label(midSide: hasMidSide)) }, small: true)
                         .auralFrame(width: 116, height: 22)
                         .help(hasMidSide
                               ? "Inspect mid and side independently. Mid is the solid accent trace; side is dotted rose. Peak/headroom always covers both output channels."
@@ -195,14 +192,14 @@ private struct InteractiveResponseCurve: View {
                         .help("Open the published data for the selected Harman target.")
                 } label: {
                     Text("Harman").foregroundStyle(showHarman ? AuralStyle.plotColors[2] : AuralStyle.secondary)
-                }.menuStyle(.borderlessButton).tint(.primary).fixedSize().disabled(drag != nil)
+                }.auralMenuButton(.small).fixedSize().disabled(drag != nil)
                     .accessibilityLabel("Harman acoustic reference")
                     .help("Display a Harman acoustic target normalized to 0 dB at 1 kHz. It is a visual reference; the solid EQ curve shows gain, not a measured headphone response. The reference never changes audio.")
                 Toggle(isOn: $showFilters) {
                     if compact { Image(systemName: "line.3.horizontal.decrease") }
                     else { Text("Filter curves") }
                 }
-                .toggleStyle(.button).auralControlSize(.small).fixedSize()
+                .toggleStyle(AuralGelToggleStyle()).auralControlSize(.small).fixedSize()
                 .accessibilityLabel("Filter curves")
                 .disabled(bypass)
                 .help("Overlay each enabled filter without preamp. Disabled filters are excluded.")

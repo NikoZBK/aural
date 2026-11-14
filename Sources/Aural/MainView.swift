@@ -213,22 +213,19 @@ struct MainView: View {
                 AuralSectionLabel(title: "Compare", systemImage: "arrow.left.arrow.right")
                 Spacer(minLength: 0)
                 Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
-                    .toggleStyle(.checkbox).auralControlSize(.small).auralFont(size: 11).fixedSize()
+                    .toggleStyle(AuralCheckboxStyle()).auralControlSize(.small).auralFont(size: 11).fixedSize()
                     .help("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
             }
             HStack(spacing: 8 * interfaceScale) {
-                Picker("A/B comparison", selection: Binding(get: { model.comparisonSlot }, set: { slot in
+                AuralSegmented(title: "A/B comparison", selection: Binding(get: { model.comparisonSlot }, set: { slot in
                     if submitPendingInput() { withAuralAnimation { model.selectComparison(slot) } }
                     selectionRevision += 1
-                })) {
-                    Text("A").tag(ComparisonSlot.a)
-                    Text("B").tag(ComparisonSlot.b)
-                }.pickerStyle(.segmented).labelsHidden().auralFrame(width: 76).transition(.identity).id(selectionRevision)
+                }), options: [(ComparisonSlot.a, "A"), (ComparisonSlot.b, "B")]).auralFrame(width: 76).transition(.identity).id(selectionRevision)
                     .help(model.matchLevels
                           ? "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback. The louder version plays lower so both match."
                           : "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback.")
                 Toggle("Bypass", isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } }))
-                    .toggleStyle(.button).auralControlSize(.small)
+                    .toggleStyle(AuralGelToggleStyle()).auralControlSize(.small)
                     .help(model.matchLevels
                           ? "Bypass EQ, preamp, and stereo effects at the EQ's estimated loudness. Routing stays active; peak protection follows its On/Off switch."
                           : "Bypass EQ, preamp, and stereo effects. Routing stays active; peak protection follows its On/Off switch.")
@@ -281,10 +278,8 @@ struct MainView: View {
                         : AnyLayout(HStackLayout(spacing: 12 * interfaceScale))
                     inspectorToolbar {
                         // Sized to its segments, which macOS may draw equal and wider than a fixed frame.
-                        Picker("Controls", selection: Binding(get: { page }, set: changePage)) {
-                            Text("Filters").tag(StudioPage.equalizer)
-                            Text("Stereo & delay").tag(StudioPage.stereo)
-                        }.pickerStyle(.segmented).labelsHidden().fixedSize().transition(.identity).id(selectionRevision)
+                        AuralSegmented(title: "Controls", selection: Binding(get: { page }, set: changePage),
+                                       options: [(StudioPage.equalizer, "Filters"), (StudioPage.stereo, "Stereo & delay")]).fixedSize().transition(.identity).id(selectionRevision)
                             .help("Switch between filter editing and stereo balance, width, crossfeed, channel trims, and delay.")
                         HStack(spacing: 8 * interfaceScale) {
                             Spacer(minLength: 0)

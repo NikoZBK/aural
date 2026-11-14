@@ -19,16 +19,13 @@ struct FilterRack: View {
                                                        scale: interfaceScale, revision: selectionRevision)) {
             let headerLayout = expanded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10 * interfaceScale)) : AnyLayout(HStackLayout(spacing: 10 * interfaceScale))
             headerLayout {
-                Picker("Filter view", selection: Binding(get: { display }, set: { next in
+                AuralSegmented(title: "Filter view", selection: Binding(get: { display }, set: { next in
                     guard finishNumericEdit() else { selectionRevision += 1; return }
                     if next == .rows && model.profile.filters == nil { model.editGraphicAsFilters() }
                     guard model.error == nil else { selectionRevision += 1; return }
                     display = next
-                })) {
-                    Text("Selected").tag(FilterDisplay.selected)
-                    Text("All rows").tag(FilterDisplay.rows)
-                    Text("Faders").tag(FilterDisplay.faders)
-                }.pickerStyle(.segmented).labelsHidden().auralFrame(width: expanded ? nil : 218).transition(.identity).id(selectionRevision)
+                }), options: [(FilterDisplay.selected, "Selected"), (FilterDisplay.rows, "All rows"), (FilterDisplay.faders, "Faders")])
+                    .auralFrame(width: expanded ? nil : 218).transition(.identity).id(selectionRevision)
                     .help("Edit one selected filter, all filter rows, or gain faders. All rows makes graphic frequencies and Q editable.")
                 // A narrow side panel at large zoom keeps the band count on one line
                 // by moving it above the actions.
@@ -171,7 +168,7 @@ struct FilterRack: View {
         return Toggle(isOn: Binding(get: { model.soloBand == selectedBand }, set: { on in
             if finishNumericEdit() { withAuralAnimation { model.setSolo(on ? selectedBand : nil) } }
         })) { Label("Solo", systemImage: "headphones") }
-            .toggleStyle(.button).auralControlSize(.small).disabled(!available)
+            .toggleStyle(AuralGelToggleStyle()).auralControlSize(.small).disabled(!available)
             .help(available ? "Play only the part of the spectrum this band acts on, to find it by ear. Edits apply while soloed."
                             : "Start EQ and turn off Bypass to solo a band.")
             .accessibilityLabel("Solo band \(selectedBand + 1)")
@@ -332,7 +329,7 @@ private struct FilterRowContent: View, Equatable {
     var body: some View {
         FilterColumns(height: (compact ? 78 : 39) * interfaceScale, scale: interfaceScale, compact: compact) {
             Toggle("Filter \(number) enabled", isOn: Binding(get: { currentFilter.enabled }, set: { enabled in editFilter { $0.enabled = enabled } }))
-                .labelsHidden().toggleStyle(.checkbox).auralFrame(width: 24)
+                .labelsHidden().toggleStyle(AuralCheckboxStyle()).auralFrame(width: 24)
                 .help("Enable or bypass filter \(number) without removing its settings.")
             HStack(spacing: 6 * interfaceScale) {
                 Group {

@@ -94,7 +94,12 @@ private struct AuralFont: ViewModifier {
     let weight: Font.Weight
     let design: Font.Design
     @Environment(\.auralInterfaceScale) private var scale
-    func body(content: Content) -> some View { content.font(.system(size: size * scale, weight: weight, design: design)) }
+    func body(content: Content) -> some View {
+        // Lucida Grande, the Mac interface face of the mid-2000s, ships in two
+        // weights. Monospaced text keeps the system face so digits stay aligned.
+        if design == .monospaced { content.font(.system(size: size * scale, weight: weight, design: design)) }
+        else { content.font(.custom([.semibold, .bold, .heavy, .black].contains(weight) ? "LucidaGrande-Bold" : "LucidaGrande", fixedSize: size * scale)) }
+    }
 }
 
 private struct AuralFrame: ViewModifier {

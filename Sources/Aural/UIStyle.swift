@@ -39,12 +39,14 @@ enum AuralStyle {
             }
         })
     }
-    // A fixed instrument color, identical on every Mac, instead of the system accent.
+    /// The capsule outline shared by gel buttons.
+    static let pill = RoundedRectangle(cornerRadius: 1000)
+    // A fixed Aqua blue, identical on every Mac, instead of the system accent.
     // It marks active state and data: the curve, selection, Start EQ, and the meter.
-    private static let accentLight = (red: 0.0, green: 0.40, blue: 0.47)
-    private static let accentDark = (red: 0.28, green: 0.88, blue: 0.94)
-    private static let accentHighContrastLight = (red: 0.0, green: 0.36, blue: 0.47)
-    private static let accentHighContrastDark = (red: 0.50, green: 0.85, blue: 0.95)
+    private static let accentLight = (red: 0.11, green: 0.40, blue: 0.84)
+    private static let accentDark = (red: 0.42, green: 0.70, blue: 1.0)
+    private static let accentHighContrastLight = (red: 0.05, green: 0.30, blue: 0.72)
+    private static let accentHighContrastDark = (red: 0.60, green: 0.80, blue: 1.0)
     static let accent = adaptive(light: NSColor(srgbRed: accentLight.red, green: accentLight.green, blue: accentLight.blue, alpha: 1),
                                  dark: NSColor(srgbRed: accentDark.red, green: accentDark.green, blue: accentDark.blue, alpha: 1),
                                  highContrastLight: NSColor(srgbRed: accentHighContrastLight.red, green: accentHighContrastLight.green, blue: accentHighContrastLight.blue, alpha: 1),
@@ -68,21 +70,30 @@ enum AuralStyle {
         let luminance = 0.2126 * linear(resolved.red) + 0.7152 * linear(resolved.green) + 0.0722 * linear(resolved.blue)
         return luminance > 0.179 ? .black : .white
     }
-    static let background = adaptive(light: NSColor(srgbRed: 0.94, green: 0.97, blue: 0.97, alpha: 1),
-                                     dark: NSColor(srgbRed: 0.025, green: 0.05, blue: 0.075, alpha: 1))
-    static let surface = adaptive(light: .white,
-                                  dark: NSColor(srgbRed: 0.065, green: 0.09, blue: 0.12, alpha: 1))
-    static let elevated = adaptive(light: NSColor(srgbRed: 0.88, green: 0.93, blue: 0.94, alpha: 1),
-                                   dark: NSColor(srgbRed: 0.12, green: 0.16, blue: 0.20, alpha: 1))
+    // Brushed metal in light, graphite in dark: neutral greys with no colour cast.
+    static let background = adaptive(light: NSColor(srgbRed: 0.74, green: 0.74, blue: 0.75, alpha: 1),
+                                     dark: NSColor(srgbRed: 0.21, green: 0.21, blue: 0.22, alpha: 1))
+    /// The white well of a text field; in the dark theme it sinks to the window colour.
+    static let field = adaptive(light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1), dark: NSColor(srgbRed: 0.21, green: 0.21, blue: 0.22, alpha: 1))
+    static let metalTop = adaptive(light: NSColor(srgbRed: 0.86, green: 0.86, blue: 0.87, alpha: 1),
+                                   dark: NSColor(srgbRed: 0.31, green: 0.31, blue: 0.32, alpha: 1))
+    static let metalBottom = adaptive(light: NSColor(srgbRed: 0.62, green: 0.62, blue: 0.64, alpha: 1),
+                                      dark: NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 1))
+    static let surface = adaptive(light: NSColor(srgbRed: 0.93, green: 0.93, blue: 0.93, alpha: 1),
+                                  dark: NSColor(srgbRed: 0.16, green: 0.16, blue: 0.17, alpha: 1))
+    static let elevated = adaptive(light: NSColor(srgbRed: 0.97, green: 0.97, blue: 0.97, alpha: 1),
+                                   dark: NSColor(srgbRed: 0.27, green: 0.27, blue: 0.28, alpha: 1))
+    /// The lit lower edge of an inset well or an etched label.
+    static let etch = adaptive(light: .white.withAlphaComponent(0.75), dark: .white.withAlphaComponent(0.10))
     static let violet = adaptive(light: NSColor(srgbRed: 0.42, green: 0.29, blue: 0.73, alpha: 1),
                                   dark: NSColor(srgbRed: 0.72, green: 0.66, blue: 1, alpha: 1))
     static let border = adaptive(light: .black.withAlphaComponent(0.14), dark: .white.withAlphaComponent(0.085),
                                  highContrastLight: .black.withAlphaComponent(0.6), highContrastDark: .white.withAlphaComponent(0.6))
-    static let controlBorder = adaptive(light: .black.withAlphaComponent(0.5), dark: .white.withAlphaComponent(0.4),
+    static let controlBorder = adaptive(light: .black.withAlphaComponent(0.5), dark: .white.withAlphaComponent(0.5),
                                         highContrastLight: .black, highContrastDark: .white)
-    static let secondary = adaptive(light: NSColor(srgbRed: 0.36, green: 0.40, blue: 0.46, alpha: 1),
-                                    dark: NSColor(srgbRed: 0.66, green: 0.71, blue: 0.77, alpha: 1))
-    static let warning = adaptive(light: NSColor(srgbRed: 0.60, green: 0.29, blue: 0.025, alpha: 1),
+    static let secondary = adaptive(light: NSColor(srgbRed: 0.22, green: 0.24, blue: 0.27, alpha: 1),
+                                    dark: NSColor(srgbRed: 0.76, green: 0.79, blue: 0.83, alpha: 1))
+    static let warning = adaptive(light: NSColor(srgbRed: 0.45, green: 0.20, blue: 0.0, alpha: 1),
                                   dark: NSColor(srgbRed: 1, green: 0.73, blue: 0.40, alpha: 1))
     static let plotBackground = adaptive(light: .white.withAlphaComponent(0.60), dark: .black.withAlphaComponent(0.16))
     static let grid = adaptive(light: .black, dark: .white)
@@ -114,19 +125,27 @@ private struct AuralAppearance: ViewModifier {
     }
 }
 
-/// Static ambience shared with the iOS app. It never animates with audio levels.
+/// A static sheet of brushed metal. It never animates with audio levels.
 private struct AuralBackdrop: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var body: some View {
         ZStack {
             AuralStyle.background
-            if contrast != .increased && !reduceTransparency {
-                RadialGradient(colors: [AuralStyle.accent.opacity(scheme == .dark ? 0.28 : 0.18), .clear],
-                               center: .topLeading, startRadius: 0, endRadius: 700)
-                RadialGradient(colors: [AuralStyle.violet.opacity(scheme == .dark ? 0.22 : 0.15), .clear],
-                               center: .bottomTrailing, startRadius: 0, endRadius: 640)
+            if contrast != .increased {
+                LinearGradient(colors: [AuralStyle.metalTop, AuralStyle.metalBottom], startPoint: .top, endPoint: .bottom)
+                // Fine horizontal grain. Drawn once per size; nothing here follows audio.
+                Canvas { context, size in
+                    var light = Path(), dark = Path()
+                    var y: CGFloat = 0.5, row = 0
+                    while y < size.height {
+                        let line = CGRect(x: 0, y: y, width: size.width, height: 1)
+                        if row % 3 == 0 { light.addRect(line) } else if row % 3 == 1 { dark.addRect(line) }
+                        y += 1; row += 1
+                    }
+                    context.fill(light, with: .color(.white.opacity(scheme == .dark ? 0.025 : 0.10)))
+                    context.fill(dark, with: .color(.black.opacity(scheme == .dark ? 0.06 : 0.025)))
+                }
             }
         }.ignoresSafeArea().allowsHitTesting(false).accessibilityHidden(true)
     }
@@ -141,33 +160,27 @@ private struct AuralSurfaceBackground: View {
     @Environment(\.auralInterfaceScale) private var scale
     private var decoration: Bool { contrast != .increased && !reduceTransparency }
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 20 * scale, style: .continuous)
-        Group {
-            if !decoration {
-                shape.fill(AuralStyle.surface)
-            } else if #available(macOS 26.0, *) {
-                Color.clear.glassEffect(.regular.tint((emphasized ? AuralStyle.accent : AuralStyle.surface).opacity(0.04)), in: shape)
-            } else {
-                // Material cards keep the same hierarchy on Macs predating Liquid Glass.
-                shape.fill(.ultraThinMaterial)
-                    .overlay(shape.fill(AuralStyle.surface.opacity(scheme == .dark ? 0.3 : 0.45)))
+        // An inset well in the metal: shaded along its top edge, lit along its bottom.
+        let shape = RoundedRectangle(cornerRadius: 6 * scale)
+        shape.fill(AuralStyle.surface)
+            .overlay {
+                if decoration {
+                    shape.fill(LinearGradient(colors: [.black.opacity(scheme == .dark ? 0.28 : 0.09), .clear],
+                                              startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.06)))
+                }
             }
-        }
-        .overlay {
-            if decoration {
-                shape.strokeBorder(LinearGradient(colors: [.white.opacity(scheme == .dark ? 0.22 : 0.65),
-                                                           .white.opacity(0.02), AuralStyle.border],
-                                                  startPoint: .topLeading, endPoint: .bottomTrailing))
-            } else {
-                shape.strokeBorder(AuralStyle.border)
+            .overlay {
+                shape.strokeBorder(decoration ? AnyShapeStyle(LinearGradient(colors: [.black.opacity(scheme == .dark ? 0.75 : 0.45),
+                                                                                      .black.opacity(scheme == .dark ? 0.5 : 0.22)],
+                                                                             startPoint: .top, endPoint: .bottom))
+                                              : AnyShapeStyle(AuralStyle.border))
             }
-        }
-        .shadow(color: .black.opacity(decoration ? (scheme == .dark ? 0.18 : 0.07) : 0), radius: 18, y: 7)
-        .allowsHitTesting(false).accessibilityHidden(true)
+            .shadow(color: decoration ? AuralStyle.etch : .clear, radius: 0, y: 1)
+            .allowsHitTesting(false).accessibilityHidden(true)
     }
 }
 
-/// Real system Liquid Glass on supported Macs, with opaque accessibility fallbacks.
+/// The same inset well as every panel, with opaque accessibility fallbacks.
 struct AuralChromeBackground: View {
     var body: some View {
         AuralSurfaceBackground()
@@ -229,7 +242,34 @@ struct AuralSectionLabel: View {
         HStack(spacing: 7 * interfaceScale) {
             if let systemImage { Image(systemName: systemImage).accessibilityHidden(true) }
             Text(title)
-        }.auralFont(size: 11, weight: .semibold, design: .rounded).foregroundStyle(AuralStyle.secondary)
+        }.auralFont(size: 11, weight: .semibold).foregroundStyle(AuralStyle.secondary)
+            .shadow(color: AuralStyle.etch, radius: 0, y: 1)
+    }
+}
+
+/// The glossy gel of a mid-2000s Mac button: a lit upper half over a tinted body.
+struct AuralGel: View {
+    var prominent = false
+    var pressed = false
+    var radius: CGFloat? = nil
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    var body: some View {
+        // A capsule unless a corner radius is given.
+        let shape = radius.map { AnyShape(RoundedRectangle(cornerRadius: $0)) } ?? AnyShape(AuralStyle.pill)
+        return Group {
+            shape.fill(prominent ? AuralStyle.accent : AuralStyle.elevated)
+                .overlay {
+                    if contrast != .increased {
+                        shape.fill(LinearGradient(stops: [.init(color: .white.opacity(prominent ? 0.55 : (scheme == .dark ? 0.22 : 0.9)), location: 0),
+                                                          .init(color: .white.opacity(prominent ? 0.16 : (scheme == .dark ? 0.06 : 0.3)), location: 0.48),
+                                                          .init(color: .black.opacity(scheme == .dark ? 0.16 : 0.06), location: 0.5),
+                                                          .init(color: .white.opacity(prominent ? 0.22 : 0.04), location: 1)],
+                                                  startPoint: .top, endPoint: .bottom))
+                    }
+                }
+                .overlay { if pressed { shape.fill(.black.opacity(0.22)) } }
+        }
     }
 }
 
@@ -258,17 +298,161 @@ struct AuralButtonStyle: ButtonStyle {
     @Environment(\.auralInterfaceScale) private var scale
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .auralFont(size: 12, weight: .semibold, design: .rounded)
-            .padding(.horizontal, 10 * scale).padding(.vertical, 7 * scale)
+            .auralFont(size: 12)
+            .padding(.horizontal, 12 * scale).padding(.vertical, 6 * scale)
             .foregroundStyle(prominent ? AuralStyle.accentForeground(in: environment) : Color.primary)
-            .background(prominent ? AuralStyle.accent : AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
-            // Scoped animations keep press and focus feedback from retiming the label.
-            .animation(AuralMotion.quick) { content in
-                content.overlay(RoundedRectangle(cornerRadius: 8 * scale, style: .continuous).strokeBorder(isFocused ? Color.primary : (prominent ? .clear : AuralStyle.controlBorder), lineWidth: isFocused ? 2 : 1))
+            // The border is a filled pill behind an inset gel: stroking a pill leaves stray end marks.
+            .background {
+                AuralGel(prominent: prominent, pressed: configuration.isPressed).padding(isFocused ? 2 : 1)
+                    .background(AuralStyle.pill.fill(isFocused ? Color.primary : AuralStyle.controlBorder))
             }
-            .animation(AuralMotion.instant) { content in
-                content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
+            .opacity(isEnabled ? 1 : 0.4)
+    }
+}
+
+/// A push-on, push-off gel button that lights blue while on.
+struct AuralGelToggleStyle: ToggleStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.self) private var environment
+    @Environment(\.auralInterfaceScale) private var scale
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            configuration.label.auralFont(size: 11)
+                .padding(.horizontal, 10 * scale).padding(.vertical, 4 * scale)
+                .foregroundStyle(configuration.isOn ? AuralStyle.accentForeground(in: environment) : Color.primary)
+                .background {
+                    AuralGel(prominent: configuration.isOn).padding(isFocused ? 2 : 1)
+                        .background(AuralStyle.pill.fill(isFocused ? Color.primary : AuralStyle.controlBorder))
+                }
+                .contentShape(AuralStyle.pill)
+        }.buttonStyle(.plain).opacity(isEnabled ? 1 : 0.4)
+            .accessibilityValue(configuration.isOn ? "On" : "Off")
+            .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
+    }
+}
+
+/// A gel checkbox: a lit square that turns blue and takes a tick when on.
+struct AuralCheckboxStyle: ToggleStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.self) private var environment
+    @Environment(\.auralInterfaceScale) private var scale
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            HStack(spacing: 6 * scale) {
+                AuralGel(prominent: configuration.isOn, radius: 3 * scale)
+                    .overlay(RoundedRectangle(cornerRadius: 3 * scale).strokeBorder(isFocused ? Color.primary : AuralStyle.controlBorder, lineWidth: isFocused ? 2 : 1))
+                    .overlay {
+                        if configuration.isOn {
+                            Image(systemName: "checkmark").font(.system(size: 9 * scale, weight: .heavy))
+                                .foregroundStyle(AuralStyle.accentForeground(in: environment))
+                        }
+                    }
+                    .frame(width: 14 * scale, height: 14 * scale)
+                configuration.label
+            }.contentShape(Rectangle())
+        }.buttonStyle(.plain).opacity(isEnabled ? 1 : 0.4)
+            .accessibilityValue(configuration.isOn ? "On" : "Off")
+            .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
+    }
+}
+
+/// A segmented control drawn as one gel strip; the chosen segment is blue. It stays a
+/// native `NSSegmentedControl` for keyboard, accessibility, and tracking, and only paints itself.
+struct AuralSegmented<Value: Hashable>: NSViewRepresentable {
+    let title: String
+    @Binding var selection: Value
+    let options: [(value: Value, label: String)]
+    var small = false
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeNSView(context: Context) -> AuralGelSegmentedControl {
+        let control = AuralGelSegmentedControl(labels: options.map(\.label), trackingMode: .selectOne,
+                                               target: context.coordinator, action: #selector(Coordinator.changed(_:)))
+        control.segmentDistribution = .fillEqually
+        control.setAccessibilityLabel(title)
+        control.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        return control
+    }
+    func updateNSView(_ control: AuralGelSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        if control.segmentCount != options.count { control.segmentCount = options.count }
+        for (index, option) in options.enumerated() where control.label(forSegment: index) != option.label {
+            control.setLabel(option.label, forSegment: index)
+        }
+        let scale = context.environment.auralInterfaceScale
+        let size = (small ? 11 : 12) * scale
+        control.font = NSFont(name: "LucidaGrande", size: size) ?? .systemFont(ofSize: size)
+        control.chosenText = NSColor(AuralStyle.accentForeground(in: context.environment))
+        control.radius = 5 * scale
+        control.isEnabled = context.environment.isEnabled
+        control.selectedSegment = options.firstIndex { $0.value == selection } ?? -1
+        control.needsDisplay = true
+    }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView control: AuralGelSegmentedControl, context: Context) -> CGSize? {
+        let scale = context.environment.auralInterfaceScale
+        let font = control.font ?? .systemFont(ofSize: 12)
+        let widest = options.map { ($0.label as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+        let ideal = (ceil(widest) + (small ? 16 : 24) * scale) * CGFloat(options.count)
+        return CGSize(width: proposal.width ?? ideal, height: (small ? 22 : 26) * scale)
+    }
+    final class Coordinator: NSObject {
+        var parent: AuralSegmented
+        init(_ parent: AuralSegmented) { self.parent = parent }
+        @objc func changed(_ control: NSSegmentedControl) {
+            let index = control.selectedSegment
+            if parent.options.indices.contains(index) { parent.selection = parent.options[index].value }
+            // A refused change leaves the binding as it was; show what is actually selected.
+            control.selectedSegment = parent.options.firstIndex { $0.value == parent.selection } ?? -1
+            control.needsDisplay = true
+        }
+    }
+}
+
+final class AuralGelSegmentedControl: NSSegmentedControl {
+    var chosenText = NSColor.white
+    var radius: CGFloat = 5
+    override var isFlipped: Bool { true }
+    override func draw(_ dirtyRect: NSRect) {
+        guard segmentCount > 0, let context = NSGraphicsContext.current?.cgContext else { return }
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let plain = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        let frame = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let outline = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
+        context.saveGState()
+        if !isEnabled { context.setAlpha(0.4) }
+        context.beginTransparencyLayer(auxiliaryInfo: nil)
+        NSGraphicsContext.saveGraphicsState()
+        outline.addClip()
+        let width = bounds.width / CGFloat(segmentCount)
+        for index in 0..<segmentCount {
+            let chosen = index == selectedSegment
+            let rect = NSRect(x: CGFloat(index) * width, y: 0, width: width, height: bounds.height)
+            NSColor(chosen ? AuralStyle.accent : AuralStyle.elevated).setFill()
+            rect.fill()
+            if !plain {
+                // The same gloss as `AuralGel`.
+                let white = { (alpha: CGFloat) in NSColor.white.withAlphaComponent(alpha) }
+                NSGradient(colors: [white(chosen ? 0.55 : (dark ? 0.22 : 0.9)), white(chosen ? 0.16 : (dark ? 0.06 : 0.3)),
+                                    NSColor.black.withAlphaComponent(dark ? 0.16 : 0.06), white(chosen ? 0.22 : 0.04)],
+                           atLocations: [0, 0.48, 0.5, 1], colorSpace: .sRGB)?.draw(in: rect, angle: 90)
             }
+            if index > 0 {
+                NSColor(AuralStyle.controlBorder).setFill()
+                NSRect(x: rect.minX.rounded(), y: 0, width: 1, height: bounds.height).fill()
+            }
+            let text = NSAttributedString(string: label(forSegment: index) ?? "", attributes: [
+                .font: font ?? .systemFont(ofSize: 12), .foregroundColor: chosen ? chosenText : NSColor.labelColor])
+            let size = text.size()
+            text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2))
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        let focused = window?.firstResponder === self && window?.isKeyWindow == true
+        (focused ? NSColor.labelColor : NSColor(AuralStyle.controlBorder)).setStroke()
+        outline.lineWidth = focused ? 2 : 1
+        outline.stroke()
+        context.endTransparencyLayer()
+        context.restoreGState()
     }
 }
 
@@ -285,17 +469,17 @@ struct AuralMenuButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 6 * scale) {
             configuration.label.lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.down").auralFont(size: size == .large ? 11 : 9, weight: .semibold)
+            Image(systemName: "chevron.up.chevron.down").auralFont(size: size == .large ? 11 : 9, weight: .semibold)
                 .foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
         }
         .auralFont(size: size == .small ? 11 : (size == .large ? 14 : 12), weight: size == .regular ? .medium : .regular)
         .foregroundStyle(Color.primary)
         .padding(.horizontal, (size == .small ? 8 : 10) * scale).padding(.vertical, (size == .large ? 9 : 7) * scale)
         .auralFrame(minHeight: size == .small ? 27 : nil)
-        .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 8 * scale, style: .continuous))
+        .background { AuralGel(pressed: configuration.isPressed, radius: 5 * scale) }
+        .contentShape(RoundedRectangle(cornerRadius: 5 * scale))
         .animation(AuralMotion.quick) { content in
-            content.overlay(RoundedRectangle(cornerRadius: 8 * scale, style: .continuous).strokeBorder(isFocused ? Color.primary : AuralStyle.controlBorder, lineWidth: isFocused ? 2 : 1))
+            content.overlay(RoundedRectangle(cornerRadius: 5 * scale).strokeBorder(isFocused ? Color.primary : AuralStyle.controlBorder, lineWidth: isFocused ? 2 : 1))
         }
         .animation(AuralMotion.instant) { content in
             content.opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.4)
@@ -355,7 +539,7 @@ struct PrecisionField: View {
                                  submit: { submit() != .rejected }, cancel: restore)
             .auralFont(size: 12, design: .monospaced).monospacedDigit()
             .auralPadding(.horizontal, 7).auralFrame(height: 27)
-            .background(AuralStyle.background, in: RoundedRectangle(cornerRadius: 4))
+            .background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 4))
             .animation(AuralMotion.quick) { content in
                 content.overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
             }
