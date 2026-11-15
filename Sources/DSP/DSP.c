@@ -20,7 +20,7 @@ typedef struct {
     double preamp, amplitude, bypassGainDB, bypassAmplitude;
     bool bypass;
     EQStereo stereo;
-    double channelGain[2], delayFraction[2], crossfeedCoefficient, crossfeedDirect, crossfeedOpposite;
+    double channelGain[2], crossfeedCoefficient, crossfeedDirect, crossfeedOpposite;
     unsigned delayFrames[2];
     unsigned warmupFrames;
     bool hasStereoEffects;
@@ -63,6 +63,7 @@ _Static_assert(ATOMIC_INT_LOCK_FREE == 2, "Audio control requires lock-free atom
 // so a profile would sound different at 44.1 and 96 kHz. Instead, the poles are
 // mapped exactly and the numerator matches the analog magnitude at DC, Nyquist
 // and the filter frequency: M. Vicanek, "Matched Second Order Digital Filters" (2016).
+// Resonant shelves also map their zeros; see shelf().
 
 // |c2 s² + c1 s + c0|² at s = jx.
 static double quad(double c2, double c1, double c0, double x) {
@@ -96,6 +97,21 @@ static Coeff matched(Poles p, double dc, double nyquist, double at, double w) {
     double sum=(r0+r1)/2, difference=sqrt(fmax(0,at*pole_distance(p,w)-re*re))/sin(w);
     return with_poles((sum+difference)/2,(r0-r1)/2,(sum-difference)/2,p);
 }
+// A 12 dB/octave shelf's numerator. Matching the analog level at Nyquist exactly
+// moves the zeros off their analog frequency, which misplaces a resonant shelf's dip
+// by several dB. Zeros mapped like the poles (to wz) keep the dip but not the level at
+// Nyquist. So aim between the two Nyquist levels: toward the mapped zeros' as the
+// shelf gets sharper, and back to the analog one as the zeros approach Nyquist, where
+// they can no longer be mapped. The level at the filter frequency stays exact.
+static Coeff shelf(Poles p, double wz, double q, double dc, double nyquist, double at, double w) {
+    double t=wz<M_PI ? q*q/(q*q+.5)*fmin(1,(1-wz/M_PI)/.4) : 0;
+    if (t>0) {
+        Poles z=matched_poles(wz,q);
+        double mapped=dc*pole_distance(p,0)/pole_distance(z,0)*pole_distance(z,M_PI)/pole_distance(p,M_PI);
+        nyquist+=(mapped-nyquist)*t;
+    }
+    return matched(p,dc,nyquist,at,w);
+}
 static bool has_gain(unsigned type) {
     return type<=EQFilterHighShelf || type==EQFilterLowShelf1 || type==EQFilterHighShelf1;
 }
@@ -121,9 +137,9 @@ static Coeff coeff(EQFilter filter, double db, double rate) {
             c=high ? matched(p,1,a*a*a*a/low,a*a,w) : matched(p,a*a*a*a,low,a*a,w);
         }
         else if (!high)
-            c=matched(matched_poles(w/s,q),a*a*a*a,a*a*quad(1,s/q,a,x)/quad(a,s/q,1,x),a*a,w);
+            c=shelf(matched_poles(w/s,q),w*s,q,a*a*a*a,a*a*quad(1,s/q,a,x)/quad(a,s/q,1,x),a*a,w);
         else
-            c=matched(matched_poles(w*s,q),1,a*a*quad(a,s/q,1,x)/quad(1,s/q,a,x),a*a,w);
+            c=shelf(matched_poles(w*s,q),w/s,q,1,a*a*quad(a,s/q,1,x)/quad(1,s/q,a,x),a*a,w);
         return invert ? (Coeff){1/c.b0,c.a1/c.b0,c.a2/c.b0,c.b1/c.b0,c.b2/c.b0} : c;
     }
     if (filter.type==EQFilterLowPass1 || filter.type==EQFilterHighPass1) {
@@ -288,11 +304,10 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
     next->stereo=*stereo;
     next->channelGain[0]=pow(10,stereo->leftTrimDB/20)*(1-fmax(0,stereo->balance))*(stereo->invertLeft ? -1 : 1);
     next->channelGain[1]=pow(10,stereo->rightTrimDB/20)*(1+fmin(0,stereo->balance))*(stereo->invertRight ? -1 : 1);
-    double delays[2]={stereo->leftDelayMS*eq->rate/1000,stereo->rightDelayMS*eq->rate/1000};
-    for (unsigned c=0;c<2;c++) {
-        next->delayFrames[c]=(unsigned)delays[c];
-        next->delayFraction[c]=delays[c]-next->delayFrames[c];
-    }
+    // Whole frames: at most 16 µs from the request at 32 kHz. Interpolating between
+    // frames would low-pass the delayed channel alone, by up to 16 dB at 20 kHz.
+    next->delayFrames[0]=(unsigned)lround(stereo->leftDelayMS*eq->rate/1000);
+    next->delayFrames[1]=(unsigned)lround(stereo->rightDelayMS*eq->rate/1000);
     next->crossfeedCoefficient=1-exp(-2*M_PI*700/eq->rate);
     next->crossfeedDirect=1/(1+stereo->crossfeed);
     next->crossfeedOpposite=stereo->crossfeed/(1+stereo->crossfeed);
@@ -301,7 +316,7 @@ bool eq_update_filters_matched(EQ *eq, const EQFilter *filters, unsigned count, 
         stereo->invertLeft || stereo->invertRight || stereo->mono;
     // Fill the target's delay history before fading it in. This avoids a gap
     // when a new delay is longer than the normal 20 ms settings crossfade.
-    next->warmupFrames=(unsigned)ceil(fmax(delays[0],delays[1]));
+    next->warmupFrames=next->delayFrames[0]>next->delayFrames[1] ? next->delayFrames[0] : next->delayFrames[1];
     if (stereo->crossfeed>0) next->warmupFrames+=(unsigned)ceil(eq->rate*.005);
     next->activeCount=0; next->hasMidSide=false;
     for (unsigned i=0;i<count;i++) {
@@ -511,14 +526,8 @@ static void run_chain(Chain *chain, const double dry[2], double result[2]) {
     for (unsigned c=0;c<2;c++) {
         chain->delay[c][chain->delayIndex]=wet[c]*settings->channelGain[c];
         unsigned frames=settings->delayFrames[c];
-        double fraction=settings->delayFraction[c];
         unsigned index=(chain->delayIndex+EQDelayCapacity-frames)%EQDelayCapacity;
         double value=frames<chain->delayValid ? chain->delay[c][index] : 0;
-        if (fraction>0) {
-            unsigned previous=(index+EQDelayCapacity-1)%EQDelayCapacity;
-            double older=frames+1<chain->delayValid ? chain->delay[c][previous] : 0;
-            value=value*(1-fraction)+older*fraction;
-        }
         // Keep the entire wet chain warm in bypass. Optional linked peak
         // protection follows this switch, as it does for filter-only bypass.
         result[c]=settings->bypass ? dry[c]*settings->bypassAmplitude : value;

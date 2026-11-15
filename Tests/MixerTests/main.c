@@ -93,6 +93,11 @@ int main(void) {
     source[5] = NAN; source[7] = INFINITY;
     am_process(m, (AudioBufferList *)&input, &actual); assert(am_counters(m).signalFaults == 2);
     for (unsigned f = 0; f < 1024; f++) assert(isfinite(output[f]));
+    // An empty callback is not a fault: the route would stop over it.
+    AudioBufferList empty = actual; empty.mBuffers[0].mDataByteSize = 0;
+    uint64_t mixed = am_counters(m).frames;
+    am_process(m, (AudioBufferList *)&input, &empty);
+    assert(am_counters(m).faults == 0 && am_counters(m).frames == mixed && eq_faults(eq) == 0);
     input.buffers[0].mDataByteSize--;
     am_process(m, (AudioBufferList *)&input, &actual); assert(am_counters(m).faults == 1);
     for (unsigned f = 0; f < 1024; f++) assert(output[f] == 0);

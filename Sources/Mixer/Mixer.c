@@ -73,7 +73,9 @@ void am_process(AMMixer *m, const AudioBufferList *input, AudioBufferList *outpu
     if (!m) { silence(output); return; }
     unsigned outputFrames = 0, outputStride = 0;
     const float *out = output && output->mNumberBuffers <= 32 ? channel(output, 0, &outputStride, &outputFrames) : NULL;
-    if (!input || input->mNumberBuffers > 32 || !out || !outputFrames) {
+    // An empty buffer carries nothing to mix and is not a fault, as in eq_process.
+    if (out && !outputFrames) return;
+    if (!input || input->mNumberBuffers > 32 || !out) {
         silence(output); atomic_fetch_add_explicit(&m->faults, 1, memory_order_relaxed); return;
     }
     const float *in[AMMaxSources][2] = {{0}};

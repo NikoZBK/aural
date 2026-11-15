@@ -23,7 +23,7 @@ enum { EQChannelStereo, EQChannelLeft, EQChannelRight, EQChannelMid, EQChannelSi
 typedef struct { double frequency, gain, q; unsigned type; bool disabled; unsigned channel; } EQFilter;
 // width=1 is neutral; use eq_stereo_default() instead of a zero initializer.
 // Balance attenuates the opposite side, crossfeed is a normalized 700 Hz blend,
-// and mono sums before per-channel correction. Delays use linear interpolation.
+// and mono sums before per-channel correction. Delays round to whole frames.
 // swapChannels exchanges the inputs before any filter, so left/right filters,
 // trims, delays and polarity stay with the physical outputs.
 typedef struct {

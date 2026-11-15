@@ -101,21 +101,19 @@ static void stereo_tests(void) {
     const double rates[]={32000,44100,48000,96000,192000};
     for (unsigned r=0;r<5;r++) {
         eq=eq_create(rates[r],0); assert(eq);
-        s=neutral; s.leftDelayMS=1.25; s.rightDelayMS=30;
+        // 1.01 ms falls between frames at every rate here. The impulse moves to the
+        // nearest frame at full level: sharing it between two would dull the treble.
+        s=neutral; s.leftDelayMS=1.01; s.rightDelayMS=30;
         assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,0,0,out);
         // Peak protection's look-ahead adds the same whole frames to both channels.
-        double delay[2]={s.leftDelayMS*rates[r]/1000+eq_latency(eq),s.rightDelayMS*rates[r]/1000+eq_latency(eq)};
+        unsigned delay[2]={(unsigned)lround(s.leftDelayMS*rates[r]/1000)+eq_latency(eq),(unsigned)lround(s.rightDelayMS*rates[r]/1000)+eq_latency(eq)};
         for (unsigned i=0;i<6000;i++) {
             frame(eq,i==0 ? .2 : 0,i==0 ? .1 : 0,out);
-            for (unsigned c=0;c<2;c++) {
-                unsigned whole=(unsigned)delay[c]; double fraction=delay[c]-whole;
-                double expected=(c==0 ? .2 : .1)*(i==whole ? 1-fraction : (i==whole+1 ? fraction : 0));
-                assert(fabs(out[c]-expected)<1e-7);
-            }
+            for (unsigned c=0;c<2;c++) assert(fabs(out[c]-(i==delay[c] ? (c==0 ? .2 : .1) : 0))<1e-7);
         }
         assert(no_faults(eq)); eq_destroy(eq);
     }
-    puts("PASS fractional stereo delay impulse timing, maximum delay and ring wrap at five sample rates");
+    puts("PASS whole-frame stereo delay impulse timing and level, maximum delay and ring wrap at five sample rates");
 
     eq=eq_create(48000,0); s=neutral;
     assert(eq_update_filters_stereo(eq,&flat,1,0,false,&s)); settle(eq,.05,.05,out);
@@ -572,6 +570,9 @@ static void analog_shape_tests(void) {
         {{10000,6,1,EQFilterPeak,false,EQChannelStereo},.5}, {{3000,-9,4,EQFilterPeak,false,EQChannelStereo},.05},
         {{16000,4,2,EQFilterPeak,false,EQChannelStereo},.5}, {{200,6,M_SQRT1_2,EQFilterLowShelf,false,EQChannelStereo},.01},
         {{8000,5,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},.1}, {{12000,-8,M_SQRT1_2,EQFilterHighShelf,false,EQChannelStereo},.3},
+        // Resonant shelves keep their dip: matching Nyquist alone missed these by 2-5 dB.
+        {{4000,12,10,EQFilterLowShelf,false,EQChannelStereo},.5}, {{3000,-6,3,EQFilterLowShelf,false,EQChannelStereo},.15},
+        {{2500,9,5,EQFilterHighShelf,false,EQChannelStereo},.2},
         {{12000,0,M_SQRT1_2,EQFilterLowPass,false,EQChannelStereo},1}, {{60,0,M_SQRT1_2,EQFilterHighPass,false,EQChannelStereo},.01},
         {{5000,0,2,EQFilterBandPass,false,EQChannelStereo},1}, {{6000,0,4,EQFilterNotch,false,EQChannelStereo},.05},
         {{150,9,M_SQRT1_2,EQFilterLowShelf1,false,EQChannelStereo},.01}, {{1000,-12,50,EQFilterLowShelf1,false,EQChannelStereo},.02},
