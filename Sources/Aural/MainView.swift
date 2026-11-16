@@ -110,7 +110,7 @@ struct MainView: View {
                 Divider()
                 compareSection
                 Divider()
-                VStack(alignment: .leading, spacing: 7 * interfaceScale) {
+                VStack(alignment: .leading, spacing: 8 * interfaceScale) {
                     AuralSectionLabel(title: "Tone & level", systemImage: "dial.medium")
                     PreampControls(model: model, submissions: submissions, compact: true)
                     TiltControls(model: model, submissions: submissions)
@@ -168,7 +168,7 @@ struct MainView: View {
     }
 
     private var soundSection: some View {
-        VStack(alignment: .leading, spacing: 7 * interfaceScale) {
+        VStack(alignment: .leading, spacing: 8 * interfaceScale) {
             HStack(spacing: 8 * interfaceScale) {
                 AuralSectionLabel(title: "Sound", systemImage: "waveform")
                 Spacer(minLength: 0)
@@ -181,22 +181,27 @@ struct MainView: View {
             }
             PresetSelection(model: model, submissions: submissions)
             AuralEquatableContent(key: interfaceScale) {
-                VStack(alignment: .leading, spacing: 8 * interfaceScale) {
+                VStack(spacing: 8 * interfaceScale) {
                     HStack(spacing: 8 * interfaceScale) {
                         SavePresetButton(model: model, submissions: submissions)
+                            .frame(minWidth: 0, maxWidth: .infinity)
                         Button { if submitPendingInput() { openWindow.showAuralWindow("presets") } } label: {
-                            Label("Presets", systemImage: "square.stack").auralFrame(maxWidth: .infinity)
+                            Label("Presets", systemImage: "square.stack")
+                                .auralFrame(maxWidth: .infinity, minHeight: 15, maxHeight: 15)
                         }.buttonStyle(AuralButtonStyle())
+                            .frame(minWidth: 0, maxWidth: .infinity)
                             .accessibilityLabel("Open preset library")
                             .help("Search, organize, and back up presets (⇧⌘P)")
                     }
-                    HStack(spacing: 12 * interfaceScale) {
+                    HStack(spacing: 8 * interfaceScale) {
                         Button { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } } label: {
                             Label("AutoEQ", systemImage: "headphones").foregroundStyle(AuralStyle.violet)
+                                .auralFrame(maxWidth: .infinity, minHeight: 15, maxHeight: 15)
                         }.buttonStyle(AuralButtonStyle())
+                            .frame(minWidth: 0, maxWidth: .infinity)
                             .help("Search online headphone correction profiles")
                         EQFileMenu(model: model, submissions: submissions)
-                        Spacer(minLength: 0)
+                            .frame(minWidth: 0, maxWidth: .infinity)
                     }
                 }
             }.equatable()
@@ -208,35 +213,38 @@ struct MainView: View {
     private var compareSection: some View {
         AuralEquatableContent(key: CompareKey(comparison: model.comparisonSlot, matching: model.matchLevels, bypass: model.bypass,
                                               scale: interfaceScale, revision: selectionRevision)) {
-        VStack(alignment: .leading, spacing: 7 * interfaceScale) {
+        VStack(alignment: .leading, spacing: 8 * interfaceScale) {
             HStack(spacing: 8 * interfaceScale) {
                 AuralSectionLabel(title: "Compare", systemImage: "arrow.left.arrow.right")
-                Spacer(minLength: 0)
-                Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
-                    .toggleStyle(AuralCheckboxStyle()).auralControlSize(.small).auralFont(size: 11).fixedSize()
-                    .help("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
-            }
-            HStack(spacing: 8 * interfaceScale) {
-                AuralSegmented(title: "A/B comparison", selection: Binding(get: { model.comparisonSlot }, set: { slot in
-                    if submitPendingInput() { withAuralAnimation { model.selectComparison(slot) } }
-                    selectionRevision += 1
-                }), options: [(ComparisonSlot.a, "A"), (ComparisonSlot.b, "B")]).auralFrame(width: 76).transition(.identity).id(selectionRevision)
-                    .help(model.matchLevels
-                          ? "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback. The louder version plays lower so both match."
-                          : "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback.")
-                Toggle("Bypass", isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } }))
-                    .toggleStyle(AuralGelToggleStyle()).auralControlSize(.small)
-                    .help(model.matchLevels
-                          ? "Bypass EQ, preamp, and stereo effects at the EQ's estimated loudness. Routing stays active; peak protection follows its On/Off switch."
-                          : "Bypass EQ, preamp, and stereo effects. Routing stays active; peak protection follows its On/Off switch.")
                 Spacer(minLength: 0)
                 Menu {
                     Button("Copy current to other comparison slot") { if submitPendingInput() { withAuralAnimation { model.copyComparisonToOther() } } }.help("Replace the other A/B slot with the current EQ.")
                     Button("Reset both comparisons to current EQ") { if submitPendingInput() { withAuralAnimation { model.captureComparison() } } }.help("Replace both A/B comparison slots with the current EQ.")
                 } label: { Image(systemName: "ellipsis") }
-                    .auralMenuButton().fixedSize()
+                    .auralMenuButton(.small).fixedSize()
                     .accessibilityLabel("Comparison options").help("Copy or reset the A/B comparison slots")
             }
+            HStack(spacing: 8 * interfaceScale) {
+                AuralSegmented(title: "A/B comparison", selection: Binding(get: { model.comparisonSlot }, set: { slot in
+                    if submitPendingInput() { withAuralAnimation { model.selectComparison(slot) } }
+                    selectionRevision += 1
+                }), options: [(ComparisonSlot.a, "A"), (ComparisonSlot.b, "B")])
+                    .frame(minWidth: 0, maxWidth: .infinity).transition(.identity).id(selectionRevision)
+                    .help(model.matchLevels
+                          ? "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback. The louder version plays lower so both match."
+                          : "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback.")
+                Toggle(isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } })) {
+                    Text("Bypass").auralFrame(maxWidth: .infinity, minHeight: 18)
+                }
+                    .toggleStyle(AuralGelToggleStyle()).auralControlSize(.small)
+                    .frame(minWidth: 0, maxWidth: .infinity)
+                    .help(model.matchLevels
+                          ? "Bypass EQ, preamp, and stereo effects at the EQ's estimated loudness. Routing stays active; peak protection follows its On/Off switch."
+                          : "Bypass EQ, preamp, and stereo effects. Routing stays active; peak protection follows its On/Off switch.")
+            }
+            Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels))
+                .toggleStyle(AuralCheckboxStyle()).auralControlSize(.small).auralFont(size: 11).fixedSize()
+                .help("Plays Bypass and the louder A/B version at the same estimated loudness, so louder doesn't sound better. Saved presets don't change.")
         }
         }.equatable()
     }

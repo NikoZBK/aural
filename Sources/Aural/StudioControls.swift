@@ -119,7 +119,7 @@ struct PresetSelection: View {
             Text(model.selectedPresetName ?? "Custom EQ").lineLimit(1)
         }
         .auralMenuButton()
-        .auralFrame(minWidth: 200, idealWidth: 300, maxWidth: 360)
+        .auralFrame(maxWidth: .infinity)
         .accessibilityLabel("Preset")
         .accessibilityValue(model.currentPresetTitle)
         .help("\(model.currentPresetTitle)\nChoose a preset, or manage your preset library")
@@ -170,10 +170,9 @@ struct EQFileMenu: View {
             Divider()
             Button("Back up presets…") { model.backupPresets() }.help("Export custom presets and favorites to a backup file.")
             Button("Restore presets…") { if submitPendingInput() { model.restorePresets() } }.help("Import presets and favorites from a backup file.")
-        } label: { Label("Files", systemImage: "folder") }
+        } label: { Label("Files", systemImage: "folder").auralFrame(maxWidth: .infinity) }
             .auralMenuButton(.small)
             .tint(.primary)
-            .fixedSize(horizontal: true, vertical: false)
             .help("Import, export, and back up your EQ and presets")
     }
     private func submitPendingInput() -> Bool {
@@ -191,12 +190,14 @@ struct SavePresetButton: View {
     let submissions: PrecisionSubmissionCoordinator
     @State private var saving = false
     var body: some View {
-        Button("Save…") {
+        Button {
             switch submissions.submitActive() {
             case .rejected: return
             case .submitted where model.error != nil: return
             default: saving = true
             }
+        } label: {
+            Text("Save…").auralFrame(maxWidth: .infinity, minHeight: 15, maxHeight: 15)
         }.buttonStyle(AuralButtonStyle()).accessibilityLabel("Save preset")
             .help("Save the current EQ as a named preset.")
             .popover(isPresented: $saving) {
@@ -253,6 +254,24 @@ struct MonitorPanel: View {
 
 }
 
+/// Keep the two numeric controls in the rail on the same label, value, and unit columns.
+private struct ToneControlRow<Field: View, Action: View>: View {
+    @Environment(\.auralInterfaceScale) private var scale
+    let title: String
+    let help: String
+    @ViewBuilder let field: () -> Field
+    @ViewBuilder let action: () -> Action
+
+    var body: some View {
+        HStack(spacing: 6 * scale) {
+            Text(title).help(help).auralFrame(width: 42, alignment: .leading)
+            field().auralFrame(width: 64)
+            Text("dB").auralFrame(maxWidth: .infinity, alignment: .leading)
+            action().auralFrame(width: 54, alignment: .trailing)
+        }.auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+    }
+}
+
 struct PreampControls: View {
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
@@ -260,15 +279,18 @@ struct PreampControls: View {
     var compact = false
     @ViewBuilder var body: some View {
         if compact {
-            HStack(spacing: 7 * interfaceScale) {
-                Text("Preamp").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+            ToneControlRow(title: "Preamp", help: AuralHelp.preamp) {
                 PrecisionField(value: model.profile.preamp, range: model.profile.preampRange, label: "Exact preamp in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
                     model.endProfileGesture(); model.setPreamp(value)
-                }.auralFrame(width: 68)
-                Text("dB").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
-                Button(model.calculatingHeadroom ? "Calculating…" : "Auto") { if submitPendingInput() { model.headroom() } }
+                }
+            } action: {
+                Button { if submitPendingInput() { model.headroom() } } label: {
+                    Text(model.calculatingHeadroom ? "…" : "Auto").auralFrame(maxWidth: .infinity, minHeight: 15)
+                }
                     .buttonStyle(AuralButtonStyle()).disabled(model.calculatingHeadroom)
-                    .accessibilityLabel("Auto preamp").help("Estimate a preamp level that leaves room for EQ boosts and stereo adjustments.")
+                    .accessibilityLabel("Auto preamp")
+                    .accessibilityValue(model.calculatingHeadroom ? "Calculating" : "")
+                    .help(model.calculatingHeadroom ? "Calculating preamp headroom…" : "Estimate a preamp level that leaves room for EQ boosts and stereo adjustments.")
             }
         } else { expanded }
     }
@@ -306,21 +328,19 @@ struct PreampControls: View {
 
 /// One control that brightens or darkens the whole EQ around 1 kHz.
 struct TiltControls: View {
-    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
     var body: some View {
-        HStack(spacing: 7 * interfaceScale) {
-            Text("Tilt").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
-                .help("Tilt the EQ around 1 kHz. Positive values raise the treble and lower the bass, each by up to the amount set; negative values do the reverse.")
+        ToneControlRow(title: "Tilt", help: AuralHelp.tilt) {
             PrecisionField(value: model.profile.tilt, range: Profile.tiltRange, label: "Tilt in decibels", decimals: 1, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model] value in
                 model.endProfileGesture(); model.setTilt(value)
-            }.auralFrame(width: 56)
-            Text("dB").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+            }
+        } action: {
             Stepper("Tilt", onIncrement: { if submitPendingInput() { model.adjustTilt(0.5) } },
                     onDecrement: { if submitPendingInput() { model.adjustTilt(-0.5) } })
                 .labelsHidden().accessibilityLabel("Tilt").accessibilityValue(AuralAccessibility.decibels(model.profile.tilt))
                 .help("Adjust tilt in 0.5 dB steps. " + AuralHelp.tilt)
+                .auralFrame(width: 24)
         }
     }
     private func submitPendingInput() -> Bool {
@@ -348,7 +368,10 @@ struct LoudnessControls: View {
             }.toggleStyle(AuralCheckboxStyle()).auralControlSize(.small)
                 .accessibilityLabel("Loudness compensation")
                 .help("Restores bass and treble as you turn the volume down, following the ISO 226 equal-loudness contours. At the reference volume, EQ plays as set.")
-            Button { showReference.toggle() } label: { Image(systemName: "slider.horizontal.3") }
+            Spacer(minLength: 0)
+            Button { showReference.toggle() } label: {
+                Image(systemName: "slider.horizontal.3").auralFrame(width: 24, height: 24).contentShape(Rectangle())
+            }
                 .buttonStyle(.plain).accessibilityLabel("Loudness reference")
                 .help("Set the volume and level where EQ plays as set")
                 .popover(isPresented: $showReference) {
@@ -403,7 +426,10 @@ struct OutputSelection: View {
             HStack {
                 AuralSectionLabel(title: "Output", systemImage: "hifispeaker")
                 Spacer()
-                Button { model.refresh() } label: { Image(systemName: "arrow.clockwise").auralFrame(width: comfortable ? 30 : 16, height: comfortable ? 28 : 16) }
+                Button { model.refresh() } label: {
+                    Image(systemName: "arrow.clockwise").auralFrame(width: comfortable ? 30 : 24, height: comfortable ? 28 : 24)
+                        .contentShape(Rectangle())
+                }
                     .buttonStyle(.plain).foregroundStyle(AuralStyle.secondary).accessibilityLabel("Refresh outputs").help("Refresh audio devices")
             }
             devicePicker
@@ -455,19 +481,22 @@ struct StudioMeter: View {
                 let layout = inline ? AnyLayout(HStackLayout(spacing: 14 * interfaceScale))
                                     : AnyLayout(VStackLayout(alignment: .leading, spacing: 5 * interfaceScale))
                 layout {
-                    HStack(spacing: 8 * interfaceScale) {
+                    HStack(spacing: (inline ? 8 : 6) * interfaceScale) {
                         // "Level", not "Output": the window's output is the device picker.
-                        Text("Level").foregroundStyle(AuralStyle.secondary)
+                        Text("Level").foregroundStyle(AuralStyle.secondary).fixedSize()
                         ZStack {
                             // A translucent track stays visible on every surface in both appearances.
                             RoundedRectangle(cornerRadius: 1).fill(AuralStyle.grid.opacity(0.14))
                             MeterFill(fraction: level, cornerRadius: 1).fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
-                        }.auralFrame(minWidth: 70, maxWidth: inline ? 200 : 70, minHeight: 5, maxHeight: 5)
+                        }.auralFrame(minWidth: inline ? 70 : 44, idealWidth: 70, maxWidth: inline ? 200 : 70, minHeight: 5, maxHeight: 5)
                             .help(levelHelp)
                             .accessibilityRepresentation { peakAccessibility }
-                        Text(db > -90 ? String(format: "%.1f dB", db) : "−∞ dB").monospacedDigit().auralFrame(width: 58, alignment: .trailing)
+                        Text(db > -90 ? String(format: "%.1f dB", db) : "−∞ dB").monospacedDigit()
+                            .auralFrame(minWidth: 58, maxWidth: inline ? 58 : .infinity, alignment: .trailing)
                             .accessibilityHidden(true)
-                        Button { heldPeak = running ? peak : 0 } label: { Image(systemName: "arrow.counterclockwise") }
+                        Button { heldPeak = running ? peak : 0 } label: {
+                            Image(systemName: "arrow.counterclockwise").auralFrame(width: 24, height: 24).contentShape(Rectangle())
+                        }
                             .buttonStyle(.plain).accessibilityLabel("Reset peak hold")
                             .accessibilityValue(heldPeak > 0 ? AuralAccessibility.samplePeak(20 * log10(Double(heldPeak))) : "Silent")
                             .help("Peak hold: \(heldDB) dB. Click to reset.")
