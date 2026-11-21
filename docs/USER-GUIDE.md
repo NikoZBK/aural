@@ -211,6 +211,7 @@ Filter shapes follow the analog prototypes of the [W3C Audio EQ Cookbook](https:
 
 ## Release notes
 
+- [2.1.0](RELEASE-2.1.0.md) adds themes, simplified menus, and live peak meters with overload and limiter holds.
 - [2.0.1](RELEASE-2.0.1.md): channel delay no longer dulls the treble, and sharp shelves keep their shape.
 - [2.0](RELEASE-2.0.0.md): per-app volume and mute, a control rail beside the equalizer, a mid-2000s look, and level lines on faders.
 - [1.7.1](RELEASE-1.7.1.md): more reliable recovery when an audio output disconnects.
