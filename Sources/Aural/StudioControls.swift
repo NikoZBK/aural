@@ -197,7 +197,7 @@ struct SavePresetButton: View {
             default: saving = true
             }
         } label: {
-            Text("Save…").auralFrame(maxWidth: .infinity, minHeight: 15, maxHeight: 15)
+            Text("Save…").auralFrame(maxWidth: .infinity)
         }.buttonStyle(AuralButtonStyle()).accessibilityLabel("Save preset")
             .help("Save the current EQ as a named preset.")
             .popover(isPresented: $saving) {
@@ -285,7 +285,7 @@ struct PreampControls: View {
                 }
             } action: {
                 Button { if submitPendingInput() { model.headroom() } } label: {
-                    Text(model.calculatingHeadroom ? "…" : "Auto").auralFrame(maxWidth: .infinity, minHeight: 15)
+                    Text(model.calculatingHeadroom ? "…" : "Auto").auralFrame(maxWidth: .infinity)
                 }
                     .buttonStyle(AuralButtonStyle()).disabled(model.calculatingHeadroom)
                     .accessibilityLabel("Auto preamp")

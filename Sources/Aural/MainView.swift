@@ -47,14 +47,6 @@ struct MainView: View {
     private var placement: InspectorPlacement { shownPlacement ?? targetPlacement }
     // This view applies zoom to its own body, so the environment above it still reads 1.
     private var interfaceScale: CGFloat { model.interfaceZoom.scale }
-    private var filterInspectorHeight: CGFloat {
-        switch filterDisplay {
-        case .selected: return 146
-        case .rows: return 206
-        case .faders: return 352
-        }
-    }
-
     var body: some View {
         GeometryReader { geometry in
             let logicalWidth = geometry.size.width / model.interfaceZoom.scale
@@ -187,7 +179,7 @@ struct MainView: View {
                             .frame(minWidth: 0, maxWidth: .infinity)
                         Button { if submitPendingInput() { openWindow.showAuralWindow("presets") } } label: {
                             Label("Presets", systemImage: "square.stack")
-                                .auralFrame(maxWidth: .infinity, minHeight: 15, maxHeight: 15)
+                                .auralFrame(maxWidth: .infinity)
                         }.buttonStyle(AuralButtonStyle())
                             .frame(minWidth: 0, maxWidth: .infinity)
                             .accessibilityLabel("Open preset library")
@@ -196,7 +188,7 @@ struct MainView: View {
                     HStack(spacing: 8 * interfaceScale) {
                         Button { if submitPendingInput() { openWindow.showAuralWindow("autoeq") } } label: {
                             Label("AutoEQ", systemImage: "headphones").foregroundStyle(AuralStyle.violet)
-                                .auralFrame(maxWidth: .infinity, minHeight: 15, maxHeight: 15)
+                                .auralFrame(maxWidth: .infinity)
                         }.buttonStyle(AuralButtonStyle())
                             .frame(minWidth: 0, maxWidth: .infinity)
                             .help("Search online headphone correction profiles")
@@ -234,7 +226,7 @@ struct MainView: View {
                           ? "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback. The louder version plays lower so both match."
                           : "Compare two versions of your EQ. Each slot keeps its edits; switching preserves playback.")
                 Toggle(isOn: Binding(get: { model.bypass }, set: { value in if submitPendingInput() { withAuralAnimation { model.setBypass(value) } } })) {
-                    Text("Bypass").auralFrame(maxWidth: .infinity, minHeight: 18)
+                    Text("Bypass").auralFrame(maxWidth: .infinity)
                 }
                     .toggleStyle(AuralGelToggleStyle()).auralControlSize(.small)
                     .frame(minWidth: 0, maxWidth: .infinity)
@@ -256,9 +248,14 @@ struct MainView: View {
             let sidePanel = placement.side
             let detailsShown = placement.visible
             let panelWidth = AuralWorkspaceLayout.sidePanelWidth(in: geometry.size.width - 24 * interfaceScale, scale: interfaceScale)
-            let inspectorContentHeight: CGFloat = sidePanel
-                ? (page == .equalizer && filterDisplay == .faders ? 400 : 230)
-                : (page == .stereo ? 230 : filterInspectorHeight)
+            let inspectorWidth = sidePanel ? panelWidth / interfaceScale : logicalWidth
+            let compactInspector = inspectorWidth < 480
+            let rackLayout = FilterRackLayout(width: inspectorWidth - 24, graphic: model.profile.filters == nil)
+            let filterInspectorHeight = rackLayout.inspectorHeight(for: filterDisplay)
+            let inspectorHeight = page == .stereo ? 230 : filterInspectorHeight
+            let sideMinimumHeight: CGFloat = page == .equalizer && filterDisplay == .faders ? 400 : 230
+            let inspectorContentHeight = sidePanel ? max(inspectorHeight, sideMinimumHeight) : inspectorHeight
+            let visibleInspectorHeight = detailsShown ? inspectorHeight : 0
             let minimumInspectorHeight: CGFloat = detailsShown ? (inspectorContentHeight + 22) * interfaceScale : 0
             ScrollView {
                 AuralWorkspaceLayout(availableHeight: max(0, geometry.size.height - 24 * interfaceScale),
@@ -281,13 +278,14 @@ struct MainView: View {
                     Color.clear.auralWorkspaceSurface(padding: 0)
                         .allowsHitTesting(false).accessibilityHidden(true)
                         .auralRelocation(sidePanel, hidden: controlsFaded)
-                    let inspectorToolbar = (sidePanel ? panelWidth / interfaceScale : logicalWidth) < 480
+                    let inspectorToolbar = compactInspector
                         ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10 * interfaceScale))
                         : AnyLayout(HStackLayout(spacing: 12 * interfaceScale))
                     inspectorToolbar {
-                        // Sized to its segments, which macOS may draw equal and wider than a fixed frame.
                         AuralSegmented(title: "Controls", selection: Binding(get: { page }, set: changePage),
-                                       options: [(StudioPage.equalizer, "Filters"), (StudioPage.stereo, "Stereo & delay")]).fixedSize().transition(.identity).id(selectionRevision)
+                                       options: [(StudioPage.equalizer, "Filters"), (StudioPage.stereo, "Stereo & delay")])
+                            .auralFrame(width: compactInspector ? nil : 218)
+                            .transition(.identity).id(selectionRevision)
                             .help("Switch between filter editing and stereo balance, width, crossfeed, channel trims, and delay.")
                         HStack(spacing: 8 * interfaceScale) {
                             Spacer(minLength: 0)
@@ -312,18 +310,17 @@ struct MainView: View {
                                 .help("Show or hide editing controls. Your current sound stays active.")
                         }
                     }
-                    .auralPadding(.horizontal, 14).auralPadding(.vertical, 10)
+                    .auralPadding(.horizontal, 12).auralPadding(.vertical, 10)
                     .auralRelocation(sidePanel, hidden: controlsFaded)
-                    let inspectorHeight: CGFloat = detailsShown ? (page == .stereo ? 230 : filterInspectorHeight) : 0
                     let editorsActive = detailsShown && detailsVisible && page == .equalizer
                     GeometryReader { inspector in
-                        let height = sidePanel ? max(inspectorContentHeight, inspector.size.height / interfaceScale) : inspectorHeight
+                        let height = sidePanel ? max(inspectorContentHeight, inspector.size.height / interfaceScale) : visibleInspectorHeight
                         // The workspace owns overflow; the table and faders own their
                         // own scroll axes. A second vertical viewport here produces
                         // competing scrollbars as the retained editors change height.
                         ZStack(alignment: .topLeading) {
                                 FilterRack(model: model, submissions: submissions, selectedBand: $selectedBand, display: $filterDisplay,
-                                           expanded: sidePanel, compactRows: inspector.size.width / model.interfaceZoom.scale < 520,
+                                           expanded: sidePanel, layout: rackLayout,
                                            active: editorsActive)
                                     .auralFrame(height: sidePanel ? height : filterInspectorHeight)
                                     .opacity(detailsShown && page == .equalizer ? 1 : 0)
@@ -332,14 +329,15 @@ struct MainView: View {
                                     .accessibilityHidden(!editorsActive)
                                     .disabled(!editorsActive)
                                 if detailsShown && page == .stereo {
-                                    StereoPanel(model: model, submissions: submissions, stacked: sidePanel).auralFrame(height: height)
+                                    StereoPanel(model: model, submissions: submissions, stacked: sidePanel || compactInspector)
+                                        .auralFrame(height: height)
                                         .transition(.opacity)
                                 }
                         }
                         .auralFrame(height: height, alignment: .top).clipped()
                     }
-                    .frame(minHeight: detailsShown ? 40 : 0, idealHeight: inspectorHeight * model.interfaceZoom.scale,
-                           maxHeight: sidePanel ? .infinity : inspectorHeight * model.interfaceZoom.scale, alignment: .top)
+                    .frame(minHeight: detailsShown ? 40 : 0, idealHeight: visibleInspectorHeight * interfaceScale,
+                           maxHeight: sidePanel ? .infinity : visibleInspectorHeight * interfaceScale, alignment: .top)
                     .auralPadding([.horizontal, .bottom], detailsShown ? 12 : 0).auralPadding(.top, detailsShown ? 10 : 0)
                     // Separates the tabs from what they show, and leaves with the details.
                     .overlay(alignment: .top) { if detailsShown { Divider() } }
@@ -386,7 +384,7 @@ struct MainView: View {
                 } label: { Label("Edit", systemImage: "ellipsis") }
                     .auralMenuButton().fixedSize()
                     .accessibilityLabel("EQ options").help("Draft editing and clipboard")
-            }.auralPadding(.horizontal, 4)
+            }.auralPadding(.horizontal, 12)
         }.equatable()
     }
 

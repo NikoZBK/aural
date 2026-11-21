@@ -170,16 +170,27 @@ struct FilterEditor: View {
         .auralPanel(padding: 16)
     }
 
+    private enum Column {
+        static let number: CGFloat = 24
+        static let enabled: CGFloat = 28
+        static let channel: CGFloat = 72
+        static let frequency: CGFloat = 122
+        static let gain: CGFloat = 100
+        static let quality: CGFloat = 80
+        static let action: CGFloat = 24
+        static let gap: CGFloat = 8
+    }
+
     private var columnHeadings: some View {
-        HStack(spacing: 8 * interfaceScale) {
-            Text("#").auralFrame(width: 24)
-            Text("On").auralFrame(width: 28)
-            Text("Type").auralFrame(width: 166, alignment: .leading)
-            Text("Channel").auralFrame(width: 66, alignment: .leading)
-            Text("Frequency · Hz").auralFrame(width: 122, alignment: .leading)
-            Text("Gain · dB").auralFrame(width: 100, alignment: .leading)
-            Text("Q").auralFrame(width: 80, alignment: .leading)
-            Spacer(minLength: 0)
+        HStack(spacing: Column.gap * interfaceScale) {
+            Text("#").auralFrame(width: Column.number)
+            Text("On").auralFrame(width: Column.enabled)
+            Text("Type").auralPadding(.leading, 8).auralFrame(maxWidth: .infinity, alignment: .leading)
+            Text("Channel").auralPadding(.leading, 8).auralFrame(width: Column.channel, alignment: .leading)
+            Text("Frequency · Hz").auralFrame(width: Column.frequency)
+            Text("Gain · dB").auralFrame(width: Column.gain)
+            Text("Q").auralFrame(width: Column.quality)
+            Color.clear.auralFrame(width: 2 * Column.action + Column.gap, height: 1)
         }
         .auralFont(size: 11, weight: .medium)
         .foregroundStyle(AuralStyle.secondary)
@@ -188,19 +199,20 @@ struct FilterEditor: View {
 
     private func filterRow(_ filter: Binding<FilterDraft>, number: Int) -> some View {
         let id = filter.wrappedValue.id
-        return HStack(spacing: 8 * interfaceScale) {
+        return HStack(spacing: Column.gap * interfaceScale) {
             Text(String(format: "%02d", number))
                 .auralFont(size: 11, weight: .medium, design: .monospaced)
                 .foregroundStyle(AuralStyle.secondary)
-                .auralFrame(width: 24)
+                .auralFrame(width: Column.number)
                 .accessibilityHidden(true)
-            Toggle("Filter \(number) enabled", isOn: filter.enabled)
-                .labelsHidden().toggleStyle(AuralCheckboxStyle()).auralFrame(width: 28)
+            Toggle(isOn: filter.enabled) { EmptyView() }
+                .toggleStyle(AuralCheckboxStyle()).auralFrame(width: Column.enabled)
+                .accessibilityLabel("Filter \(number) enabled")
                 .help("Enable or bypass filter \(number)")
             let shape = filter.wrappedValue.shape
             FilterTypeMenu(title: "Filter \(number) type", shape: shape, buttonTitle: shape.slope == nil ? shape.label : shape.name) {
                 filter.wrappedValue.shape = $0
-            }.auralFrame(width: 166)
+            }.auralFrame(minWidth: 0, maxWidth: .infinity)
             AuralPicker(title: "Filter \(number) channel", value: filter.wrappedValue.channel == .stereo ? "L+R" : filter.wrappedValue.channel.label,
                         selection: filter.channel, size: .small) {
                 Text("L+R").tag(ImportedFilter.Channel.stereo)
@@ -208,32 +220,32 @@ struct FilterEditor: View {
                 Text("Right").tag(ImportedFilter.Channel.right)
                 Text("Mid").tag(ImportedFilter.Channel.mid)
                 Text("Side").tag(ImportedFilter.Channel.side)
-            }.auralFrame(width: 66)
+            }.auralFrame(width: Column.channel)
                 .help(AuralHelp.filterChannel(number))
             TextField("Frequency", text: filter.frequency)
-                .auralFrame(width: 122)
+                .auralFrame(width: Column.frequency)
                 .accessibilityLabel("Filter \(number) frequency in hertz")
                 .accessibilityHint("Enter a number from 10 to 22000")
                 .help("Set filter \(number)'s frequency from 10 to 22,000 Hz in this draft.")
             if filter.wrappedValue.kind.usesGain {
                 TextField("Gain", text: filter.gain)
-                    .auralFrame(width: 100)
+                    .auralFrame(width: Column.gain)
                     .accessibilityLabel("Filter \(number) gain in decibels")
                     .accessibilityHint("Enter a number from minus 30 to plus 30")
                     .help("Set filter \(number)'s gain from −30 to +30 dB in this draft.")
             } else {
-                Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 100)
+                Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: Column.gain)
                     .accessibilityLabel("Filter \(number) has no gain parameter")
                     .help("This filter uses frequency and Q. Adjust preamp to change the overall level.")
             }
             if filter.wrappedValue.usesQ {
                 TextField("Q", text: filter.q)
-                    .auralFrame(width: 80)
+                    .auralFrame(width: Column.quality)
                     .accessibilityLabel("Filter \(number) Q")
                     .accessibilityHint("Enter a number from 0.05 to 50")
                     .help("Set filter \(number)'s Q from 0.05 to 50. Higher Q makes a peak or notch narrower.")
             } else {
-                Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: 80)
+                Text("—").foregroundStyle(AuralStyle.secondary).auralFrame(width: Column.quality)
                     .accessibilityLabel("Filter \(number) has a fixed \(shape.slope?.label ?? "6 dB per octave") slope")
                     .help(shape.fixedQHelp)
             }
@@ -256,13 +268,13 @@ struct FilterEditor: View {
             } label: {
                 Image(systemName: "ellipsis.circle").auralFont(size: 15)
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: 24)
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).tint(.primary).auralFrame(width: Column.action)
             .help("Duplicate or reorder filter \(number)")
             .accessibilityLabel("Filter \(number) actions")
             Button {
                 withAuralAnimation { draft.filters.removeAll { $0.id == id } }
             } label: {
-                Image(systemName: "minus.circle").auralFont(size: 15).auralFrame(width: 24, height: 28)
+                Image(systemName: "minus.circle").auralFont(size: 15).auralFrame(width: Column.action, height: AuralStyle.controlHeight)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(AuralStyle.secondary)
@@ -270,6 +282,7 @@ struct FilterEditor: View {
             .accessibilityLabel("Remove filter \(number)")
         }
         .auralFont(size: 12)
+        .multilineTextAlignment(.trailing)
         .monospacedDigit()
         .auralFrame(minHeight: 44)
         .background(number.isMultiple(of: 2) ? AuralStyle.elevated.opacity(0.6) : .clear,

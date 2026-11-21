@@ -1,5 +1,31 @@
 import SwiftUI
 
+struct FilterRackLayout: Equatable {
+    static let headerSpacing: CGFloat = 8
+    static let editorSpacing: CGFloat = 10
+
+    let compactRows: Bool
+    let stackedHeader: Bool
+
+    init(width: CGFloat = .infinity, graphic: Bool = false) {
+        compactRows = width < 520
+        stackedHeader = width < (graphic ? 650 : 550)
+    }
+
+    func editorHeight(for display: FilterDisplay) -> CGFloat {
+        switch display {
+        case .selected: return compactRows ? 124 : 108
+        case .rows: return 168
+        case .faders: return 300
+        }
+    }
+
+    func inspectorHeight(for display: FilterDisplay) -> CGFloat {
+        let controlsHeight = stackedHeader ? 2 * AuralStyle.controlHeight + Self.headerSpacing : AuralStyle.controlHeight
+        return controlsHeight + Self.editorSpacing + editorHeight(for: display)
+    }
+}
+
 struct FilterRack: View {
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
@@ -7,36 +33,36 @@ struct FilterRack: View {
     @Binding var selectedBand: Int
     @Binding var display: FilterDisplay
     var expanded = false
-    var compactRows = false
+    var layout = FilterRackLayout()
     var active = true
     @State private var selectionRevision = 0
     private var count: Int { model.profile.filters?.count ?? 10 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10 * interfaceScale) {
+        VStack(alignment: .leading, spacing: FilterRackLayout.editorSpacing * interfaceScale) {
             AuralEquatableContent(key: FilterHeaderKey(display: display, count: count, slots: model.profile.filters?.slots ?? count,
-                                                       graphic: model.profile.filters == nil, expanded: expanded,
+                                                       graphic: model.profile.filters == nil, stacked: layout.stackedHeader,
                                                        scale: interfaceScale, revision: selectionRevision)) {
-            let headerLayout = expanded ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10 * interfaceScale)) : AnyLayout(HStackLayout(spacing: 10 * interfaceScale))
-            headerLayout {
-                AuralSegmented(title: "Filter view", selection: Binding(get: { display }, set: { next in
-                    guard finishNumericEdit() else { selectionRevision += 1; return }
-                    if next == .rows && model.profile.filters == nil { model.editGraphicAsFilters() }
-                    guard model.error == nil else { selectionRevision += 1; return }
-                    display = next
-                }), options: [(FilterDisplay.selected, "Selected"), (FilterDisplay.rows, "All rows"), (FilterDisplay.faders, "Faders")])
-                    .auralFrame(width: expanded ? nil : 218).transition(.identity).id(selectionRevision)
-                    .help("Edit one selected filter, all filter rows, or gain faders. All rows makes graphic frequencies and Q editable.")
-                // A narrow side panel at large zoom keeps the band count on one line
-                // by moving it above the actions.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8 * interfaceScale) { bandCount; Spacer(minLength: 0); bandActions }
-                    VStack(alignment: .leading, spacing: 8 * interfaceScale) {
-                        bandCount
-                        HStack(spacing: 8 * interfaceScale) { bandActions }
+                let headerLayout = layout.stackedHeader
+                    ? AnyLayout(VStackLayout(alignment: .trailing, spacing: FilterRackLayout.headerSpacing * interfaceScale))
+                    : AnyLayout(HStackLayout(spacing: 10 * interfaceScale))
+                headerLayout {
+                    HStack(spacing: 10 * interfaceScale) {
+                        AuralSegmented(title: "Filter view", selection: Binding(get: { display }, set: { next in
+                            guard finishNumericEdit() else { selectionRevision += 1; return }
+                            if next == .rows && model.profile.filters == nil { model.editGraphicAsFilters() }
+                            guard model.error == nil else { selectionRevision += 1; return }
+                            display = next
+                        }), options: [(FilterDisplay.selected, "Selected"), (FilterDisplay.rows, "All rows"), (FilterDisplay.faders, "Faders")])
+                            .auralFrame(width: 218).transition(.identity).id(selectionRevision)
+                            .help("Edit one selected filter, all filter rows, or gain faders. All rows makes graphic frequencies and Q editable.")
+                        if layout.stackedHeader { Spacer(minLength: 0) }
+                        bandCount.fixedSize()
                     }
+                    HStack(spacing: (layout.stackedHeader ? 5 : 8) * interfaceScale) {
+                        bandActions
+                    }.frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
                 }
-            }
             }.equatable()
             // Retain the native editors across display changes. Hidden editors are
             // disabled and excluded from pointer and accessibility navigation.
@@ -68,8 +94,9 @@ struct FilterRack: View {
                     .accessibilityHidden(display != .selected)
                     .disabled(display != .selected)
             }
-            .auralFrame(height: expanded ? nil : (display == .selected ? 108 : (display == .faders ? 300 : 168)), alignment: .top)
-            .frame(maxHeight: expanded ? .infinity : nil, alignment: .top).clipped()
+            .auralFrame(height: expanded ? nil : layout.editorHeight(for: display), alignment: .top)
+            .frame(minWidth: 0, maxWidth: .infinity, maxHeight: expanded ? .infinity : nil, alignment: .topLeading)
+            .clipped()
             .onChange(of: display) { _, _ in model.endProfileGesture() }
 
         }.onDisappear { model.endProfileGesture() }
@@ -81,7 +108,7 @@ struct FilterRack: View {
                                        selectionRevision: selectionRevision, soloed: model.soloBand, canSolo: model.running && !model.bypass)
             : nil
         return RetainedFilterEditorKey(model: ObjectIdentifier(model), submissions: ObjectIdentifier(submissions),
-                                       expanded: expanded, compactRows: compactRows, scale: interfaceScale, presentation: presentation)
+                                       expanded: expanded, compactRows: layout.compactRows, scale: interfaceScale, presentation: presentation)
     }
 
     private var bandCount: some View {
@@ -91,7 +118,7 @@ struct FilterRack: View {
     @ViewBuilder private var bandActions: some View {
         if display == .faders && model.profile.filters == nil {
             Button("Edit parameters…") { if finishNumericEdit() { model.editGraphicAsFilters() } }
-                .buttonStyle(AuralButtonStyle())
+                .buttonStyle(AuralButtonStyle(compact: layout.stackedHeader)).fixedSize()
                 .help("Make the graphic bands' frequencies and Q editable, preserving their response.")
         }
         Menu("EQ actions") {
@@ -109,9 +136,11 @@ struct FilterRack: View {
             Button("Shift down ⅓ octave") { if finishNumericEdit() { withAuralAnimation { model.shiftFrequencies(octaves: -1.0 / 3) } } }.help("Lower all filter frequencies by one third of an octave.")
         }.auralMenuButton().fixedSize().help("Adjust all bands together. Undo restores your previous EQ.")
         Button("Reset EQ") { if finishNumericEdit() { withAuralAnimation { model.resetEQ() } } }
-            .buttonStyle(AuralButtonStyle()).help("Set band gains, tilt, and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
+            .buttonStyle(AuralButtonStyle(compact: layout.stackedHeader)).fixedSize()
+            .help("Set band gains, tilt, and preamp to 0 dB. Keep frequencies, Q, filter types, channels, and stereo settings.")
         Button { if finishNumericEdit() { withAuralAnimation { model.addFilter() } } } label: { Image(systemName: "plus") }
-            .buttonStyle(AuralButtonStyle()).disabled((model.profile.filters?.slots ?? count) >= Profile.maxFilters).help("Add a parametric filter").accessibilityLabel("Add filter")
+            .buttonStyle(AuralButtonStyle(compact: layout.stackedHeader)).fixedSize()
+            .disabled((model.profile.filters?.slots ?? count) >= Profile.maxFilters).help("Add a parametric filter").accessibilityLabel("Add filter")
     }
 
     private var selectedInspector: some View {
@@ -122,7 +151,7 @@ struct FilterRack: View {
                                                               soloed: model.soloBand == selectedBand, canSolo: model.running && !model.bypass,
                                                               scale: interfaceScale)) {
             HStack(spacing: 8 * interfaceScale) {
-                Text("Selected filter").auralFont(size: 12).accessibilityHidden(true)
+                Text("Selected filter").auralFont(size: 12).fixedSize().accessibilityHidden(true)
                 AuralPicker(title: "Selected filter", value: bands.first { $0.index == selectedBand }.map(Self.bandTitle) ?? "",
                             selection: Binding(get: { selectedBand }, set: { index in
                     if finishNumericEdit() {
@@ -132,10 +161,10 @@ struct FilterRack: View {
                     selectionRevision += 1
                 })) {
                     ForEach(bands, id: \.index) { band in Text(Self.bandTitle(band)).tag(band.index) }
-                }.auralFrame(width: 170)
+                }.auralFrame(minWidth: 0, idealWidth: 170, maxWidth: 170)
                     .help("Choose the filter shown in the inspector. Its settings appear below.")
                 Spacer(minLength: 0)
-                soloToggle
+                soloToggle.fixedSize()
             }.transition(.identity).id(selectionRevision)
             }.equatable()
             if let filters = model.profile.filters, filters.indices.contains(selectedBand) {
@@ -143,7 +172,7 @@ struct FilterRack: View {
                     columnHeader
                     // Switching filters is instant, like an inspector; a crossfade would
                     // briefly stack two rows.
-                    FilterRow(model: model, submissions: submissions, filter: filters[selectedBand], index: selectedBand, compact: compactRows,
+                    FilterRow(model: model, submissions: submissions, filter: filters[selectedBand], index: selectedBand, compact: layout.compactRows,
                               move: { moveFilter(at: selectedBand, by: $0) })
                         .transition(.identity).id(selectedBand)
                 }
@@ -201,7 +230,7 @@ struct FilterRack: View {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                 Section {
                     ForEach(filters.indices, id: \.self) { index in
-                        FilterRow(model: model, submissions: submissions, filter: filters[index], index: index, compact: compactRows,
+                        FilterRow(model: model, submissions: submissions, filter: filters[index], index: index, compact: layout.compactRows,
                                   move: { moveFilter(at: index, by: $0) })
                     }
                 } header: {
@@ -220,7 +249,7 @@ struct FilterRack: View {
         VStack(spacing: 0) {
             FilterColumns(height: 26 * interfaceScale, scale: interfaceScale) {
                 Text("On").auralFrame(width: 24)
-                Text("Filter").auralFrame(maxWidth: .infinity, alignment: .leading)
+                Text("Filter").auralPadding(.leading, 32).auralFrame(maxWidth: .infinity, alignment: .leading)
                 Text("Channel").auralFrame(width: 60)
                 Text("Hz").auralFrame(width: 79)
                 Text("dB").auralFrame(width: 66)
@@ -229,7 +258,7 @@ struct FilterRack: View {
             }.auralFont(size: 10, weight: .medium).foregroundStyle(AuralStyle.secondary)
                 .auralPadding(.horizontal, 10).auralFrame(height: 26).auralFrame(maxWidth: .infinity)
             Divider().overlay(AuralStyle.border)
-        }.background(AuralStyle.surface).frame(height: compactRows ? 0 : nil).clipped().accessibilityHidden(true)
+        }.background(AuralStyle.surface).frame(height: layout.compactRows ? 0 : nil).clipped().accessibilityHidden(true)
     }
 }
 
@@ -256,7 +285,7 @@ private struct FilterHeaderKey: Equatable {
     let count: Int
     let slots: Int
     let graphic: Bool
-    let expanded: Bool
+    let stacked: Bool
     let scale: CGFloat
     let revision: Int
 }
@@ -328,8 +357,9 @@ private struct FilterRowContent: View, Equatable {
     }
     var body: some View {
         FilterColumns(height: (compact ? 78 : 39) * interfaceScale, scale: interfaceScale, compact: compact) {
-            Toggle("Filter \(number) enabled", isOn: Binding(get: { currentFilter.enabled }, set: { enabled in editFilter { $0.enabled = enabled } }))
-                .labelsHidden().toggleStyle(AuralCheckboxStyle()).auralFrame(width: 24)
+            Toggle(isOn: Binding(get: { currentFilter.enabled }, set: { enabled in editFilter { $0.enabled = enabled } })) { EmptyView() }
+                .toggleStyle(AuralCheckboxStyle()).auralFrame(width: 24)
+                .accessibilityLabel("Filter \(number) enabled")
                 .help("Enable or bypass filter \(number) without removing its settings.")
             HStack(spacing: 6 * interfaceScale) {
                 Group {
@@ -342,7 +372,8 @@ private struct FilterRowContent: View, Equatable {
                 }.auralFrame(width: 18).accessibilityHidden(true)
                 FilterTypeMenu(title: "Filter \(number) type", shape: currentFilter.shape, buttonTitle: currentFilter.shape.name) { shape in
                     editFilter { $0.shape = shape; if !shape.kind.usesGain { $0.gain = 0 } }
-                }.fixedSize()
+                }.auralFrame(maxWidth: compact ? .infinity : 180)
+                    .auralFrame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             }.auralFrame(maxWidth: .infinity, alignment: .leading)
             Menu(currentFilter.effectiveChannel == .stereo ? "L+R" : currentFilter.effectiveChannel.rawValue) {
                 ForEach(ImportedFilter.Channel.allCases, id: \.self) { channel in
@@ -357,27 +388,31 @@ private struct FilterRowContent: View, Equatable {
             }.auralMenuButton(.small).auralFrame(width: 60).accessibilityLabel("Filter \(number) channel")
                 .accessibilityValue(currentFilter.effectiveChannel.label)
                 .help(AuralHelp.filterChannel(number))
-            PrecisionField(value: filter.frequency, range: 10...22000, label: "Filter \(number) frequency in hertz", decimals: 0, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                FilterParameterEditing.update(model: model, index: index) { $0.frequency = value }
-            }.auralFrame(width: 79).overlay(alignment: .topLeading) { numericLabel("Hz") }
-            if filter.kind.usesGain {
-                PrecisionField(value: filter.gain, range: -30...30, label: "Filter \(number) gain in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                    FilterParameterEditing.update(model: model, index: index) { $0.gain = value }
-                }.auralFrame(width: 66).overlay(alignment: .topLeading) { numericLabel("dB") }
-            } else {
-                Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary).auralFrame(width: 66)
-                    .accessibilityLabel("Filter \(number) has no gain parameter")
-                    .overlay(alignment: .topLeading) { numericLabel("dB") }
+            parameterCell("Hz") {
+                PrecisionField(value: filter.frequency, range: 10...22000, label: "Filter \(number) frequency in hertz", decimals: 0, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
+                    FilterParameterEditing.update(model: model, index: index) { $0.frequency = value }
+                }
             }
-            if filter.usesQ {
-                PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
-                    FilterParameterEditing.update(model: model, index: index) { $0.q = value }
-                }.auralFrame(width: 58).overlay(alignment: .topLeading) { numericLabel("Q") }
-            } else {
-                Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary).auralFrame(width: 58)
-                    .accessibilityLabel("Filter \(number) has a fixed \(filter.slope?.label ?? "6 dB per octave") slope")
-                    .help(filter.shape.fixedQHelp)
-                    .overlay(alignment: .topLeading) { numericLabel("Q") }
+            parameterCell("dB") {
+                if filter.kind.usesGain {
+                    PrecisionField(value: filter.gain, range: -30...30, label: "Filter \(number) gain in decibels", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
+                        FilterParameterEditing.update(model: model, index: index) { $0.gain = value }
+                    }
+                } else {
+                    Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+                        .accessibilityLabel("Filter \(number) has no gain parameter")
+                }
+            }
+            parameterCell("Q") {
+                if filter.usesQ {
+                    PrecisionField(value: filter.q, range: 0.05...50, label: "Filter \(number) Q", decimals: 3, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, index] value in
+                        FilterParameterEditing.update(model: model, index: index) { $0.q = value }
+                    }
+                } else {
+                    Text("—").auralFont(size: 11).foregroundStyle(AuralStyle.secondary)
+                        .accessibilityLabel("Filter \(number) has a fixed \(filter.slope?.label ?? "6 dB per octave") slope")
+                        .help(filter.shape.fixedQHelp)
+                }
             }
             FilterActionsMenu(model: model, submissions: submissions, index: index, filter: currentFilter, move: move)
                 .auralFrame(width: 22)
@@ -387,11 +422,14 @@ private struct FilterRowContent: View, Equatable {
             .accessibilityValue(actions.soloed ? "Soloed" : "")
     }
 
-    @ViewBuilder private func numericLabel(_ title: String) -> some View {
-        if compact {
-            Text(title).auralFont(size: 9, weight: .medium).foregroundStyle(AuralStyle.secondary)
-                .offset(y: -15 * interfaceScale).accessibilityHidden(true).allowsHitTesting(false)
-        }
+    private func parameterCell<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        content().auralFrame(minWidth: 0, maxWidth: .infinity, minHeight: AuralStyle.controlHeight)
+            .overlay(alignment: .topLeading) {
+                if compact {
+                    Text(title).auralFont(size: 9, weight: .medium).foregroundStyle(AuralStyle.secondary)
+                        .offset(y: -12 * interfaceScale).accessibilityHidden(true).allowsHitTesting(false)
+                }
+            }
     }
 }
 
@@ -546,12 +584,13 @@ struct FilterColumns: AuralContainerLayout {
                 subviews[index].place(at: CGPoint(x: bounds.minX + x + width / 2, y: topY), anchor: .center,
                                       proposal: ProposedViewSize(width: width, height: 30 * scale))
             }
-            var x = bounds.midX - (79 + 66 + 58 + 36) * scale / 2
+            let gap = spacing * scale
+            let width = max(0, (bounds.width - 2 * gap) / 3)
+            var x = bounds.minX
             for index in 3...5 {
-                let width = fixedWidths[index] * scale
                 subviews[index].place(at: CGPoint(x: x + width / 2, y: bounds.minY + 57 * scale), anchor: .center,
-                                      proposal: ProposedViewSize(width: width, height: 24 * scale))
-                x += width + 18 * scale
+                                      proposal: ProposedViewSize(width: width, height: AuralStyle.controlHeight * scale))
+                x += width + gap
             }
             return
         }

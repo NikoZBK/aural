@@ -291,6 +291,13 @@ struct ZoomLayoutProbe: NSViewRepresentable {
                         require(!frame.intersects(other), "Compact numeric fields must wrap without overlapping other controls")
                     }
                 }
+                if compact {
+                    let fields = cellFrames[3...5]
+                    let first = cellFrames[3]
+                    require(abs(first.minX) < 1 && abs(cellFrames[5].maxX - columnWidth) < 1 &&
+                            fields.allSatisfy { abs($0.midY - first.midY) < 1 && abs($0.width - first.width) <= 1 },
+                            "Compact fields must share a baseline and fill equal columns: \(cellFrames)")
+                }
             }
         }
     }

@@ -20,8 +20,11 @@ struct StereoPanel: View {
                     VStack(alignment: .leading, spacing: 14 * interfaceScale) {
                         AuralSectionLabel(title: "Stereo balance")
                         control("Balance", value: settings.balance, range: -1...1, suffix: "", keyPath: \.balance, spokenValue: AuralAccessibility.balance(settings.balance), help: AuralHelp.balance, decimals: 2)
-                        HStack { Text("Left"); Spacer(); Text("Center"); Spacer(); Text("Right") }
-                            .auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
+                        HStack(spacing: 0) {
+                            Text("Left").auralFrame(maxWidth: .infinity, alignment: .leading)
+                            Text("Center").auralFrame(maxWidth: .infinity)
+                            Text("Right").auralFrame(maxWidth: .infinity, alignment: .trailing)
+                        }.auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
                         control("Width", value: settings.width, range: 0...2, suffix: "×", keyPath: \.width, spokenValue: AuralAccessibility.percentage(settings.width), help: AuralHelp.width, decimals: 2)
                             .disabled(settings.mono)
                         Toggle("Mono", isOn: flag(\.mono)).toggleStyle(AuralCheckboxStyle()).auralFont(size: 12)
@@ -68,13 +71,11 @@ struct StereoPanel: View {
     private func control(_ title: String, value: Double, range: ClosedRange<Double>, suffix: String,
                          keyPath: WritableKeyPath<StereoSettings, Double>, spokenValue: String, help: String, decimals: Int = 1) -> some View {
         VStack(spacing: 6 * interfaceScale) {
-            HStack(spacing: 4 * interfaceScale) {
-                Text(title).auralFont(size: 11, weight: .medium).auralFrame(maxWidth: .infinity, alignment: .leading)
+            valueRow(title, unit: suffix) {
                 PrecisionField(value: value, range: range, label: suffix == "dB" ? "\(title) in decibels" : suffix == "×" ? "\(title) multiplier" : title, decimals: decimals, revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
                     model.endProfileGesture()
                     var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
-                }.auralFrame(width: 58)
-                if !suffix.isEmpty { Text(suffix).auralFont(size: 9).foregroundStyle(AuralStyle.secondary) }
+                }
             }
             Slider(value: numeric(keyPath), in: range,
                    onEditingChanged: { active in active ? model.beginProfileGesture(label: title) : model.endProfileGesture() })
@@ -83,14 +84,20 @@ struct StereoPanel: View {
         }
     }
     private func delay(_ title: String, value: Double, keyPath: WritableKeyPath<StereoSettings, Double>) -> some View {
-        HStack {
-            Text(title).auralFont(size: 11).auralFrame(maxWidth: .infinity, alignment: .leading)
+        valueRow(title, unit: "ms") {
             PrecisionField(value: value, range: 0...30, label: "\(title) in milliseconds", revision: model.editRevision, currentRevision: { [model] in model.editRevision }, submissions: submissions) { [model, keyPath] number in
                 model.endProfileGesture()
                 var next = model.profile.stereoSettings; next[keyPath: keyPath] = number; model.setStereoSettings(next)
-            }.auralFrame(width: 68)
+            }
                 .help("\(title): add 0–30 milliseconds to this output channel. Press Return to apply. Escape cancels.")
-            Text("ms").auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
+        }
+    }
+    private func valueRow<Field: View>(_ title: String, unit: String, @ViewBuilder field: () -> Field) -> some View {
+        HStack(spacing: 5 * interfaceScale) {
+            Text(title).auralFont(size: 11, weight: .medium).auralFrame(maxWidth: .infinity, alignment: .leading)
+            field().auralFrame(width: 64)
+            Text(unit).auralFont(size: 10).foregroundStyle(AuralStyle.secondary)
+                .auralFrame(width: 16, alignment: .leading).accessibilityHidden(true)
         }
     }
     private func submitPendingInput() -> Bool {

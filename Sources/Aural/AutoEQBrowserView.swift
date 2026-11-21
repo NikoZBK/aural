@@ -190,6 +190,7 @@ struct AutoEQBrowserView: View {
                         .auralFont(size: 15, weight: .semibold)
                     Text(browser.entries.isEmpty ? "Connect to the internet to load the AutoEQ catalog." : "Try another model name or measurement source.")
                         .auralFont(size: 12).foregroundStyle(AuralStyle.secondary).multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                     if !browser.loading {
                         Button(browser.entries.isEmpty ? "Try again" : "Clear filters") {
                             if browser.entries.isEmpty { catalogRevision += 1 }
@@ -197,7 +198,8 @@ struct AutoEQBrowserView: View {
                         }.buttonStyle(AuralButtonStyle())
                             .help(browser.entries.isEmpty ? "Retry downloading the AutoEQ catalog." : "Clear the search and measurement source to show all profiles.")
                     }
-                }.auralFrame(maxWidth: .infinity, maxHeight: .infinity)
+                }.auralPadding(.horizontal, 8).auralFrame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
             } else {
                 List(results, selection: $selectedID) { entry in
                     VStack(alignment: .leading, spacing: 4 * interfaceScale) {
@@ -208,8 +210,10 @@ struct AutoEQBrowserView: View {
                         .help("\(entry.name) · \(entry.measurement) · \(entry.collection)")
                         .accessibilityElement(children: .combine)
                 }.listStyle(.plain).scrollContentBackground(.hidden)
+                    .transition(.opacity)
             }
-            }.auralAnimation(AuralMotion.fade, value: results.isEmpty)
+            }.auralFrame(maxWidth: .infinity, maxHeight: .infinity).clipped()
+                .auralAnimation(AuralMotion.fade, value: results.isEmpty)
             if let date = browser.loadedAt {
                 Text("Catalog loaded \(date.formatted(date: .abbreviated, time: .shortened))")
                     .auralFont(size: 10).foregroundStyle(AuralStyle.secondary)

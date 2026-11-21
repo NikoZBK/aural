@@ -20,9 +20,16 @@ import SwiftUI
         (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants(type, $0) }
     }
     flush()
-    let firstCount = descendants(NSTextField.self, host).filter(\.isEditable).count
+    let fields = descendants(NSTextField.self, host).filter(\.isEditable)
+    let firstCount = fields.count
     require(firstCount > 0 && firstCount < Profile.maxFilters,
             "Opening a maximum-size draft must construct visible fields instead of all 192 parameter editors: \(firstCount)")
+    let frequencies = fields.filter { $0.placeholderString == "Frequency" }.prefix(2)
+        .map { $0.convert($0.bounds, to: host) }
+    require(frequencies.count == 2, "Two draft filter rows must fit in the initial viewport")
+    require(abs(frequencies[0].minX - frequencies[1].minX) < 1 &&
+            abs(abs(frequencies[0].midY - frequencies[1].midY) - 48) < 1,
+            "Draft fields must align across rows without the checkbox label stretching them: \(frequencies)")
     guard let scroll = descendants(NSScrollView.self, host).first(where: { ($0.documentView?.bounds.height ?? 0) > $0.contentView.bounds.height + 100 }),
           let document = scroll.documentView else { fatalError("The draft must have a scrollable native viewport") }
     func scrollToEnd(_ end: Bool) {

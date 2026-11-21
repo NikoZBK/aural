@@ -115,9 +115,10 @@ private struct EQBandContent: View, Equatable {
                 Text(String(format: "%02d", index + 1)).auralFont(size: 11, weight: .semibold, design: .monospaced)
                     .foregroundStyle(soloed ? AuralStyle.warning : AuralStyle.accent)
                 if let filter {
-                    Toggle("Filter \(index + 1) enabled", isOn: Binding(get: { filter.enabled }, set: { enabled in
+                    Toggle(isOn: Binding(get: { filter.enabled }, set: { enabled in
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
-                    })).labelsHidden().toggleStyle(AuralCheckboxStyle())
+                    })) { EmptyView() }
+                        .toggleStyle(AuralCheckboxStyle()).accessibilityLabel("Filter \(index + 1) enabled")
                         .help("Enable or bypass filter \(index + 1) without removing its settings.")
                     if filter.effectiveChannel != .stereo {
                         Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
@@ -128,6 +129,7 @@ private struct EQBandContent: View, Equatable {
                                       move: moveFilter.map { action in { offset in action(index, offset) } }, horizontal: true, includeChannel: true)
                 } else {
                     Text("Graphic").auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
+                    Spacer(minLength: 0)
                 }
             }.auralFrame(height: 22)
             gainBar(value, height: height)
@@ -187,12 +189,12 @@ private struct EQBandContent: View, Equatable {
             Text(unit).auralFont(size: 10).foregroundStyle(AuralStyle.secondary).auralFrame(width: 16, alignment: .leading)
                 .accessibilityHidden(true)
             content().auralFrame(width: 66)
-        }.auralFrame(height: 27)
+        }.auralFrame(height: AuralStyle.controlHeight)
     }
 
     private func fixedParameter(_ text: String) -> some View {
         Text(text).auralFont(size: 11, design: .monospaced).foregroundStyle(AuralStyle.secondary)
-            .auralFrame(maxWidth: .infinity, minHeight: 27, alignment: .trailing)
+            .auralFrame(maxWidth: .infinity, minHeight: AuralStyle.controlHeight, alignment: .trailing)
     }
 
     private func gainBar(_ value: EQBarBand, height: CGFloat) -> some View {
@@ -224,12 +226,13 @@ private struct EQBandContent: View, Equatable {
                 .lineLimit(1).help(String(format: "%.0f Hz", frequency))
             if let filter {
                 HStack(spacing: 3 * interfaceScale) {
-                    Toggle("Band \(index + 1) enabled", isOn: Binding(get: {
+                    Toggle(isOn: Binding(get: {
                         guard let current = model.profile.filters, current.indices.contains(index) else { return filter.enabled }
                         return current[index].enabled
                     }, set: { enabled in
                         if finishNumericEdit() { model.endProfileGesture(); model.setFilterEnabled(at: index, enabled: enabled) }
-                    })).labelsHidden().toggleStyle(AuralCheckboxStyle())
+                    })) { EmptyView() }
+                        .toggleStyle(AuralCheckboxStyle()).accessibilityLabel("Band \(index + 1) enabled")
                         .help("Enable or bypass band \(index + 1) without removing its settings.")
                     if filter.effectiveChannel != .stereo {
                         Text(filter.effectiveChannel.rawValue).auralFont(size: 9).foregroundStyle(AuralStyle.secondary)

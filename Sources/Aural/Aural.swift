@@ -254,8 +254,12 @@ struct StartupSettings: View {
             }
             Divider()
             if let error = model.error { AuralNotice(message: error, isError: true).transition(.opacity) }
-            Button("About Aural") { openWindow.showAuralWindow("about") }.help(AuralHelp.about)
-            Button("Check for Updates…") { openWindow.showAuralWindow("updates") }.help(AuralHelp.updates)
+            Button { openWindow.showAuralWindow("about") } label: {
+                Text("About Aural").auralFrame(maxWidth: .infinity)
+            }.buttonStyle(AuralButtonStyle()).help(AuralHelp.about)
+            Button { openWindow.showAuralWindow("updates") } label: {
+                Text("Check for Updates…").auralFrame(maxWidth: .infinity)
+            }.buttonStyle(AuralButtonStyle()).help(AuralHelp.updates)
         }
         .auralAnimation(AuralMotion.quick, value: StartupMotion(status: model.loginStatus?.rawValue, error: model.error))
         .auralPadding(18).auralFrame(width: 300).auralAppearance(model.theme).onAppear { model.refreshLoginStatus() }
@@ -265,17 +269,20 @@ struct StartupSettings: View {
 private struct StartupMotion: Equatable { let status: Int?; let error: String? }
 
 struct LoudnessReference: View {
+    @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     var body: some View {
-        HStack(spacing: 8) {
-            Text("Reference level").accessibilityHidden(true)
+        HStack(spacing: 8 * interfaceScale) {
+            Text("Reference level").fixedSize().accessibilityHidden(true)
                 .help("How loud music is at the reference volume. 80 phon suits a comfortable, full listening level.")
             AuralPicker(title: "Reference level", value: "\(Int(model.loudness.referenceLevel)) phon",
                         selection: Binding(get: { model.loudness.referenceLevel }, set: model.setLoudnessReferenceLevel)) {
                 ForEach(Loudness.referenceLevels, id: \.self) { level in Text("\(Int(level)) phon").tag(level) }
             }.help("Choose how loud music is at the reference volume. 80 phon suits a comfortable, full listening level.")
         }
-        Button("Use current volume as reference") { model.setLoudnessReference() }
+        Button { model.setLoudnessReference() } label: {
+            Text("Use current volume as reference").auralFrame(maxWidth: .infinity)
+        }.buttonStyle(AuralButtonStyle())
             .disabled(model.outputVolume == nil)
             .help("Set the reference where the EQ sounds right at your usual listening level. Lower volumes are compensated.")
         Text(status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

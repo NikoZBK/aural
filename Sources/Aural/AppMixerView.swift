@@ -20,7 +20,7 @@ struct AppMixerView: View {
     var body: some View {
         GeometryReader { geometry in
             VStack(alignment: .leading, spacing: 16 * scale) {
-                HStack(alignment: .top, spacing: 16 * scale) {
+                HStack(spacing: 16 * scale) {
                     VStack(alignment: .leading, spacing: 5 * scale) {
                         Label("App mixer", systemImage: "slider.horizontal.3").auralFont(size: 23, weight: .bold, design: .rounded)
                         Text(store.outputName).auralFont(size: 12).foregroundStyle(.secondary).lineLimit(2)
@@ -97,7 +97,9 @@ private struct AppMixerStrip: View {
         let layout = compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12 * scale)) : AnyLayout(HStackLayout(spacing: 18 * scale))
         return layout {
             HStack(spacing: 10 * scale) {
-                if let icon = row.icon { Image(nsImage: icon).resizable().auralFrame(width: 34, height: 34).accessibilityHidden(true) }
+                Color.clear.auralFrame(width: 34, height: 34).overlay {
+                    if let icon = row.icon { Image(nsImage: icon).resizable() }
+                }.accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3 * scale) {
                     Text(row.state.name).auralFont(size: 14, weight: .semibold).lineLimit(2)
                     Text(row.state.experimental ? "\(activity) · Experimental" : activity).auralFont(size: 11).foregroundStyle(.secondary)
@@ -119,12 +121,14 @@ private struct AppMixerStrip: View {
                 Text("%").auralFont(size: 11).foregroundStyle(.secondary).accessibilityHidden(true)
                 Button {
                     if submit() { store.setMuted(row.id, !row.setting.muted) }
-                } label: { Image(systemName: row.setting.muted ? "speaker.slash.fill" : "speaker.wave.2") }
+                } label: {
+                    Image(systemName: row.setting.muted ? "speaker.slash.fill" : "speaker.wave.2").auralFrame(width: 16)
+                }
                     .buttonStyle(AuralButtonStyle(prominent: row.setting.muted))
                     .accessibilityLabel("\(row.setting.muted ? "Unmute" : "Mute") \(row.state.name)")
                     .accessibilityValue(row.setting.muted ? "Muted" : "Not muted")
                     .help("\(row.setting.muted ? "Unmute" : "Mute") \(row.state.name). The chosen volume is remembered.")
-                Button { if submit() { store.reset(row.id) } } label: { Image(systemName: "arrow.counterclockwise") }
+                Button { if submit() { store.reset(row.id) } } label: { Image(systemName: "arrow.counterclockwise").auralFrame(width: 16) }
                     .buttonStyle(AuralButtonStyle()).accessibilityLabel("Reset \(row.state.name) to 100 percent, unmute, and forget it")
                     .help("Reset \(row.state.name) to 100 percent volume and unmute it on this output. Aural then forgets the app until you adjust it again.")
             }.disabled(!row.state.controllable)

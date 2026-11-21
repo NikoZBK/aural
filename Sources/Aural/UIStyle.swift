@@ -28,6 +28,7 @@ extension AuralTheme {
 }
 
 enum AuralStyle {
+    static let controlHeight: CGFloat = 27
     // Native dynamic colors resolve in each presentation, including Canvas and AppKit panels.
     private static func adaptive(light: NSColor, dark: NSColor, highContrastLight: NSColor? = nil, highContrastDark: NSColor? = nil) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
@@ -292,14 +293,15 @@ struct AuralNotice: View {
 
 struct AuralButtonStyle: ButtonStyle {
     var prominent = false
+    var compact = false
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.isFocused) private var isFocused
     @Environment(\.self) private var environment
-    @Environment(\.auralInterfaceScale) private var scale
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .auralFont(size: 12)
-            .padding(.horizontal, 12 * scale).padding(.vertical, 6 * scale)
+            .auralPadding(.horizontal, compact ? 7 : 12).auralPadding(.vertical, 4)
+            .auralFrame(minHeight: AuralStyle.controlHeight)
             .foregroundStyle(prominent ? AuralStyle.accentForeground(in: environment) : Color.primary)
             // The border is a filled pill behind an inset gel: stroking a pill leaves stray end marks.
             .background {
@@ -315,11 +317,11 @@ struct AuralGelToggleStyle: ToggleStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.isFocused) private var isFocused
     @Environment(\.self) private var environment
-    @Environment(\.auralInterfaceScale) private var scale
     func makeBody(configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle() } label: {
             configuration.label.auralFont(size: 11)
-                .padding(.horizontal, 10 * scale).padding(.vertical, 4 * scale)
+                .auralPadding(.horizontal, 10).auralPadding(.vertical, 4)
+                .auralFrame(minHeight: AuralStyle.controlHeight)
                 .foregroundStyle(configuration.isOn ? AuralStyle.accentForeground(in: environment) : Color.primary)
                 .background {
                     AuralGel(prominent: configuration.isOn).padding(isFocused ? 2 : 1)
@@ -394,7 +396,7 @@ struct AuralSegmented<Value: Hashable>: NSViewRepresentable {
         let font = control.font ?? .systemFont(ofSize: 12)
         let widest = options.map { ($0.label as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
         let ideal = (ceil(widest) + (small ? 16 : 24) * scale) * CGFloat(options.count)
-        return CGSize(width: proposal.width ?? ideal, height: (small ? 22 : 26) * scale)
+        return CGSize(width: proposal.width ?? ideal, height: (small ? 22 : AuralStyle.controlHeight) * scale)
     }
     final class Coordinator: NSObject {
         var parent: AuralSegmented
@@ -474,8 +476,8 @@ struct AuralMenuButtonStyle: ButtonStyle {
         }
         .auralFont(size: size == .small ? 11 : (size == .large ? 14 : 12), weight: size == .regular ? .medium : .regular)
         .foregroundStyle(Color.primary)
-        .padding(.horizontal, (size == .small ? 8 : 10) * scale).padding(.vertical, (size == .large ? 9 : 7) * scale)
-        .auralFrame(minHeight: size == .small ? 27 : nil)
+        .auralPadding(.horizontal, size == .small ? 8 : 10)
+        .auralFrame(minHeight: size == .large ? 35 : AuralStyle.controlHeight)
         .background { AuralGel(pressed: configuration.isPressed, radius: 5 * scale) }
         .contentShape(RoundedRectangle(cornerRadius: 5 * scale))
         .animation(AuralMotion.quick) { content in
@@ -538,7 +540,7 @@ struct PrecisionField: View {
                                  beginEditing: { draft.input.beginEditing(revision: currentRevision()); focused = true },
                                  submit: { submit() != .rejected }, cancel: restore)
             .auralFont(size: 12, design: .monospaced).monospacedDigit()
-            .auralPadding(.horizontal, 7).auralFrame(height: 27)
+            .auralPadding(.horizontal, 7).auralFrame(height: AuralStyle.controlHeight)
             .background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 4))
             .animation(AuralMotion.quick) { content in
                 content.overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
