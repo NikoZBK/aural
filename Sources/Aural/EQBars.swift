@@ -82,6 +82,7 @@ struct EQBarsContent: View {
 /// A gain change only redraws its own strip. The model remains live for actions
 /// and stale-draft validation, but is not a broad observation dependency here.
 private struct EQBandContent: View, Equatable {
+    @Environment(\.auralPalette) private var palette
     @Environment(\.auralInterfaceScale) private var interfaceScale
     let model: Model
     let submissions: PrecisionSubmissionCoordinator
@@ -178,7 +179,7 @@ private struct EQBandContent: View, Equatable {
             }
         }
         .auralPadding(.horizontal, 4).auralPadding(.vertical, 8)
-        .background(AuralStyle.plotBackground, in: RoundedRectangle(cornerRadius: 10 * interfaceScale))
+        .background(palette.plotBackground, in: RoundedRectangle(cornerRadius: 10 * interfaceScale))
         .overlay(RoundedRectangle(cornerRadius: 10 * interfaceScale).strokeBorder(AuralStyle.border))
         .accessibilityElement(children: .contain).accessibilityLabel("Filter \(index + 1)")
         .accessibilityValue(filter?.enabled == false ? "Disabled" : (soloed ? "Soloed" : ""))
@@ -260,6 +261,7 @@ enum EQBarScale {
 }
 
 private struct EQGainBar: View {
+    @Environment(\.auralPalette) private var palette
     let value: Double
     let range: ClosedRange<Double>
     let adjustable: Bool
@@ -283,7 +285,7 @@ private struct EQGainBar: View {
                 let position = (1 - EQBarScale.fraction(value, in: range)) * height + 4
                 let zero = (1 - EQBarScale.fraction(0, in: range)) * height + 4
                 context.fill(Path(roundedRect: CGRect(x: (size.width - 18) / 2, y: 0, width: 18, height: size.height), cornerRadius: 4),
-                             with: .color(AuralStyle.elevated))
+                             with: .color(palette.elevated))
                 context.stroke(Path(roundedRect: CGRect(x: (size.width - 18) / 2 + 0.5, y: 0.5, width: 17, height: size.height - 1), cornerRadius: 4),
                                with: .color(AuralStyle.controlBorder), lineWidth: 1)
                 // Level lines on both sides of the track: long at each major step, short halfway between.

@@ -35,7 +35,8 @@ struct EasyModeView: View {
                                         .frame(maxWidth: .infinity, alignment: .leading).auralPanel(padding: 20)
                                     VStack(alignment: .leading, spacing: 18 * interfaceScale) {
                                         StudioMeter(meter: model.meter, running: model.running,
-                                                    protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
+                                                    protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
+                                                    resetHolds: model.resetLevelHolds)
                                         Divider().overlay(AuralStyle.border)
                                         Text(model.running ? "Listening on \(model.selected?.name ?? "the selected output")." : "Start EQ to hear your adjustments and see the output level.")
                                             .font(.system(size: 13)).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)

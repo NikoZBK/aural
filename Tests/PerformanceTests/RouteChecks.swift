@@ -140,15 +140,16 @@ import Foundation
     let profile = model.profile, revision = model.editRevision
     adoptMissingOutput(model.route)
     model.running = true
-    model.meter.update(0.2, reductionDB: 6)
+    model.meter.update(AudioMeterReading(peak: 0.2, reductionDB: 6, inputPeak: 0.5, postEQPeak: 2))
     model.pollOutputForTesting()
     require(!model.running && model.waitingForOutput && model.error == nil && !model.route.hasResources,
             "Unplugging must pause EQ and wait for the same output without a cleanup error")
     require(model.startupNotice == "Missing output disconnected. EQ resumes when it reconnects." && model.selectedUID == "missing",
             "A disconnected output must retain its identity and explain reconnection")
     model.pollOutputForTesting()
-    require(model.waitingForOutput && model.meter.peak == 0 && model.meter.reductionDB == 0 && model.error == nil,
-            "Repeated polling must retain the wait with a cleared meter")
+    require(model.waitingForOutput && model.meter.reading == AudioMeterReading() &&
+            model.meter.overloadPeak == 0 && model.meter.heldReductionDB == 0 && model.error == nil,
+            "A disconnected route must clear all live levels and holds")
     require(model.profile == profile && model.bypass && model.editRevision == revision,
             "Disconnect recovery must preserve the profile, Bypass, and editing state")
     model.toggleProcessing()

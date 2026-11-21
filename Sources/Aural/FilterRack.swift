@@ -27,6 +27,7 @@ struct FilterRackLayout: Equatable {
 }
 
 struct FilterRack: View {
+    @Environment(\.auralPalette) private var palette
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     @ObservedObject var submissions: PrecisionSubmissionCoordinator
@@ -237,7 +238,7 @@ struct FilterRack: View {
                     columnHeader
                 }
             }
-        }.background(AuralStyle.surface, in: RoundedRectangle(cornerRadius: 6))
+        }.background(palette.surface, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
             .scrollDisabled(display != .rows)
             .scrollIndicators(display == .rows ? .visible : .hidden)
@@ -258,7 +259,7 @@ struct FilterRack: View {
             }.auralFont(size: 10, weight: .medium).foregroundStyle(AuralStyle.secondary)
                 .auralPadding(.horizontal, 10).auralFrame(height: 26).auralFrame(maxWidth: .infinity)
             Divider().overlay(AuralStyle.border)
-        }.background(AuralStyle.surface).frame(height: layout.compactRows ? 0 : nil).clipped().accessibilityHidden(true)
+        }.background(palette.surface).frame(height: layout.compactRows ? 0 : nil).clipped().accessibilityHidden(true)
     }
 }
 
@@ -327,6 +328,7 @@ private struct FilterRow: View {
 }
 
 private struct FilterRowContent: View, Equatable {
+    @Environment(\.auralPalette) private var palette
     @Environment(\.auralInterfaceScale) private var interfaceScale
     let model: Model
     let submissions: PrecisionSubmissionCoordinator
@@ -417,7 +419,7 @@ private struct FilterRowContent: View, Equatable {
             FilterActionsMenu(model: model, submissions: submissions, index: index, filter: currentFilter, move: move)
                 .auralFrame(width: 22)
         }.auralPadding(.horizontal, 10).auralFrame(height: compact ? 78 : 39)
-            .background(index.isMultiple(of: 2) ? Color.clear : AuralStyle.elevated.opacity(0.32))
+            .background(index.isMultiple(of: 2) ? Color.clear : palette.elevated.opacity(0.32))
             .accessibilityElement(children: .contain).accessibilityLabel("Filter \(number)")
             .accessibilityValue(actions.soloed ? "Soloed" : "")
     }

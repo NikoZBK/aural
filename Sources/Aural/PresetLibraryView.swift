@@ -110,7 +110,7 @@ struct PresetLibraryView: View {
             }
             .auralAnimation(AuralMotion.quick, value: search.isEmpty)
             .auralPadding(10)
-            .background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 6))
+            .background(model.theme.palette.field, in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(AuralStyle.border))
             Toggle(isOn: $favoritesOnly) {
                 Label("Favorites only", systemImage: "star.fill")

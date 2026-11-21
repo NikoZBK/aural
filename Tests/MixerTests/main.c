@@ -83,6 +83,8 @@ int main(void) {
     // The first input sample appears after the existing EQ look-ahead. It must
     // already contain only the unaffected peer, never a ramp from unity.
     assert(fabs(output[eq_latency(eq) * 2] - .1) < 1e-6);
+    EQMeter muted = eq_read_meter(eq);
+    assert(fabs(muted.inputPeak - .1) < 1e-6 && muted.postEQPeak == muted.inputPeak);
     assert(am_set_gain(m, 0, .5));
     float previous = .1;
     for (unsigned pass = 0; pass < 4; pass++) {

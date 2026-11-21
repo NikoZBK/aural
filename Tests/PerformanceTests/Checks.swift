@@ -37,6 +37,26 @@ import Combine
                     AudioMeterReading(peak: 0.2, reductionDB: 0)] { model.meter.update(reading) }
     require(documentChanges == 0 && meterChanges == 304 && model.meter.reductionDB == 0,
             "Gain reduction must refresh with unchanged peaks, publish a reading once, and leave the document alone")
+    let overload = AudioMeterReading(peak: 0.98, reductionDB: 8, inputPeak: 0.5, postEQPeak: 2)
+    model.meter.update(overload)
+    model.meter.update(AudioMeterReading(peak: 0.75, inputPeak: 0.25, postEQPeak: 1))
+    require(model.meter.overloadPeak == 2 && model.meter.heldReductionDB == 8,
+            "The holds must retain the maximum across quieter readings")
+    model.meter.update(overload)
+    model.resetLevelHolds()
+    require(model.meter.reading == overload && model.meter.overloadPeak == 0 && model.meter.heldReductionDB == 0,
+            "Reset must clear the holds while preserving the live reading")
+    model.meter.update(overload)
+    require(model.meter.overloadPeak == 2 && model.meter.heldReductionDB == 8,
+            "A new interval with identical peaks must be able to re-arm both holds")
+    model.meter.clearLiveReduction()
+    require(model.meter.reading.inputPeak == 0.5 && model.meter.reading.postEQPeak == 2 &&
+            model.meter.reductionDB == 0 && model.meter.heldReductionDB == 8,
+            "Turning protection off must clear only the live reduction")
+    model.meter.clear()
+    model.meter.update(AudioMeterReading(peak: 0.98, reductionDB: 0.2, inputPeak: 1, postEQPeak: 1))
+    require(model.meter.overloadPeak == 0 && model.meter.heldReductionDB == 0.2 && documentChanges == 0,
+            "Limiter action at full scale must not count as overload or publish a document change")
     for _ in 0..<40 { model.endProfileGesture() }
     require(documentChanges == 0, "Disappearing editors must not invalidate the document when no gesture is active")
     RunLoop.main.run(until: Date().addingTimeInterval(1.2))

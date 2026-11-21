@@ -27,6 +27,7 @@ struct SessionNotices: View {
 }
 
 struct PresetBrowser: View {
+    @Environment(\.auralPalette) private var palette
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     var submissions: PrecisionSubmissionCoordinator? = nil
@@ -50,7 +51,7 @@ struct PresetBrowser: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(AuralStyle.secondary).accessibilityHidden(true)
                 TextField("Find a preset", text: $search).textFieldStyle(.plain).accessibilityLabel("Find a preset")
                     .help("Filter presets by name.")
-            }.auralFont(size: comfortable ? 14 : 11).auralPadding(comfortable ? 11 : 8).background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 5))
+            }.auralFont(size: comfortable ? 14 : 11).auralPadding(comfortable ? 11 : 8).background(palette.field, in: RoundedRectangle(cornerRadius: 5))
             ScrollView {
                 VStack(alignment: .leading, spacing: 4 * interfaceScale) {
                     group("Favorites", names: model.favoritePresets.sorted())
@@ -84,7 +85,7 @@ struct PresetBrowser: View {
                         if model.favoritePresets.contains(name) { Image(systemName: "star.fill").auralFont(size: 8) }
                     }.foregroundStyle(Color.primary)
                         .auralPadding(.horizontal, comfortable ? 11 : 7).auralFrame(height: comfortable ? 42 : 32)
-                        .background(model.selectedPresetName == name ? AuralStyle.elevated.opacity(0.7) : .clear, in: RoundedRectangle(cornerRadius: 4))
+                        .background(model.selectedPresetName == name ? palette.elevated.opacity(0.7) : .clear, in: RoundedRectangle(cornerRadius: 4))
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).help(AuralHelp.applyPreset(name)).accessibilityLabel("Apply preset \(name)")
                     .accessibilityValue(model.selectedPresetName == name ? "Selected" : "")
@@ -217,6 +218,7 @@ struct SavePresetButton: View {
 }
 
 struct MonitorPanel: View {
+    @Environment(\.auralPalette) private var palette
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var model: Model
     let submissions: PrecisionSubmissionCoordinator
@@ -228,7 +230,8 @@ struct MonitorPanel: View {
                 PreampControls(model: model, submissions: submissions)
                 Divider().overlay(AuralStyle.border)
                 StudioMeter(meter: model.meter, running: model.running,
-                            protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection))
+                            protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
+                            resetHolds: model.resetLevelHolds)
                 Divider().overlay(AuralStyle.border)
                 VStack(alignment: .leading, spacing: 9 * interfaceScale) {
                     AuralSectionLabel(title: "Audio processing")
@@ -239,7 +242,7 @@ struct MonitorPanel: View {
                 Text("Bypass pauses EQ and stereo effects. Stop turns off audio processing.")
                     .auralFont(size: 10).foregroundStyle(AuralStyle.secondary).fixedSize(horizontal: false, vertical: true)
             }.auralPadding(16)
-        }.background(AuralStyle.surface)
+        }.background(palette.surface)
             .onDisappear { model.endProfileGesture() }
     }
     private func stage(_ number: String, _ title: String, detail: String) -> some View {
@@ -461,20 +464,23 @@ private struct OutputSelectionKey: Equatable {
 }
 
 struct StudioMeter: View {
+    @Environment(\.auralPalette) private var palette
     @Environment(\.auralInterfaceScale) private var interfaceScale
     @ObservedObject var meter: AudioMeter
     let running: Bool
     @Binding var protectionEnabled: Bool
+    let resetHolds: () -> Void
     var compact = false
     /// Compact only: protection sits beside the meter instead of below it.
     var inline = false
     @State private var heldPeak: Float = 0
+    @State private var showDetails = false
     private var peak: Float { meter.peak }
     private var db: Double { running && peak > 0 ? 20 * log10(Double(peak)) : -90 }
     private var heldDB: String { heldPeak > 0 ? String(format: "%.1f", 20 * log10(Double(heldPeak))) : "−∞" }
     /// The bar spans −60 to 0 dB.
-    private var level: Double { min(1, max(0, (db + 60) / 60)) }
-    private let levelHelp = "Loudest sample leaving Aural, in dB below full scale (dBFS). 0 dB is the most the output can carry, so readings are negative, and loud music often peaks within a few dB of 0. Your Mac's volume is applied afterwards and doesn't move this meter."
+    private var level: Double { MeterFill.fraction(for: db) }
+    private let levelHelp = "Loudest sample leaving Aural, in decibels relative to full scale (dBFS). With peak protection off, samples can exceed 0 dBFS. Your Mac's volume is applied afterwards."
     var body: some View {
         Group {
             if compact {
@@ -482,8 +488,7 @@ struct StudioMeter: View {
                                     : AnyLayout(VStackLayout(alignment: .leading, spacing: 5 * interfaceScale))
                 layout {
                     HStack(spacing: (inline ? 8 : 6) * interfaceScale) {
-                        // "Level", not "Output": the window's output is the device picker.
-                        Text("Level").foregroundStyle(AuralStyle.secondary).fixedSize()
+                        levelDetailsButton
                         ZStack {
                             // A translucent track stays visible on every surface in both appearances.
                             RoundedRectangle(cornerRadius: 1).fill(AuralStyle.grid.opacity(0.14))
@@ -508,18 +513,31 @@ struct StudioMeter: View {
         }.onChange(of: peak) { _, value in if running { heldPeak = max(heldPeak, value) } }
             .onChange(of: running) { _, value in if !value { heldPeak = 0 } }
     }
+    private var levelDetailsButton: some View {
+        Button { showDetails.toggle() } label: {
+            HStack(spacing: 4 * interfaceScale) {
+                Text(compact ? "Level" : "Output level")
+                Image(systemName: "chevron.down").auralFont(size: 8, weight: .semibold)
+                    .accessibilityHidden(true)
+            }.foregroundStyle(AuralStyle.secondary).fixedSize().contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityLabel("Level details")
+            .help("Show input, post-EQ, and output peaks, overloads, and maximum gain reduction.")
+            .popover(isPresented: $showDetails, arrowEdge: .trailing) {
+                LevelMeterDetails(meter: meter, running: running, resetHolds: resetHolds)
+            }
+    }
     private var expanded: some View {
         VStack(alignment: .leading, spacing: 12 * interfaceScale) {
             HStack {
-                AuralSectionLabel(title: "Output level")
+                levelDetailsButton.auralFont(size: 11, weight: .semibold)
                 Spacer()
                 Text(db > -90 ? String(format: "%.1f", db) : "−∞").auralFont(size: 13, weight: .medium, design: .monospaced)
                 Text("dB").auralFont(size: 9).foregroundStyle(AuralStyle.secondary)
             }
             ZStack {
-                RoundedRectangle(cornerRadius: 2).fill(AuralStyle.background)
+                RoundedRectangle(cornerRadius: 2).fill(palette.background)
                 MeterFill(fraction: level, cornerRadius: 2).fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
-                HStack(spacing: 0) { ForEach(0..<24, id: \.self) { _ in Spacer(minLength: 0); Rectangle().fill(AuralStyle.surface).auralFrame(width: 2) } }
+                HStack(spacing: 0) { ForEach(0..<24, id: \.self) { _ in Spacer(minLength: 0); Rectangle().fill(palette.surface).auralFrame(width: 2) } }
             }.auralFrame(height: 15).help(levelHelp).accessibilityRepresentation { peakAccessibility }
             HStack { Text("−60"); Spacer(); Text("−30"); Spacer(); Text("0 dB") }
                 .auralFont(size: 9, design: .monospaced).foregroundStyle(AuralStyle.secondary)
@@ -560,9 +578,75 @@ struct StudioMeter: View {
     }
 }
 
+struct LevelMeterDetails: View {
+    @ObservedObject var meter: AudioMeter
+    let running: Bool
+    let resetHolds: () -> Void
+    @Environment(\.auralInterfaceScale) private var scale
+    @Environment(\.auralPalette) private var palette
+
+    var body: some View {
+        let overloaded = meter.overloadPeak > 1
+        let limited = meter.heldReductionDB >= 0.05
+        VStack(alignment: .leading, spacing: 10 * scale) {
+            Text("Sample peaks").auralFont(size: 13, weight: .semibold)
+                .accessibilityAddTraits(.isHeader)
+            peakRow("Input", value: meter.reading.inputPeak,
+                    help: "Signal entering the EQ, after per-app volume and mute.")
+            peakRow("Post-EQ", value: meter.reading.postEQPeak,
+                    help: "Signal after EQ and stereo processing, before peak protection. In Bypass this includes any level matching.")
+            peakRow("Output", value: meter.peak,
+                    help: "Signal leaving Aural after peak protection, before macOS output volume.")
+            Divider()
+            holdRow("Overload hold", value: overloaded ? peakText(meter.overloadPeak) : "None",
+                    active: overloaded, help: "Highest post-EQ sample above 0 dBFS since reset.")
+            holdRow("Limiter hold", value: String(format: "%.1f dB", meter.heldReductionDB),
+                    active: limited, help: "Largest gain reduction applied by peak protection since reset.")
+            Button(action: resetHolds) {
+                Text("Reset holds").auralFrame(maxWidth: .infinity)
+            }.buttonStyle(AuralButtonStyle()).disabled(!overloaded && !limited)
+                .help("Clear both the overload and limiter holds.")
+        }.auralPadding(16).auralFrame(width: 280).background(palette.surface)
+    }
+
+    private func peakRow(_ title: String, value: Float, help: String) -> some View {
+        let peak = running ? value : 0
+        let db = sampleDecibels(peak)
+        let fraction = MeterFill.fraction(for: db)
+        return HStack(spacing: 8 * scale) {
+            Text(title).auralFrame(width: 54, alignment: .leading)
+            ZStack {
+                RoundedRectangle(cornerRadius: 1).fill(AuralStyle.grid.opacity(0.14))
+                MeterFill(fraction: fraction, cornerRadius: 1).fill(db >= -1 ? AuralStyle.warning : AuralStyle.accent)
+            }.auralFrame(minHeight: 5, maxHeight: 5)
+            Text(peakText(peak)).monospacedDigit().auralFrame(width: 82, alignment: .trailing)
+        }.auralFont(size: 11)
+            .accessibilityRepresentation {
+                ProgressView(value: fraction)
+                    .accessibilityLabel("\(title) sample peak")
+                    .accessibilityValue(AuralAccessibility.samplePeak(db))
+            }.help(help)
+    }
+
+    private func holdRow(_ title: String, value: String, active: Bool, help: String) -> some View {
+        HStack(spacing: 8 * scale) {
+            Text(title)
+            Spacer(minLength: 0)
+            Text(value).monospacedDigit().foregroundStyle(active ? AuralStyle.warning : AuralStyle.secondary)
+        }.auralFont(size: 11).accessibilityElement(children: .combine).help(help)
+    }
+
+    private func sampleDecibels(_ peak: Float) -> Double { peak > 0 ? 20 * log10(Double(peak)) : -.infinity }
+    private func peakText(_ peak: Float) -> String {
+        let db = sampleDecibels(peak)
+        return db > -90 ? String(format: "%+.1f dBFS", db) : "−∞ dBFS"
+    }
+}
+
 /// The filled part of a level bar. It is drawn within the track's own frame, which interface
 /// zoom has already scaled, so the fill can never run past the track.
 private struct MeterFill: Shape {
+    static func fraction(for db: Double) -> Double { min(1, max(0, (db + 60) / 60)) }
     var fraction: Double
     var cornerRadius: CGFloat?
     func path(in rect: CGRect) -> Path {

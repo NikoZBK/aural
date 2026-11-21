@@ -158,19 +158,21 @@ struct AuralCommands: Commands {
 struct MenuBarControls: View {
     @ObservedObject var model: Model
     @Environment(\.openWindow) private var openWindow
+    private var processingOn: Bool { model.running || model.waitingForOutput || model.starting }
+
     var body: some View {
-        Button(model.running || model.waitingForOutput || model.starting ? "Stop EQ" : "Start EQ") { model.toggleProcessing() }.help(AuralHelp.processing(model.running || model.waitingForOutput || model.starting))
-        Button("App mixer…") { openWindow.showAuralWindow("apps") }.help(AuralHelp.appMixer)
-        Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput)).help(AuralHelp.followOutput)
+        Button("Show Aural") { openWindow.showAuralWindow("main") }.help("Open the main Aural window.")
+        Divider()
+        Button(processingOn ? "Stop EQ" : "Start EQ") { model.toggleProcessing() }.help(AuralHelp.processing(processingOn))
         Toggle("Bypass EQ", isOn: Binding(get: { model.bypass }, set: model.setBypass)).help(AuralHelp.bypass)
         if let band = model.soloBand { Button("End solo of band \(band + 1)") { model.setSolo(nil) }.help("Play the whole EQ again.") }
-        Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels)).help(AuralHelp.matchLevels)
-        Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection)).help(AuralHelp.peakProtection)
-        Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled)).help(AuralHelp.loudness)
         Menu("Preset: \(model.currentPresetTitle)") { PresetMenuItems(model: model) }.help("Choose a preset to apply, or delete a saved custom preset.")
-        Button("Preset library…") { openWindow.showAuralWindow("presets") }.help(AuralHelp.presetLibrary)
-        Button("Search AutoEQ profiles…") { openWindow.showAuralWindow("autoeq") }.help(AuralHelp.autoEQ)
-        Group {
+        Menu("Sound") {
+            Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
+                Button("A") { withAuralAnimation { model.selectComparison(.a) } }.help("Switch to comparison A and keep the edits in both slots.")
+                Button("B") { withAuralAnimation { model.selectComparison(.b) } }.help("Switch to comparison B and keep the edits in both slots.")
+                Button("Copy current to other slot") { withAuralAnimation { model.copyComparisonToOther() } }.help("Replace the other A/B slot with the current EQ.")
+            }.help("Switch between two versions of your EQ or copy the current EQ to the other comparison slot.")
             Menu("Preamp: \(model.profile.preamp, specifier: "%.2f") dB") {
                 Button("Increase 1 dB") { model.adjustPreamp(1) }.help("Raise preamp by 1 dB.")
                     .disabled(model.profile.preamp >= model.profile.preampRange.upperBound)
@@ -184,18 +186,19 @@ struct MenuBarControls: View {
                     .disabled(model.profile.tilt <= Profile.tiltRange.lowerBound)
                 Button("No tilt") { model.setTilt(0) }.disabled(model.profile.tilt == 0).help("Reset tilt to 0 dB.")
             }.help(AuralHelp.tilt)
-            Menu("Compare: \(model.comparisonSlot.rawValue.uppercased())") {
-                Button("A") { withAuralAnimation { model.selectComparison(.a) } }.help("Switch to comparison A and keep the edits in both slots.")
-                Button("B") { withAuralAnimation { model.selectComparison(.b) } }.help("Switch to comparison B and keep the edits in both slots.")
-                Button("Copy current to other slot") { withAuralAnimation { model.copyComparisonToOther() } }.help("Replace the other A/B slot with the current EQ.")
-            }.help("Switch between two versions of your EQ or copy the current EQ to the other comparison slot.")
+            Divider()
+            Toggle("Match levels", isOn: Binding(get: { model.matchLevels }, set: model.setMatchLevels)).help(AuralHelp.matchLevels)
+            Toggle("Peak protection", isOn: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection)).help(AuralHelp.peakProtection)
+            Toggle("Loudness compensation", isOn: Binding(get: { model.loudness.enabled }, set: model.setLoudnessEnabled)).help(AuralHelp.loudness)
+            Toggle("Follow macOS output", isOn: Binding(get: { model.followSystemOutput }, set: model.setFollowSystemOutput)).help(AuralHelp.followOutput)
         }
+        Menu("Open") {
+            Button("App mixer…") { openWindow.showAuralWindow("apps") }.help(AuralHelp.appMixer)
+            Button("Preset library…") { openWindow.showAuralWindow("presets") }.help(AuralHelp.presetLibrary)
+            Button("Search AutoEQ profiles…") { openWindow.showAuralWindow("autoeq") }.help(AuralHelp.autoEQ)
+        }
+        Menu("Theme") { ThemePicker(model: model).pickerStyle(.inline).labelsHidden() }
         Divider()
-        ThemePicker(model: model)
-        Button("Show Aural") { openWindow.showAuralWindow("main") }.help("Open the main Aural window.")
-        Button("Keyboard shortcuts…") { openWindow.showAuralWindow("shortcuts") }.help(AuralHelp.shortcuts)
-        Button("About Aural") { openWindow.showAuralWindow("about") }.help(AuralHelp.about)
-        Button("Check for Updates…") { openWindow.showAuralWindow("updates") }.help(AuralHelp.updates)
         Button("Quit Aural") { NSApp.terminate(nil) }.keyboardShortcut("q").help("Stop audio processing and quit Aural (⌘Q).")
     }
 }
@@ -205,7 +208,7 @@ struct ThemePicker: View {
     var body: some View {
         Picker("Theme", selection: Binding(get: { model.theme }, set: model.setTheme)) {
             ForEach(AuralTheme.allCases, id: \.self) { theme in Text(theme.label).tag(theme) }
-        }.help("System follows your Mac's appearance. Light or Dark keeps Aural in that theme.")
+        }.help("System follows your Mac's appearance. Light, Dark, Sand, and Slate use fixed appearances.")
     }
 }
 
@@ -227,7 +230,7 @@ struct StartupSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14 * interfaceScale) {
             Text("Appearance").font(.headline)
-            ThemePicker(model: model).pickerStyle(.segmented)
+            ThemePicker(model: model).pickerStyle(.menu)
             Text("System follows your Mac's appearance.").font(.caption).foregroundStyle(.secondary)
             Divider()
             Text("Output").font(.headline)

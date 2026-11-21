@@ -150,13 +150,13 @@ import SwiftUI
     }
     require(field.stringValue == pending && field.currentEditor() === editor && model.profile == profile,
             "Resizing, panel placement, and zoom bounds must keep the pending draft focused without changing EQ")
-    // Glass appearance changes stay behind the retained editors.
-    for theme in [AuralTheme.light, .dark, .system] {
+    // Appearance changes stay behind the retained editors.
+    for theme in AuralTheme.allCases {
         model.setTheme(theme)
         flush()
         require(editorIDs.isSubset(of: Set(fields(in: host).filter(\.isEditable).map(ObjectIdentifier.init))) &&
                 field.stringValue == pending && field.currentEditor() === editor && model.profile == profile,
-                "Glass card theme changes must retain focused numeric drafts and leave EQ unchanged")
+                "Theme changes must retain focused numeric drafts and leave EQ unchanged")
     }
     print("PASS zoom key variants, bounds, migration, persistence, failed saves, retained focused drafts, workspace sizes, history, and audio neutrality")
 }
@@ -169,7 +169,8 @@ import SwiftUI
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 120), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         defer { window.close() }
-        let host = NSHostingView(rootView: StudioMeter(meter: meter, running: true, protectionEnabled: .constant(true), compact: true)
+        let host = NSHostingView(rootView: StudioMeter(meter: meter, running: true, protectionEnabled: .constant(true),
+                                                      resetHolds: meter.resetHolds, compact: true)
             .padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.black).environment(\.auralInterfaceScale, zoom.scale))
         window.contentView = host

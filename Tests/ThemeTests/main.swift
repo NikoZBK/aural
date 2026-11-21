@@ -101,8 +101,12 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
             } catch is DecodingError { }
         }
 
-        for scheme in [ColorScheme.light, .dark] {
-            for background in [AuralStyle.background, AuralStyle.surface, AuralStyle.elevated] {
+        let appearances: [(theme: AuralTheme, scheme: ColorScheme)] = [
+            (.system, .light), (.system, .dark), (.light, .light), (.dark, .dark), (.sand, .light), (.slate, .dark)
+        ]
+        for (theme, scheme) in appearances {
+            let palette = theme.palette
+            for background in [palette.background, palette.surface, palette.elevated, palette.field] {
                 require(contrast(AuralStyle.controlBorder, background, scheme: scheme) >= 3, "Interactive control outlines must be visible after alpha compositing")
                 for foreground in [AuralStyle.secondary, AuralStyle.warning] {
                     require(contrast(foreground, background, scheme: scheme) >= 4.5, "Theme text must maintain readable contrast on every surface")
@@ -114,15 +118,19 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
             require(abs(accent.red - tint.red) < 0.002 && abs(accent.green - tint.green) < 0.002 && abs(accent.blue - tint.blue) < 0.002,
                     "Native control tint must match the fixed instrument accent in each appearance")
             require(accent.blue > accent.red && accent.green > accent.red, "The instrument accent must stay cyan, distinct from the amber warning")
-            require(contrast(AuralStyle.accent, AuralStyle.surface, scheme: scheme) >= 3, "The accent curve and meter must stand out from their surface")
+            require(contrast(AuralStyle.accent, palette.surface, scheme: scheme) >= 3, "The accent curve and meter must stand out from their surface")
             require(contrast(AuralStyle.accentForeground(in: environment), AuralStyle.accent, scheme: scheme) >= 4.5,
                     "Prominent button labels must remain readable on the accent")
             for trace in AuralStyle.plotColors.dropFirst() {
-                require(contrast(trace, AuralStyle.surface, scheme: scheme) >= 3, "Each filter/channel trace must remain visible")
+                require(contrast(trace, palette.surface, scheme: scheme) >= 3, "Each filter/channel trace must remain visible")
             }
         }
-        require(luminance(resolved(AuralStyle.background, scheme: .light)) > 0.4, "Light theme must actually resolve to a light surface")
-        require(luminance(resolved(AuralStyle.background, scheme: .dark)) < 0.05, "Dark theme must retain its dark surface")
+        let sand = resolved(AuralTheme.sand.palette.surface, scheme: .light)
+        let slate = resolved(AuralTheme.slate.palette.surface, scheme: .dark)
+        require(sand.red - sand.blue > 0.08 && slate.blue - slate.red > 0.08,
+                "Sand and Slate must show visibly warm and cool surfaces")
+        require(luminance(resolved(AuralTheme.light.palette.background, scheme: .light)) > 0.4, "Light theme must actually resolve to a light surface")
+        require(luminance(resolved(AuralTheme.dark.palette.background, scheme: .dark)) < 0.05, "Dark theme must retain its dark surface")
         require(abs(resolved(AuralStyle.grid, scheme: .light).red) < 0.001 && abs(resolved(AuralStyle.grid, scheme: .dark).red - 1) < 0.001,
                 "Graph grids must change ink with the appearance")
         require(AuralTheme.system.colorScheme == nil && AuralTheme.system.appearance == nil, "System must release both SwiftUI and AppKit overrides")
@@ -142,18 +150,35 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
             require(saved.theme == theme, "A theme must be saved before it is published")
             publishedThemes.append(theme)
         }
-        for theme in [AuralTheme.light, .system, .dark] {
+        let themeChanges: [AuralTheme] = [.light, .system, .dark, .sand, .slate]
+        for theme in themeChanges {
             model.setTheme(theme)
             require(model.theme == theme && model.error == nil, "The model must apply a successfully saved theme")
             require(model.profile == originalProfile && model.editRevision == originalRevision && model.selectedUID == originalOutput && model.comparisonSlot == originalComparison,
                     "Theme changes must leave EQ, edits, output, and comparison unchanged")
             require(!model.running && !model.route.hasResources, "Theme changes must never start audio")
         }
-        model.setTheme(.dark)
-        require(publishedThemes == [.light, .system, .dark], "Selecting the current theme must not publish another change")
+        model.setTheme(.slate)
+        require(publishedThemes == themeChanges, "Selecting the current theme must not publish another change")
         let restarted = Model(settingsFile: settingsFile)
-        require(restarted.theme == .dark, "The model must restore the saved theme on launch")
+        require(restarted.theme == .slate, "The model must restore the saved theme on launch")
         subscription.cancel()
+
+        if #available(macOS 14.4, *) {
+            _ = NSApplication.shared
+            let menu = NSHostingMenu(rootView: MenuBarControls(model: model))
+            menu.update()
+            let items = menu.items.filter { !$0.isSeparatorItem }.map(\.title)
+            require(items == ["Show Aural", "Start EQ", "Bypass EQ", "Preset: \(model.currentPresetTitle)",
+                              "Sound", "Open", "Theme", "Quit Aural"],
+                    "The headphones menu must give the primary actions and submenus a short, stable order: \(items)")
+            guard let themes = menu.item(withTitle: "Theme")?.submenu else { fatalError("The headphones menu must have a Theme submenu") }
+            themes.update()
+            let choices = themes.items.filter { !$0.isSeparatorItem }
+            require(choices.map(\.title) == AuralTheme.allCases.map(\.label) &&
+                    choices.filter { $0.state == .on }.map(\.title) == [model.theme.label],
+                    "The Theme submenu must list the five themes once and indicate the active theme: \(choices.map(\.title))")
+        }
 
         let blockedParent = directory.appendingPathComponent("file-as-directory")
         try Data("fixture".utf8).write(to: blockedParent)
@@ -170,7 +195,7 @@ func contrast(_ foreground: Color, _ background: Color, scheme: ColorScheme) -> 
         window.isReleasedWhenClosed = false
         let panel = NSPanel(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
         panel.isReleasedWhenClosed = false
-        for theme in [AuralTheme.light, .dark, .system, .light, .system] {
+        for theme in [.light, .dark, .sand, .slate, .system] as [AuralTheme] {
             application.appearance = theme.appearance
             let expected = theme == .system ? application.effectiveAppearance : theme.appearance!
             for presentation in [window, panel] {

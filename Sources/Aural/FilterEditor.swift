@@ -75,7 +75,7 @@ struct FilterEditor: View {
                 .auralFont(size: 22, weight: .medium)
                 .foregroundStyle(AuralStyle.secondary)
                 .auralFrame(width: 46, height: 46)
-                .background(AuralStyle.elevated, in: RoundedRectangle(cornerRadius: 6))
+                .background(model.theme.palette.elevated, in: RoundedRectangle(cornerRadius: 6))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5 * interfaceScale) {
                 Text("Filter editor").auralFont(size: 24, weight: .semibold)
@@ -285,7 +285,7 @@ struct FilterEditor: View {
         .multilineTextAlignment(.trailing)
         .monospacedDigit()
         .auralFrame(minHeight: 44)
-        .background(number.isMultiple(of: 2) ? AuralStyle.elevated.opacity(0.6) : .clear,
+        .background(number.isMultiple(of: 2) ? model.theme.palette.elevated.opacity(0.6) : .clear,
                     in: RoundedRectangle(cornerRadius: 5))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Filter \(number)")

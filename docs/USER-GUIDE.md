@@ -38,7 +38,9 @@ Aural 1.3 and earlier used the sliders directly as filter gains, so overlapping 
 
 The rail on the left holds everything about listening, top to bottom in signal order; the EQ curve and its editing controls fill the rest of the window. Choose a preset from the dropdown in the rail's **Sound** group. Favorites, personal presets, and factory presets are grouped in the dropdown, with **Manage presets…** below them. **Save**, **Presets** (the library), **AutoEQ**, and **Files** sit directly under the current preset. **Undo**, **Redo**, and the **Edit** menu (draft editing, copy, paste, export) are above the curve they change. Hover over a shortened preset name to read its full title.
 
-The rail starts with the EQ status, the gear settings, and **Start EQ / Stop EQ**. **Output** follows, with **App volumes** for that output beneath the device picker. **Compare** groups the A/B slots, **Bypass**, **Match levels**, and a **…** menu that copies or resets the slots. **Tone & level** ends the signal path: **Preamp** and **Auto**, **Tilt**, **Loudness**, then the **Level** meter and **Peak protection**. At larger interface zoom the rail scrolls, and a panel set to **Right of graph** moves below the graph until the window is wide enough for both. The **Level** meter shows the loudest sample leaving Aural, in dB below full scale (dBFS): 0 dB is the most the output can carry, so readings are negative, and loud music often peaks within a few dB of 0. The bar spans −60 to 0 dB and turns orange within 1 dB of 0. It measures the signal before your Mac's volume control, so changing the volume doesn't move it. Hover over the peak reset button to inspect the held peak. The EQ curve reports estimated headroom separately from the measured output level.
+The rail starts with the EQ status, the gear settings, and **Start EQ / Stop EQ**. **Output** follows, with **App volumes** for that output beneath the device picker. **Compare** groups the A/B slots, **Bypass**, **Match levels**, and a **…** menu that copies or resets the slots. **Tone & level** ends the signal path: **Preamp** and **Auto**, **Tilt**, **Loudness**, then the **Level** meter and **Peak protection**. At larger interface zoom the rail scrolls, and a panel set to **Right of graph** moves below the graph until the window is wide enough for both. The **Level** meter shows the loudest sample leaving Aural in decibels relative to full scale (dBFS). The bar spans −60 to 0 dBFS and turns orange within 1 dB of 0. It measures the signal before your Mac's volume control. Hover over the peak reset button to inspect the held output peak. The EQ curve reports estimated headroom separately.
+
+Click **Level** for three sample-peak meters. **Input** measures the signal entering the EQ after app volumes and mute. **Post-EQ** measures the signal after EQ and stereo adjustments but before peak protection. **Output** measures the result after protection. In Bypass, **Post-EQ** includes any gain from matching levels. **Overload hold** records the highest post-EQ sample above 0 dBFS, and **Limiter hold** records the greatest attenuation applied by peak protection. **Reset holds** clears both. Stopping EQ or restarting the audio route clears the session's readings and holds.
 
 Faders show the active EQ’s actual frequencies and gains: drag up to boost and down to cut, double-click for 0 dB, or use the arrow keys on a focused bar. Imported filters keep their frequency, Q, type, channel, and enabled state; gainless filters have no gain control. **Reset EQ** sets band gains, tilt, and preamp to 0 dB while preserving filter settings and stereo adjustments; one Undo restores the previous EQ. Meter readings update independently, while curve and Auto preamp calculations run in the background. Auto preamp shows progress and rejects results if the EQ or output changed during calculation.
 
@@ -52,7 +54,7 @@ EQ usually lowers the overall level, because the preamp makes room for boosts. B
 
 **Stop EQ** remains available while a numeric edit needs correction. Starting EQ still requires valid pending edits.
 
-The menu bar includes preset selection, favorites, preamp adjustments in 1 dB steps within the current EQ limits, and tilt in 0.5 dB steps. These controls preserve the current bypass and playback state.
+The headphones menu gives you quick access to processing, bypass, presets, and favorites. **Sound** contains A/B comparisons, preamp adjustments in 1 dB steps, tilt in 0.5 dB steps, and listening options. **Open** leads to the app mixer, preset library, and AutoEQ.
 
 Aural's icon is an EQ curve shaped like the letter A. While EQ is processing, the A lights up inside; when EQ is stopped or bypassed, it shows the curve alone. The main window, About window, and running app's Dock icon update together, including after using controls in the menu bar. Finder keeps the idle icon.
 
@@ -70,9 +72,9 @@ The library also supports search, favorites, duplication, and renaming. Built-in
 
 ## Themes
 
-Choose **Theme** in the gear settings, **View** menu, or headphones menu. **System** follows your Mac's light/dark appearance; **Light** and **Dark** keep a fixed appearance. The choice is saved and applies immediately to all Aural windows, popovers, graphs, and file dialogs. Changing themes keeps the current EQ, playback, and drafts. Dark remains the default for both new and existing installations.
+Choose **Theme** in the gear settings, **View** menu, or headphones menu. **System** follows your Mac's light or dark appearance. **Light** and **Dark** use neutral colors, **Sand** is warm and light, and **Slate** is cool and dark. Aural saves the choice and applies it to windows and popovers. File dialogs and native menus use the corresponding macOS light or dark appearance. Dark is the default.
 
-The listening bar, preset tools, graph, filter panel, and signal controls use glass cards over a softly shaded background. On macOS 26 and later, the cards use native Liquid Glass; older versions use frosted material. Reduce Transparency and Increase Contrast use opaque surfaces. Teal marks the main controls and EQ curve, violet distinguishes comparisons, and amber marks warnings. Glass is the default, with no separate style toggle. Theme changes preserve exact fields, focus, presets, and audio settings.
+The workspace uses brushed metal, inset panels, and gloss on buttons. Blue marks the main controls and EQ curve, violet marks the Harman reference, and amber marks warnings. Increase Contrast strengthens control borders and removes decorative shading. Theme changes preserve exact fields, focus, presets, and audio settings.
 
 ## A/B comparison, undo, zoom, and shortcuts
 
@@ -116,7 +118,7 @@ Edit filters directly in the main window: choose their type, frequency, gain, Q 
 
 **Tilt** in the rail's **Tone & level** group brightens or darkens the whole EQ around 1 kHz, from −6 to +6 dB. Positive values raise the treble and lower the bass, and negative values do the reverse: +3 dB plays about 3 dB louder at 16 kHz and 3 dB quieter at 20 Hz, and 1 kHz stays where it was. Tilt is a pair of 6 dB/octave shelves at 1 kHz that runs after the filters. It belongs to the EQ, so presets, A/B, undo, the curve, Auto preamp, and level matching include it, and it does not count toward the 64 filters. It does not appear as a numbered point. Switching to a new flat layout or **Reset EQ** sets it to 0 dB.
 
-**EQ options → Edit as a draft…** opens a separate editor where you can preview changes before applying them. Each row's actions menu can duplicate or move a filter up/down. **Undo** and **Redo** restore up to 100 draft edits, including filter additions/removals, order, values, enabled state, and preamp. **Apply EQ** checks the complete draft and updates EQ; if EQ was stopped, it stays stopped. **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset to reuse the changes. Imported values retain their precision until edited.
+**Edit → Edit as a draft…** opens a separate editor where you can preview changes before applying them. Right-click the Equalizer toolbar above the graph for **Edit as a draft…**, **Copy EQ**, and **Paste EQ**. Each row's actions menu can duplicate or move a filter up/down. **Undo** and **Redo** restore up to 100 draft edits, including filter additions/removals, order, values, enabled state, and preamp. **Apply EQ** checks the complete draft and updates EQ. If EQ is stopped, applying the draft keeps it stopped. **Cancel** leaves the current sound unchanged. Invalid values keep the editor open with an explanation. Save a named preset to reuse the changes. Imported values retain their precision until edited.
 
 ## Copy, paste, and supported text
 
@@ -142,7 +144,7 @@ EQ that was running resumes on its own after these interruptions:
 
 While EQ waits, the status reads **Waiting**. **Cancel** or **Stop EQ** ends the wait. EQ that was stopped stays stopped.
 
-Choose **Check for Updates…** from the Aural menu, menu bar controls, Settings, or About. Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets stay on your Mac. Automatic checks and downloads are optional. Installing an update briefly stops EQ; after relaunch, Aural follows your existing **Start EQ automatically** setting. The **Releases page** link is available if a check fails.
+Choose **Check for Updates…** from the Aural menu, Settings, or About. Aural downloads and verifies updates, then installs them and relaunches. Your saved settings and presets stay on your Mac. Automatic checks and downloads are optional. Installing an update briefly stops EQ; after relaunch, Aural follows your existing **Start EQ automatically** setting. The **Releases page** link is available if a check fails.
 
 Users upgrading from 1.2.1 or earlier install the latest version manually once to enable future in-app updates.
 

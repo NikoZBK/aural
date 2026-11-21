@@ -13,9 +13,9 @@ struct InterfaceLoadingPalette {
             return NSColor(srgbRed: CGFloat(value.red), green: CGFloat(value.green),
                            blue: CGFloat(value.blue), alpha: CGFloat(value.opacity))
         }
-        background = native(AuralStyle.background)
-        surface = native(AuralStyle.surface)
-        block = native(AuralStyle.elevated)
+        background = native(environment.auralPalette.background)
+        surface = native(environment.auralPalette.surface)
+        block = native(environment.auralPalette.elevated)
         text = native(AuralStyle.secondary)
         border = native(AuralStyle.border)
     }

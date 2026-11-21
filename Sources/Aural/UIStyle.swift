@@ -14,16 +14,44 @@ extension AuralTheme {
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
-        case .light: return .light
-        case .dark: return .dark
+        case .light, .sand: return .light
+        case .dark, .slate: return .dark
         }
     }
     var appearance: NSAppearance? {
         switch self {
         case .system: return nil
-        case .light: return NSAppearance(named: .aqua)
-        case .dark: return NSAppearance(named: .darkAqua)
+        case .light, .sand: return NSAppearance(named: .aqua)
+        case .dark, .slate: return NSAppearance(named: .darkAqua)
         }
+    }
+    var palette: AuralPalette {
+        switch self {
+        case .system, .light, .dark: return AuralStyle.standardPalette
+        case .sand: return AuralStyle.sandPalette
+        case .slate: return AuralStyle.slatePalette
+        }
+    }
+}
+
+struct AuralPalette: Equatable {
+    let background: Color
+    let metalTop: Color
+    let metalBottom: Color
+    let surface: Color
+    let elevated: Color
+    let field: Color
+    let plotBackground: Color
+}
+
+private struct AuralPaletteKey: EnvironmentKey {
+    static let defaultValue = AuralStyle.standardPalette
+}
+
+extension EnvironmentValues {
+    var auralPalette: AuralPalette {
+        get { self[AuralPaletteKey.self] }
+        set { self[AuralPaletteKey.self] = newValue }
     }
 }
 
@@ -71,19 +99,38 @@ enum AuralStyle {
         let luminance = 0.2126 * linear(resolved.red) + 0.7152 * linear(resolved.green) + 0.0722 * linear(resolved.blue)
         return luminance > 0.179 ? .black : .white
     }
-    // Brushed metal in light, graphite in dark: neutral greys with no colour cast.
-    static let background = adaptive(light: NSColor(srgbRed: 0.74, green: 0.74, blue: 0.75, alpha: 1),
-                                     dark: NSColor(srgbRed: 0.21, green: 0.21, blue: 0.22, alpha: 1))
-    /// The white well of a text field; in the dark theme it sinks to the window colour.
-    static let field = adaptive(light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1), dark: NSColor(srgbRed: 0.21, green: 0.21, blue: 0.22, alpha: 1))
-    static let metalTop = adaptive(light: NSColor(srgbRed: 0.86, green: 0.86, blue: 0.87, alpha: 1),
-                                   dark: NSColor(srgbRed: 0.31, green: 0.31, blue: 0.32, alpha: 1))
-    static let metalBottom = adaptive(light: NSColor(srgbRed: 0.62, green: 0.62, blue: 0.64, alpha: 1),
-                                      dark: NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 1))
-    static let surface = adaptive(light: NSColor(srgbRed: 0.93, green: 0.93, blue: 0.93, alpha: 1),
-                                  dark: NSColor(srgbRed: 0.16, green: 0.16, blue: 0.17, alpha: 1))
-    static let elevated = adaptive(light: NSColor(srgbRed: 0.97, green: 0.97, blue: 0.97, alpha: 1),
-                                   dark: NSColor(srgbRed: 0.27, green: 0.27, blue: 0.28, alpha: 1))
+    static let standardPalette = AuralPalette(
+        background: adaptive(light: NSColor(srgbRed: 0.74, green: 0.74, blue: 0.75, alpha: 1),
+                             dark: NSColor(srgbRed: 0.21, green: 0.21, blue: 0.22, alpha: 1)),
+        metalTop: adaptive(light: NSColor(srgbRed: 0.86, green: 0.86, blue: 0.87, alpha: 1),
+                           dark: NSColor(srgbRed: 0.31, green: 0.31, blue: 0.32, alpha: 1)),
+        metalBottom: adaptive(light: NSColor(srgbRed: 0.62, green: 0.62, blue: 0.64, alpha: 1),
+                              dark: NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 1)),
+        surface: adaptive(light: NSColor(srgbRed: 0.93, green: 0.93, blue: 0.93, alpha: 1),
+                          dark: NSColor(srgbRed: 0.16, green: 0.16, blue: 0.17, alpha: 1)),
+        elevated: adaptive(light: NSColor(srgbRed: 0.97, green: 0.97, blue: 0.97, alpha: 1),
+                           dark: NSColor(srgbRed: 0.27, green: 0.27, blue: 0.28, alpha: 1)),
+        field: adaptive(light: .white, dark: NSColor(srgbRed: 0.21, green: 0.21, blue: 0.22, alpha: 1)),
+        plotBackground: adaptive(light: .white.withAlphaComponent(0.60), dark: .black.withAlphaComponent(0.16))
+    )
+    static let sandPalette = AuralPalette(
+        background: Color(.sRGB, red: 0.81, green: 0.76, blue: 0.67),
+        metalTop: Color(.sRGB, red: 0.89, green: 0.83, blue: 0.74),
+        metalBottom: Color(.sRGB, red: 0.70, green: 0.62, blue: 0.52),
+        surface: Color(.sRGB, red: 0.95, green: 0.91, blue: 0.84),
+        elevated: Color(.sRGB, red: 0.98, green: 0.95, blue: 0.89),
+        field: Color(.sRGB, red: 1.00, green: 0.99, blue: 0.96),
+        plotBackground: Color(.sRGB, red: 0.98, green: 0.95, blue: 0.90)
+    )
+    static let slatePalette = AuralPalette(
+        background: Color(.sRGB, red: 0.16, green: 0.21, blue: 0.26),
+        metalTop: Color(.sRGB, red: 0.23, green: 0.30, blue: 0.35),
+        metalBottom: Color(.sRGB, red: 0.08, green: 0.12, blue: 0.17),
+        surface: Color(.sRGB, red: 0.15, green: 0.20, blue: 0.25),
+        elevated: Color(.sRGB, red: 0.21, green: 0.28, blue: 0.34),
+        field: Color(.sRGB, red: 0.11, green: 0.16, blue: 0.21),
+        plotBackground: Color(.sRGB, red: 0.12, green: 0.17, blue: 0.22)
+    )
     /// The lit lower edge of an inset well or an etched label.
     static let etch = adaptive(light: .white.withAlphaComponent(0.75), dark: .white.withAlphaComponent(0.10))
     static let violet = adaptive(light: NSColor(srgbRed: 0.42, green: 0.29, blue: 0.73, alpha: 1),
@@ -96,7 +143,6 @@ enum AuralStyle {
                                     dark: NSColor(srgbRed: 0.76, green: 0.79, blue: 0.83, alpha: 1))
     static let warning = adaptive(light: NSColor(srgbRed: 0.45, green: 0.20, blue: 0.0, alpha: 1),
                                   dark: NSColor(srgbRed: 1, green: 0.73, blue: 0.40, alpha: 1))
-    static let plotBackground = adaptive(light: .white.withAlphaComponent(0.60), dark: .black.withAlphaComponent(0.16))
     static let grid = adaptive(light: .black, dark: .white)
     // Every trace stays distinct from the accent: right channel, Harman reference, then filters.
     static let plotColors: [Color] = [accent,
@@ -118,6 +164,7 @@ private struct AuralAppearance: ViewModifier {
         // dynamic colors never resolve against the previous appearance.
         content.background { AuralBackdrop() }
             .environment(\.colorScheme, scheme)
+            .environment(\.auralPalette, theme.palette)
             // Native controls can resolve a bridged dynamic NSColor as red in the
             // older SDK compatibility path. Tint checkboxes and segmented controls
             // with a static color for the current scheme; custom drawing uses the
@@ -130,11 +177,12 @@ private struct AuralAppearance: ViewModifier {
 private struct AuralBackdrop: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.auralPalette) private var palette
     var body: some View {
         ZStack {
-            AuralStyle.background
+            palette.background
             if contrast != .increased {
-                LinearGradient(colors: [AuralStyle.metalTop, AuralStyle.metalBottom], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [palette.metalTop, palette.metalBottom], startPoint: .top, endPoint: .bottom)
                 // Fine horizontal grain. Drawn once per size; nothing here follows audio.
                 Canvas { context, size in
                     var light = Path(), dark = Path()
@@ -159,11 +207,12 @@ private struct AuralSurfaceBackground: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.auralInterfaceScale) private var scale
+    @Environment(\.auralPalette) private var palette
     private var decoration: Bool { contrast != .increased && !reduceTransparency }
     var body: some View {
         // An inset well in the metal: shaded along its top edge, lit along its bottom.
         let shape = RoundedRectangle(cornerRadius: 6 * scale)
-        shape.fill(AuralStyle.surface)
+        shape.fill(palette.surface)
             .overlay {
                 if decoration {
                     shape.fill(LinearGradient(colors: [.black.opacity(scheme == .dark ? 0.28 : 0.09), .clear],
@@ -215,6 +264,7 @@ struct AuralSymbolBadge: View {
     @Environment(\.auralInterfaceScale) private var scale
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.auralPalette) private var palette
     var body: some View {
         Image(systemName: systemImage)
             .auralFont(size: size * 0.44, weight: .semibold)
@@ -223,7 +273,7 @@ struct AuralSymbolBadge: View {
             .background {
                 // An opaque base keeps violet legible over native list selection colors.
                 RoundedRectangle(cornerRadius: size * 0.3 * scale, style: .continuous)
-                    .fill(AuralStyle.elevated)
+                    .fill(palette.elevated)
                     .overlay {
                         if contrast != .increased && !reduceTransparency {
                             RoundedRectangle(cornerRadius: size * 0.3 * scale, style: .continuous)
@@ -255,11 +305,12 @@ struct AuralGel: View {
     var radius: CGFloat? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.auralPalette) private var palette
     var body: some View {
         // A capsule unless a corner radius is given.
         let shape = radius.map { AnyShape(RoundedRectangle(cornerRadius: $0)) } ?? AnyShape(AuralStyle.pill)
         return Group {
-            shape.fill(prominent ? AuralStyle.accent : AuralStyle.elevated)
+            shape.fill(prominent ? AuralStyle.accent : palette.elevated)
                 .overlay {
                     if contrast != .increased {
                         shape.fill(LinearGradient(stops: [.init(color: .white.opacity(prominent ? 0.55 : (scheme == .dark ? 0.22 : 0.9)), location: 0),
@@ -386,6 +437,7 @@ struct AuralSegmented<Value: Hashable>: NSViewRepresentable {
         let size = (small ? 11 : 12) * scale
         control.font = NSFont(name: "LucidaGrande", size: size) ?? .systemFont(ofSize: size)
         control.chosenText = NSColor(AuralStyle.accentForeground(in: context.environment))
+        control.unchosenFill = NSColor(context.environment.auralPalette.elevated)
         control.radius = 5 * scale
         control.isEnabled = context.environment.isEnabled
         control.selectedSegment = options.firstIndex { $0.value == selection } ?? -1
@@ -413,6 +465,7 @@ struct AuralSegmented<Value: Hashable>: NSViewRepresentable {
 
 final class AuralGelSegmentedControl: NSSegmentedControl {
     var chosenText = NSColor.white
+    var unchosenFill = NSColor(AuralStyle.standardPalette.elevated)
     var radius: CGFloat = 5
     override var isFlipped: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
@@ -430,7 +483,7 @@ final class AuralGelSegmentedControl: NSSegmentedControl {
         for index in 0..<segmentCount {
             let chosen = index == selectedSegment
             let rect = NSRect(x: CGFloat(index) * width, y: 0, width: width, height: bounds.height)
-            NSColor(chosen ? AuralStyle.accent : AuralStyle.elevated).setFill()
+            (chosen ? NSColor(AuralStyle.accent) : unchosenFill).setFill()
             rect.fill()
             if !plain {
                 // The same gloss as `AuralGel`.
@@ -514,6 +567,7 @@ extension View {
 
 /// Edits are committed as complete numbers. Partial input never reaches the audio engine.
 struct PrecisionField: View {
+    @Environment(\.auralPalette) private var palette
     let value: Double
     let range: ClosedRange<Double>
     let label: String
@@ -541,7 +595,7 @@ struct PrecisionField: View {
                                  submit: { submit() != .rejected }, cancel: restore)
             .auralFont(size: 12, design: .monospaced).monospacedDigit()
             .auralPadding(.horizontal, 7).auralFrame(height: AuralStyle.controlHeight)
-            .background(AuralStyle.field, in: RoundedRectangle(cornerRadius: 4))
+            .background(palette.field, in: RoundedRectangle(cornerRadius: 4))
             .animation(AuralMotion.quick) { content in
                 content.overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(invalid ? AuralStyle.warning : (focused ? Color.primary : AuralStyle.controlBorder), lineWidth: focused ? 2 : 1))
             }

@@ -9,7 +9,16 @@ import ServiceManagement
     @Published var selectedUID = ""
     @Published var profile = Profile()
     @Published var bypass = false { didSet { appMixer.setBypassed(bypass) } }
-    @Published var running = false { didSet { if !running { soloBand = nil; route.solo = nil }; updateMixerSession() } }
+    @Published var running = false {
+        didSet {
+            if !running {
+                soloBand = nil
+                route.solo = nil
+                meter.clear()
+            }
+            updateMixerSession()
+        }
+    }
     @Published private(set) var starting = false { didSet { updateMixerSession() } }
     let appMixer: AppMixerStore
     /// The band playing alone while EQ runs; see setSolo. Never saved or recorded in undo history.
@@ -222,10 +231,18 @@ import ServiceManagement
         do {
             try writeSettings(next)
             settings = next
+            if !enabled, running, route.hasResources { meter.update(route.readMeter()) }
             route.setPeakProtection(enabled)
-            if !enabled { meter.update(meter.peak) }
+            if !enabled { meter.clearLiveReduction() }
             peakProtectionEnabled = enabled
         } catch { self.error = "Could not save peak protection: " + error.localizedDescription }
+    }
+
+    func resetLevelHolds() {
+        // Drain the metering interval before clearing the holds so an unread
+        // peak from a completed callback does not reappear on the next poll.
+        if running { meter.update(route.readMeter()) }
+        meter.resetHolds()
     }
 
     func setMatchLevels(_ enabled: Bool) {
@@ -469,7 +486,7 @@ import ServiceManagement
         // Validate everything before changing the profile or stopping audio.
         startGeneration += 1
         pendingStartup = nil; startupNotice = nil
-        try route.stop(); running = false; meter.update(0)
+        try route.stop(); running = false
         let name = settings.availablePresetName(base)
         let previous = committedProfile
         profile = imported
@@ -876,7 +893,7 @@ import ServiceManagement
         startGeneration += 1
         starting = false
         pendingStartup = nil; startupNotice = nil
-        running = false; meter.update(0)
+        running = false
         do { try route.stop() }
         catch {
             self.error = error.localizedDescription
@@ -925,7 +942,7 @@ import ServiceManagement
         pendingStartup = nil; startupNotice = nil
         let reason = failure.localizedDescription
         AuralLog.lifecycle.error("Audio control failed: \(AuralLog.describe(failure), privacy: .public)")
-        running = false; meter.update(0)
+        running = false
         do { try route.stop(); error = reason }
         catch { self.error = reason + " Cleanup: " + error.localizedDescription + " Quit Aural to release its route." }
     }
@@ -1031,7 +1048,7 @@ import ServiceManagement
         let plan = StartupPlan.resume(outputUID: selectedUID, outputName: name, after: 1)
         AuralLog.lifecycle.notice("Pausing EQ: device=\(self.route.device?.id ?? 0, privacy: .public), restarting=\(restarting, privacy: .public)")
         startGeneration += 1
-        running = false; meter.update(0)
+        running = false
         try route.stop(keepingMixerGuard: true)
         pendingStartup = plan
         updateMixerSession()
@@ -1044,7 +1061,7 @@ import ServiceManagement
         AuralLog.lifecycle.info("Sleep notification received")
         let target = running || starting ? selectedUID : pendingStartup?.outputUID
         let name = selected?.name ?? pendingStartup?.outputName
-        startGeneration += 1; starting = false; pendingStartup = nil; running = false; meter.update(0)
+        startGeneration += 1; starting = false; pendingStartup = nil; running = false
         do { try route.stop(keepingMixerGuard: true) }
         catch { fail(error); return }
         guard let target, !target.isEmpty else { return }

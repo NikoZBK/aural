@@ -34,7 +34,7 @@ No audio driver is needed. Later versions install from **Check for Updates…**.
 - **Loudness compensation.** Optional ISO 226 compensation keeps bass and treble full as you turn the volume down.
 - **Presets.** A searchable library with favorites, curve previews, and backups. Each output remembers its own preset.
 - **Follows your Mac.** Optionally switches with the macOS sound output. EQ resumes after sleep, a disconnect, or a sample-rate change.
-- **At home on macOS.** System, Light, and Dark themes, native Liquid Glass where supported, and readable accessibility fallbacks. Move the filter panel beside the graph. Menu bar controls, interface zoom, and keyboard shortcuts.
+- **At home on macOS.** Choose System, Light, Dark, Sand, or Slate. Move the filter panel beside the graph. Use menu bar controls, interface zoom, and keyboard shortcuts.
 
 ## Privacy
 

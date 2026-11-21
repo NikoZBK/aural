@@ -28,6 +28,37 @@ static bool delayed(const float *input, const float *output, unsigned frames, un
 static void tone(float scale, float right) {
     for(int i=0;i<N;i++) {source[2*i]=scale*sin(2*M_PI*1000*i/48000);source[2*i+1]=source[2*i]*right;}
 }
+static void check_meter_signal_points(void) {
+    double rates[]={32000,44100,48000,96000,192000};
+    for (unsigned r=0;r<5;r++) for (unsigned mode=0;mode<3;mode++) {
+        EQ *eq=eq_create(rates[r],0); assert(eq);
+        bool bypass=mode==2, protection=mode!=1;
+        eq_set_peak_protection(eq,protection);
+        double octaveGain=20*log10(2);
+        EQFilter flat={1000,0,1.4,EQFilterPeak,false,EQChannelStereo};
+        EQStereo stereo=eq_stereo_default();
+        stereo.leftTrimDB=octaveGain;
+        assert(eq_update_filters_matched(eq,&flat,1,octaveGain,bypass,&stereo,-octaveGain));
+        unsigned frames=eq_latency(eq)+128;
+        float input[800]={0}, output[800];
+        AudioBufferList in={1,{{2,frames*2*sizeof(float),input}}}, out={1,{{2,frames*2*sizeof(float),output}}};
+        for (unsigned elapsed=0;elapsed<rates[r]*.02;elapsed+=frames) eq_process(eq,&in,&out);
+        input[0]=-.4f; input[1]=.25f;
+        eq_process(eq,&in,&out);
+        memset(input,0,sizeof(input));
+        eq_process(eq,&in,&out);
+        assert(eq_peak(eq)==0);
+
+        EQMeter meter=eq_read_meter(eq);
+        double postEQ=bypass ? .2 : 1.6, peak=protection ? fmin(.98,postEQ) : postEQ;
+        assert(meter.inputPeak==.4f && fabs(meter.postEQPeak-postEQ)<1e-6);
+        assert(fabs(meter.peak-peak)<1e-6 && fabs(meter.reductionDB-20*log10(postEQ/peak))<1e-4);
+        meter=eq_read_meter(eq);
+        assert(meter.inputPeak==0 && meter.postEQPeak==0 && meter.peak==0 && meter.reductionDB==0);
+        assert(no_faults(eq)); eq_destroy(eq);
+    }
+    puts("PASS input, post-EQ and output peaks, transient interval holds, matched bypass, and protection on/off at five rates");
+}
 static void check_peak_protection(void) {
     double rates[]={32000,44100,48000,96000,192000};
     for(unsigned r=0;r<5;r++) {
@@ -282,6 +313,7 @@ static void check_matched_bypass(void) {
     puts("PASS level-matched bypass gain, stereo path, EQ path independence, and validation");
 }
 int main(void) {
+    check_meter_signal_points();
     check_peak_protection();
     check_peak_protection_switch();
     check_true_peaks();
@@ -401,5 +433,5 @@ int main(void) {
     }
     eq_destroy(eq);
     puts("PASS live preset layout changes on one engine with realistic audio buffers");
-    puts("All 14 DSP test groups passed.");
+    puts("All 15 DSP test groups passed.");
 }

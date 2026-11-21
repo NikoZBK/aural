@@ -109,6 +109,7 @@ struct MainView: View {
                     LoudnessControls(model: model)
                     StudioMeter(meter: model.meter, running: model.running,
                                 protectionEnabled: Binding(get: { model.peakProtectionEnabled }, set: model.setPeakProtection),
+                                resetHolds: model.resetLevelHolds,
                                 compact: true)
                 }
             }.auralPadding(.horizontal, 14).auralPadding(.vertical, 10)
@@ -376,16 +377,23 @@ struct MainView: View {
                         .accessibilityLabel(model.redoLabel).help("\(model.redoLabel) (⇧⌘Z)")
                 }
                 Menu {
-                    Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }.help("Open a draft of the current EQ. Review changes before applying them.")
-                    Divider()
-                    Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.help(AuralHelp.copyEQ)
-                    Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.help(AuralHelp.pasteEQ)
+                    quickEditActions
                     Button("Export EQ…") { if submitPendingInput() { model.exportEQ() } }.help(AuralHelp.exportEQ)
                 } label: { Label("Edit", systemImage: "ellipsis") }
                     .auralMenuButton().fixedSize()
                     .accessibilityLabel("EQ options").help("Draft editing and clipboard")
             }.auralPadding(.horizontal, 12)
+                .contentShape(Rectangle())
+                .contextMenu { quickEditActions }
         }.equatable()
+    }
+
+    @ViewBuilder private var quickEditActions: some View {
+        Button("Edit as a draft…") { if submitPendingInput() { showFilterEditor = true } }
+            .help("Open a draft of the current EQ. Review changes before applying them.")
+        Divider()
+        Button("Copy EQ") { if submitPendingInput() { model.copyEQ() } }.help(AuralHelp.copyEQ)
+        Button("Paste EQ") { if submitPendingInput() { withAuralAnimation { model.pasteEQ() } } }.help(AuralHelp.pasteEQ)
     }
 
     private func submitPendingInput() -> Bool {

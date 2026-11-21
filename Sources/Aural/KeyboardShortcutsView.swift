@@ -41,7 +41,7 @@ struct KeyboardShortcutsView: View {
             }.auralPadding(24)
         }
         .auralFrame(minWidth: 480, idealWidth: 540, minHeight: 420, idealHeight: 600)
-        .background(AuralStyle.background)
+        .background(model.theme.palette.background)
         .auralAppearance(model.theme)
     }
 }

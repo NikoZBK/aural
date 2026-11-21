@@ -387,7 +387,7 @@ private struct InteractiveResponseCurve: View {
                 .animation(AuralMotion.quick) { content in
                     content
                         .foregroundStyle(selected ? AuralStyle.accentForeground(in: environment) : Color.primary)
-                        .background(selected ? AuralStyle.accent : AuralStyle.surface, in: Circle())
+                        .background(selected ? AuralStyle.accent : environment.auralPalette.surface, in: Circle())
                 }
                 .overlay(Circle().strokeBorder(AuralStyle.accent, style: StrokeStyle(lineWidth: 1, dash: band.filter?.enabled == false ? [2, 2] : [])))
         }.buttonStyle(.plain)

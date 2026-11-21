@@ -50,7 +50,7 @@ struct EQ {
     unsigned back, front;
     _Atomic unsigned mailbox, faults, signalFaults;
     _Atomic unsigned protectionEnabled;
-    _Atomic float peak, meterPeak, meterReduction;
+    _Atomic float peak, meterPeak, meterReduction, meterInputPeak, meterPostEQPeak;
     Chain chains[2];
     unsigned active, transitionFrame, transitionLength, warmupRemaining;
     bool transitioning, pending;
@@ -269,7 +269,8 @@ EQ *eq_create(double rate, unsigned offset) {
         eq->chains[bank].settings.crossfeedCoefficient=1-exp(-2*M_PI*700/rate);
     }
     if (!atomic_is_lock_free(&eq->peak) || !atomic_is_lock_free(&eq->meterPeak) ||
-        !atomic_is_lock_free(&eq->meterReduction)) { free(eq); return NULL; }
+        !atomic_is_lock_free(&eq->meterReduction) || !atomic_is_lock_free(&eq->meterInputPeak) ||
+        !atomic_is_lock_free(&eq->meterPostEQPeak)) { free(eq); return NULL; }
     return eq;
 }
 void eq_destroy(EQ *eq) { free(eq); }
@@ -573,7 +574,7 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
     if (eq->pending && !eq->transitioning) begin_transition(eq);
     bool protectionEnabled=atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed)!=0;
     float peak=0;
-    double minimumGain=1;
+    double inputPeak=0, postEQPeak=0, minimumGain=1;
     for (unsigned f=0;f<outf[0];f++) {
         double samples[2], dry[2];
         // Convex, sample-counted crossfade: no coefficient interpolation and no
@@ -582,6 +583,7 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
         for (unsigned c=0;c<2;c++) {
             dry[c]=in[c][f*is[c]];
             if (!isfinite(dry[c])) { dry[c]=0; atomic_fetch_add_explicit(&eq->signalFaults,1,memory_order_relaxed); }
+            inputPeak=fmax(inputPeak,fabs(dry[c]));
         }
         run_chain(&eq->chains[eq->active],dry,samples);
         if (eq->transitioning) {
@@ -604,6 +606,7 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
                 eq->active=1-eq->active; eq->transitioning=false;
             }
         }
+        postEQPeak=fmax(postEQPeak,fmax(fabs(samples[0]),fabs(samples[1])));
         // Off stops limiting new peaks. Reduction already applied releases as
         // usual instead of jumping back up within one sample, which clicks.
         double gain=limit(&eq->limiter,samples,protectionEnabled,.98);
@@ -623,6 +626,8 @@ void eq_process(EQ *eq, const AudioBufferList *input, AudioBufferList *output) {
     for (unsigned bank=0;bank<2;bank++) flush_tiny_state(&eq->chains[bank]);
     atomic_store_explicit(&eq->peak,peak,memory_order_relaxed);
     // Publish once per buffer; no per-sample atomics, allocations, or UI work.
+    hold_maximum(&eq->meterInputPeak,(float)inputPeak);
+    hold_maximum(&eq->meterPostEQPeak,(float)fmin(postEQPeak,FLT_MAX));
     hold_maximum(&eq->meterPeak,peak);
     hold_maximum(&eq->meterReduction,minimumGain<1 ? (float)(-20*log10(minimumGain)) : 0);
 }
@@ -637,7 +642,12 @@ unsigned eq_latency(const EQ *eq) { return eq->limiter.latency; }
 EQMeter eq_read_meter(EQ *eq) {
     float peak=atomic_exchange_explicit(&eq->meterPeak,0,memory_order_relaxed);
     float reduction=atomic_exchange_explicit(&eq->meterReduction,0,memory_order_relaxed);
-    return (EQMeter){peak,atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed) ? reduction : 0};
+    return (EQMeter){
+        .peak=peak,
+        .reductionDB=atomic_load_explicit(&eq->protectionEnabled,memory_order_relaxed) ? reduction : 0,
+        .inputPeak=atomic_exchange_explicit(&eq->meterInputPeak,0,memory_order_relaxed),
+        .postEQPeak=atomic_exchange_explicit(&eq->meterPostEQPeak,0,memory_order_relaxed)
+    };
 }
 unsigned eq_faults(EQ *eq) { return atomic_load_explicit(&eq->faults,memory_order_relaxed); }
 unsigned eq_signal_faults(EQ *eq) { return atomic_load_explicit(&eq->signalFaults,memory_order_relaxed); }

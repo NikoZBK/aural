@@ -75,7 +75,9 @@ OSStatus eq_callback(AudioObjectID device, const AudioTimeStamp * _Nonnull now,
 OSStatus eq_enable_tap_input(AudioObjectID device, AudioDeviceIOProcID _Nonnull proc, unsigned streamCount);
 #endif
 float eq_peak(EQ *eq);
-typedef struct { float peak, reductionDB; } EQMeter;
+// Sample peaks after app mixing, after EQ/stereo but before protection, and
+// at the output. reductionDB is the largest limiter attenuation in the interval.
+typedef struct { float peak, reductionDB, inputPeak, postEQPeak; } EQMeter;
 // Single control-thread reader: maxima since the previous read, then reset.
 // Output level and gain reduction are independent interval measurements.
 EQMeter eq_read_meter(EQ *eq);

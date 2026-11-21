@@ -33,9 +33,14 @@ private struct PeakProtectionSample: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text(title).font(.headline)
-            StudioMeter(meter: meter, running: running, protectionEnabled: $protectionEnabled, compact: true)
+            StudioMeter(meter: meter, running: running, protectionEnabled: $protectionEnabled,
+                        resetHolds: meter.resetHolds, compact: true)
             Divider()
-            StudioMeter(meter: meter, running: running, protectionEnabled: $protectionEnabled)
-        }.frame(width: 260).onAppear { meter.update(peak, reductionDB: reductionDB) }
+            StudioMeter(meter: meter, running: running, protectionEnabled: $protectionEnabled,
+                        resetHolds: meter.resetHolds)
+        }.frame(width: 260).onAppear {
+            meter.update(AudioMeterReading(peak: peak, reductionDB: reductionDB, inputPeak: peak * 0.5,
+                                           postEQPeak: peak * Float(pow(10, Double(reductionDB) / 20))))
+        }
     }
 }

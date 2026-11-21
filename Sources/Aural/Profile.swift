@@ -317,12 +317,14 @@ enum InterfaceMode: String, Codable, CaseIterable {
 }
 
 enum AuralTheme: String, Codable, CaseIterable {
-    case system, light, dark
+    case system, light, dark, sand, slate
     var label: String {
         switch self {
         case .system: return "System"
         case .light: return "Light"
         case .dark: return "Dark"
+        case .sand: return "Sand"
+        case .slate: return "Slate"
         }
     }
 }

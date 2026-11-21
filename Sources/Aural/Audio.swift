@@ -126,7 +126,8 @@ struct AudioRouteCleanup {
     func readMeter() -> AudioMeterReading {
         guard let dsp else { return AudioMeterReading() }
         let reading = eq_read_meter(dsp)
-        return AudioMeterReading(peak: reading.peak, reductionDB: reading.reductionDB)
+        return AudioMeterReading(peak: reading.peak, reductionDB: reading.reductionDB,
+                                 inputPeak: reading.inputPeak, postEQPeak: reading.postEQPeak)
     }
     var faults: UInt32 { (dsp.map(eq_faults) ?? 0) &+ (mixer.map { am_counters($0).faults } ?? 0) }
     private var loggedSignalFaults: UInt32 = 0
